@@ -1,0 +1,5 @@
+chrom	start	end	name	score	strand	splice_site	acceptors_skipped	exons_skipped	donors_skipped	anchor	known_donor	known_acceptor	known_junction	genes	transcripts
+chr1	14968	15970	C1	55	+	CT-AC	0	0	0	N	0	0	0	NA	NA
+chr1	16968	17970	C2	55	+	CT-AC	0	0	0	N	0	0	0	NA	NA
+chr2	15829	16970	C5	55	+	CT-AC	0	0	0	N	0	0	0	NA	NA
+chr3	13829	14970	C6	55	+	CT-AC	0	0	0	N	0	0	0	NA	NA
