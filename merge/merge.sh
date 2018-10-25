@@ -1,4 +1,6 @@
 #!/bin/env bash
+set -o pipefail -o nounset -o errexit 
+
 directory=$1
 #filter out non-canonical splice junctions and sort by coordinates, while cutting out extraneous fields, and ? stranded junctions
 #assumes ${directory} is writable
