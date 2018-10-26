@@ -5,10 +5,8 @@ scripts=`perl -e '$f="'${0}'"; $f=~s/\/[^\/]+$/\//; print "$f\n";'`
 top_directory=$1
 
 #first create manifest files, one per loworder 2-digit grouping, to merge
-#ls ${top_directory}/ | fgrep manifest | perl -ne 'chomp; `rm $_`;'
-find ${top_directory} -name "*.jx_bed.gz" -size +0 | perl -ne 'BEGIN { open(IN,"<'${top_directory}'/samples.tsv"); %rids; while($line=<IN>) { chomp($line); @f=split(/\t/,$line); $rid=$f[0]; $run_acc=$f[1]; $rids{$run_acc}=$rid; } close(IN); } chomp; $f=$_; @f=split(/\//,$f); $fname=pop(@f); $run_acc=pop(@f); $loworder=pop(@f); $rid=$rids{$run_acc}; push(@{$h{$loworder}},["$f.filtered.sorted.gz",$rid,$f]); END { for $k (keys %h) { open(OUT,">'${top_directory}'/$k.manifest"); for $a (@{$h{$k}}) { print OUT "".join("\t",@$a)."\n"; } close(OUT); }}'
+find ${top_directory} -name "*.jx_bed.gz" -size +0 | perl -ne 'BEGIN { open(IN,"<'${top_directory}'/samples.tsv"); %rids; while($line=<IN>) { chomp($line); @f=split(/\t/,$line); $rid=$f[0]; $run_acc=$f[1]; $rids{$run_acc}=$rid; } close(IN); } chomp; $f=$_; @f=split(/\//,$f); $fname=pop(@f); $run_acc=pop(@f); $loworder=pop(@f); $rid=$rids{$run_acc}; push(@{$h{$loworder}},["$f.filtered.sorted.gz",$rid,$f,$run_acc]); END { for $k (keys %h) { open(OUT,">'${top_directory}'/$k.manifest"); for $a (@{$h{$k}}) { print OUT "".join("\t",@$a)."\n"; } close(OUT); }}'
 
-#ls ${top_directory}/ | fgrep jx_sample_files.merged.tsv.gz | perl -ne 'chomp; `rm $_`;'
 #TODO: parallelize this loop
 #merge per loworder 2-digit grouping
 for m in `ls ${top_directory}/*.manifest`;
@@ -16,9 +14,8 @@ do
     #filter out non-canonical splice junctions and sort by coordinates, while cutting out extraneous fields, and ? stranded junctions
     #assumes ${directory} is writable
     cut -f 3 $m | perl -ne 'chomp; $f=$_; `zcat $f | egrep -e "[AG]T-A[GC]" | fgrep -v GT-AC | fgrep -v "?" | cut -f 1-7 | sort -k1,1 -k2,2n -k3,3n | gzip > $f.filtered.sorted.gz`;'
-    #TODO: replace this with a samples metadata sourced method to create the manifest file for the merge
-    #cut -f 1 $m | sort | perl -ne 'chomp; $f=$_.".filtered.sorted"; $f=~/_(.RP[^_]+)/; $SRP=$1; print "$f\t".$i++."\t$SRP\n";' > jx_sample_files
     python $scripts/merge.py --list-file $m --gzip | gzip > ${m}.jx_sample_files.merged.tsv.gz
+    cut -f 3 $m | perl -ne 'chomp; @f=split(/\//,$_); pop(@f); $f=join("\/",@f); pop(@f); $f1=join("\/",@f); $t="'${top_directory}'"; @f2=split(/\//,$t); $t=pop(@f2); $f1=~s/($t)/$1\/completed/; `mv $f $f1/`;'
 done
 
 if [ -n "${2:+1}" ]; then
