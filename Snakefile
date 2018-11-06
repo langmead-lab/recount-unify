@@ -1,5 +1,5 @@
 #start
-FILES=[config['staging'] + '/all.jxs.merged.tsv.gz']
+FILES=[config['staging'] + '/all.jxs.merged.annotated.tsv.gz']
 
 rule all:
 	input:
@@ -58,3 +58,13 @@ rule merge_all_jxs:
 		config['staging'] + '/all.jxs.merged.tsv.gz'
 	shell:
 		"python2 ./merge.py --list-file {input} --gzip --append-samples | gzip > {output}"
+
+rule annotate_all_jxs:
+	input:
+		config['staging'] + '/all.jxs.merged.tsv.gz'
+	output:
+		config['staging'] + '/all.jxs.merged.annotated.tsv.gz'
+	params:
+		annot_jxs=config['annotated_jxs']
+	shell:
+		"zcat {input} | python2 ./annotate_jxs.py --compiled-annotations {params.annot_jxs} | gzip > {output}"
