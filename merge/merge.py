@@ -9,8 +9,9 @@ START_COL=1
 END_COL=2
 COVERAGE_COL=4
 STRAND_COL=5
-SAMPLE_COL=6
-SAMPLES_COL=7
+MOTIF_COL=6
+SAMPLE_COL=7
+SAMPLES_COL=8
 #separate file columns
 FILE_SAMPLE_ID_COL=1
 
@@ -43,13 +44,15 @@ def read_from_sources(args, fhs, filebuf, heap, current_chrm, files, last_col):
 
 
 def merge(args):
-    strand_col = STRAND_COL
-    last_col = STRAND_COL+1
-    samples_col = SAMPLES_COL
+    offset = 0
+    scol = SAMPLES_COL
     if args.append_samples:
-        strand_col = strand_col - 2
-        last_col = STRAND_COL
-        samples_col = COVERAGE_COL
+        offset = 2
+        scol = SAMPLE_COL
+    motif_col = MOTIF_COL - offset
+    last_col = MOTIF_COL + 1
+    samples_col = scol - offset
+    strand_col = STRAND_COL - offset
     files = []
     with open(args.list_file, "rb") as fin:
         files = [f.rstrip().split('\t') for f in list(fin)]
@@ -81,7 +84,7 @@ def merge(args):
             #different junction, print the previous one
             if current[CHRM_COL] != previous[CHRM_COL] or current[START_COL] != previous[START_COL] or current[END_COL] != previous[END_COL]:
                 p = previous[:END_COL+1]
-                p.extend([previous[strand_col],previous[samples_col]])
+                p.extend([previous[strand_col],previous[motif_col],previous[samples_col]])
                 sys.stdout.write("%s\n" % ("\t".join(p)))
                 previous = current
             #same junction add to the sample IDs/coverages
@@ -92,7 +95,7 @@ def merge(args):
     #last one
     if len(previous) > 0:
         p = previous[:END_COL+1]
-        p.extend([previous[strand_col],previous[samples_col]])
+        p.extend([previous[strand_col],previous[motif_col],previous[samples_col]])
         sys.stdout.write("%s\n" % ("\t".join(p)))
 
 if __name__ == '__main__':
