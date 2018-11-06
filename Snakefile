@@ -1,3 +1,4 @@
+#start
 FILES=[config['staging'] + '/all.jxs.merged.tsv.gz']
 
 rule all:
@@ -18,7 +19,7 @@ rule filter_jxs:
 	input:
 		config['staging'] + '/groups.manifest'
 	output:
-		config['staging'] + '/{group_num}.manifest.filtered', config['staging'] + '/{group_num}.manifest'
+		config['staging'] + '/{group_num}.manifest.filtered'
 	params:
 		group_num=lambda wildcards: wildcards.group_num,
 		staging=config['staging']
@@ -27,13 +28,14 @@ rule filter_jxs:
 
 rule merge_jxs:
 	input:
-		config['staging'] + '/{group_num}.manifest', config['staging'] + '/{group_num}.manifest.filtered'
+		config['staging'] + '/{group_num}.manifest.filtered'
 	output:
 		config['staging'] + '/{group_num}.manifest.jx_sample_files.merged.tsv.gz'
 	params:
-		staging=config['staging']
+		staging=config['staging'],
+		filtered_manifest=lambda wildcards, input: '.'.join(input[0].split('.')[:-1])
 	shell:
-		"python2 merge.py --list-file {input[0]} --gzip | gzip > {input[0]}.jx_sample_files.merged.tsv.gz"
+		"python2 merge.py --list-file {params.filtered_manifest} --gzip | gzip > {params.filtered_manifest}.jx_sample_files.merged.tsv.gz"
 
 import glob
 def get_jx_merged_files(wildcards):
