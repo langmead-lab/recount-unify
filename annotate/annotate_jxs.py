@@ -44,6 +44,13 @@ from collections import defaultdict
 import string
 import gzip
 
+CHRM_COL=0
+START_COL=1
+END_COL=2
+STRAND_COL=3
+MOTIF_COL=4
+SAMP_COV_COL=5
+
 def load_preformatted_annotated_junctions(f):
     annotated_junctions = {}
     five_p = {}
@@ -52,7 +59,7 @@ def load_preformatted_annotated_junctions(f):
         for line in fin:
             (chr_,start,end,strand,sources) =(None,None,None,None,None)
             fields_ = line.rstrip().split("\t")
-            if(len(fields_) >= 5): 
+            if(len(fields_) > STRAND_COL+1): 
                 (chr_,start,end,strand,sources) = line.rstrip().split("\t")
             else:
                 (chr_,start,end,strand) = line.rstrip().split("\t")
@@ -83,29 +90,32 @@ if __name__ == '__main__':
         )
     args = parser.parse_args()
 
-    (annotated_junctions, five_p, three_p) = load_preformatted_annotated_junctions(args.annotations[0]) 
+    (annotated_junctions, five_p, three_p) = load_preformatted_annotated_junctions(args.compiled_annotations) 
 
     snaptron_id = 0
     for line in sys.stdin:
         tokens = line.strip().split('\t')
-        junction = tuple(tokens[:3])
-        #check to see if we want this junction
+        junction = tuple(tokens[:STRAND_COL])
         annotated = set()
         if junction in annotated_junctions:
             annotated = set(["1"])
-        start = int(junction[1])
-        length = int(junction[2]) + 1 - start
-        strand = tokens[3]
-        tokens_length = len(tokens)
-        left_motif, right_motif = tokens[4], tokens[5]
-        additional_fields = tokens[6:]
-        if (junction[0], junction[1]) in five_p:
-            five_atype = five_p[(junction[0], junction[1])]
-        if (junction[0], junction[2]) in three_p:
-            three_atype = three_p[(junction[0], junction[2])]
+        chrm = junction[CHRM_COL]
+        start = junction[START_COL]
+        end = junction[END_COL]
+        length = (int(end) + 1) - int(start)
+        strand = tokens[STRAND_COL]
+        (left_motif, right_motif) = tokens[MOTIF_COL].split('-')
+        additional_fields = tokens[SAMP_COV_COL:]
+
+        if (chrm, start) in five_p:
+            five_atype = five_p[(chrm, start)]
+        if (chrm, end) in three_p:
+            three_atype = three_p[(chrm, end)]
+
         print '\t'.join([str(snaptron_id), '\t'.join(junction), str(length), strand,
             ",".join(sorted(annotated)) if len(annotated) > 0 else '0', left_motif, right_motif,
-            "%s" % (",".join(sorted(five_atype))) if (junction[0], junction[1]) in five_p else '0',
-            "%s" % (",".join(sorted(three_atype))) if (junction[0], junction[2]) in three_p else '0',
+            "%s" % (",".join(sorted(five_atype))) if (chrm, start) in five_p else '0',
+            "%s" % (",".join(sorted(three_atype))) if (chrm, end) in three_p else '0',
             '\t'.join(additional_fields)])
+
         snaptron_id+=1
