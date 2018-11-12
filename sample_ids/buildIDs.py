@@ -153,7 +153,6 @@ def alphaParseSuffix(string):
 			reString+=subs
 
 		if len(reString)>=numChars:
-			print reString
 			parse=reString[-numChars:]	
 		else:
 			print "ERROR - hashSize ({}) [{}] larger than string ({}) for alphanumerics".format(hashSize,numChars, len(reString))
@@ -212,6 +211,11 @@ def analyzeResults(outBin):
 	print np.mean(dist)
 	print np.std(dist)
 
+#s is user string
+#function is either alphaParsePrefix or alphaParseSuffix
+def encodeString(s, function):
+	return convertStringToBin(function(s))
+
 # MAIN
 #Parse names from later tsv files
 tcga_list=readNames(TCGA,25)
@@ -238,6 +242,10 @@ print "PREFIX"
 prefix = encodeResults(alphaParsePrefix)
 print "SUFFIX"
 suffix = encodeResults(alphaParseSuffix)
+
+print encodeString(tcga_list[0], alphaParseSuffix)
+print encodeString(gtex_list[0], alphaParseSuffix)
+print encodeString(sra_list[0], alphaParseSuffix)
 
 #analyzeResults(outBin)
 #analyzeResults(fsap_outBin)
