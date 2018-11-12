@@ -1,45 +1,92 @@
 #start
-FILES=[config['staging'] + '/all.jxs.merged.annotated.tsv.gz']
+FILES=[config['staging'] + '/all.jxs.merged.annotated.tsv.gz', config['staging'] + '/sums.all.pasted']
 
 rule all:
 	input:
 		expand("{file}", file=FILES)
 
-rule find_jxs:
+
+rule find_sums:
 	input: 
 		config['input'], config['sample_ids_file']
 	output:
-		config['staging'] + '/groups.manifest'
+		config['staging'] + '/sums.groups.manifest'
 	params:
 		staging=config['staging']
 	shell:
-		"./find_new_jxs.sh {input[0]} {input[1]} {params.staging}"
+		"./find_new_files.sh {input[0]} {input[1]} {params.staging} sums"
 
-rule filter_jxs:
+#do a rule instantiation per low-order name grouping to do hierarchical pastes
+rule paste_sums_per_group:
 	input:
-		config['staging'] + '/groups.manifest'
+		config['staging'] + '/sums.groups.manifest'
 	output:
-		config['staging'] + '/{group_num}.manifest.filtered'
+		config['staging'] + '/sums.{group_num}.pasted'
 	params:
 		group_num=lambda wildcards: wildcards.group_num,
 		staging=config['staging']
 	shell:
-		"./filter_new_jxs.sh {params.staging}/{params.group_num}.manifest"
+		"./paste_sums.sh {params.staging}/sums.{params.group_num}.manifest {output}"
+
+import glob
+def get_pasted_sum_files(wildcards):
+	return [config['staging']+"/sums.%s.pasted" % f.split('/').pop() for f in glob.glob(config['input']+'/*/??')]	
+
+rule collect_pasted_sums:
+	input:
+		get_pasted_sum_files
+	output:
+		config['staging'] + '/sums_groups.pasted.files.list'
+	params:
+		staging=config['staging']
+	shell:
+		"ls {params.staging}/sums.*.pasted > {params.staging}/sums_groups.pasted.files.list"
+
+rule paste_sums_final:
+	input:
+		config['staging'] + '/sums_groups.pasted.files.list'
+	output:
+		config['staging'] + '/sums.all.pasted'
+	shell:
+		"./paste_sums.sh {input} {output}"
+			
+
+#junction related rules
+rule find_jxs:
+	input: 
+		config['input'], config['sample_ids_file']
+	output:
+		config['staging'] + '/jx.groups.manifest'
+	params:
+		staging=config['staging'],
+		wildc='"*.gz"'
+	shell:
+		"./find_new_files.sh {input[0]} {input[1]} {params.staging} jx {params.wildc}"
+
+rule filter_jxs:
+	input:
+		config['staging'] + '/jx.groups.manifest'
+	output:
+		config['staging'] + '/jx.{group_num}.manifest.filtered'
+	params:
+		group_num=lambda wildcards: wildcards.group_num,
+		staging=config['staging']
+	shell:
+		"./filter_new_jxs.sh {params.staging}/jx.{params.group_num}.manifest"
 
 rule merge_jxs:
 	input:
-		config['staging'] + '/{group_num}.manifest.filtered'
+		config['staging'] + '/jx.{group_num}.manifest.filtered'
 	output:
-		config['staging'] + '/{group_num}.manifest.jx_sample_files.merged.tsv.gz'
+		config['staging'] + '/jx.{group_num}.manifest.jx_sample_files.merged.tsv.gz'
 	params:
 		staging=config['staging'],
 		filtered_manifest=lambda wildcards, input: '.'.join(input[0].split('.')[:-1])
 	shell:
 		"python2 merge.py --list-file {params.filtered_manifest} --gzip | gzip > {params.filtered_manifest}.jx_sample_files.merged.tsv.gz"
 
-import glob
 def get_jx_merged_files(wildcards):
-	return [config['staging']+"/%s.manifest.jx_sample_files.merged.tsv.gz" % f.split('/').pop() for f in glob.glob(config['input']+'/*/??')]	
+	return [config['staging']+"/jx.%s.manifest.jx_sample_files.merged.tsv.gz" % f.split('/').pop() for f in glob.glob(config['input']+'/*/??')]	
 
 rule collect_merged_jxs:
 	input:
