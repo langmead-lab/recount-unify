@@ -1,13 +1,14 @@
 #start
 FILES=[config['staging'] + '/all.jxs.merged.annotated.tsv.gz', config['staging'] + '/sums.all.pasted']
-#FILES=[config['staging'] + '/sums.all.pasted']
 main_script_path=os.path.join(workflow.basedir,'scripts')
 SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_jxs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_jxs.py')}
+
+if 'existing_jx_db' not in config:
+	config['existing_jx_db']=""
 
 rule all:
 	input:
 		expand("{file}", file=FILES)
-
 
 rule find_sums:
 	input: 
@@ -114,9 +115,10 @@ rule merge_all_jxs:
 	output:
 		config['staging'] + '/all.jxs.merged.tsv.gz'
 	params:
-		script_path=SCRIPTS['merge']
+		script_path=SCRIPTS['merge'],
+		existing_jx_db=config['existing_jx_db']
 	shell:
-		"python2 {params.script_path} --list-file {input} --gzip --append-samples | gzip > {output}"
+		"python2 {params.script_path} --list-file {input} --gzip --append-samples --existing-jx-db \"{params.existing_jx_db}\" | gzip > {output}"
 
 rule annotate_all_jxs:
 	input:
