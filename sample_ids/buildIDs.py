@@ -17,9 +17,9 @@ import numpy as np
 
 # Requires: module load python/2.7-anaconda 
 
-TCGA="/home-1/bsolomo9@jhu.edu/data/solomon/db_filenames/tcga_samples.tsv"
-GTEX="/home-1/bsolomo9@jhu.edu/data/solomon/db_filenames/gtex_samples.tsv"
-SRA="/home-1/bsolomo9@jhu.edu/data/solomon/db_filenames/sra_samples.tsv"
+TCGA="./tcga_samples.tsv"
+GTEX="./gtex_samples.tsv"
+SRA="./sra_samples.tsv"
 sampleSize=5
 
 #hashSize = Number of bits for prefix
@@ -216,36 +216,37 @@ def analyzeResults(outBin):
 def encodeString(s, function):
 	return convertStringToBin(function(s))
 
-# MAIN
-#Parse names from later tsv files
-tcga_list=readNames(TCGA,25)
-gtex_list=readNames(GTEX,1)
-sra_list=readNames(SRA,1)
+if __name__ == '__main__':
+    # MAIN
+    #Parse names from later tsv files
+    tcga_list=readNames(TCGA,25)
+    gtex_list=readNames(GTEX,1)
+    sra_list=readNames(SRA,1)
 
-#Select random subset (sampleSize)
-tcga_rand=random.sample(tcga_list,sampleSize)
-gtex_rand=random.sample(gtex_list,sampleSize)
-sra_rand=random.sample(sra_list,sampleSize)
+    #Select random subset (sampleSize)
+    tcga_rand=random.sample(tcga_list,sampleSize)
+    gtex_rand=random.sample(gtex_list,sampleSize)
+    sra_rand=random.sample(sra_list,sampleSize)
 
-# Print num in subset versus total number in set
-print "{}, {}".format(len(tcga_list),len(tcga_rand))
-print "{}, {}".format(len(gtex_list),len(gtex_rand))
-print "{}, {}".format(len(sra_list),len(sra_rand))
+    # Print num in subset versus total number in set
+    print "{}, {}".format(len(tcga_list),len(tcga_rand))
+    print "{}, {}".format(len(gtex_list),len(gtex_rand))
+    print "{}, {}".format(len(sra_list),len(sra_rand))
 
-#save samples (each run randomly reselects so this gives a 'backup' of the most recent run and overwrites each time)
-saveNames(tcga_rand, "tcga_sample.txt")
-saveNames(gtex_rand, "gtex_sample.txt")
-saveNames(sra_rand, "sra_sample.txt")
+    #save samples (each run randomly reselects so this gives a 'backup' of the most recent run and overwrites each time)
+    saveNames(tcga_rand, "tcga_sample.txt")
+    saveNames(gtex_rand, "gtex_sample.txt")
+    saveNames(sra_rand, "sra_sample.txt")
 
-#encoding strategy 1: Unique Header Parse (2 alphanumeric)
-print "PREFIX"
-prefix = encodeResults(alphaParsePrefix)
-print "SUFFIX"
-suffix = encodeResults(alphaParseSuffix)
+    #encoding strategy 1: Unique Header Parse (2 alphanumeric)
+    print "PREFIX"
+    prefix = encodeResults(alphaParsePrefix)
+    print "SUFFIX"
+    suffix = encodeResults(alphaParseSuffix)
 
-print encodeString(tcga_list[0], alphaParseSuffix)
-print encodeString(gtex_list[0], alphaParseSuffix)
-print encodeString(sra_list[0], alphaParseSuffix)
+    print int(encodeString(tcga_list[0], alphaParseSuffix), 2)
+    print int(encodeString(gtex_list[0], alphaParseSuffix), 2)
+    print int(encodeString(sra_list[0], alphaParseSuffix), 2)
 
-#analyzeResults(outBin)
-#analyzeResults(fsap_outBin)
+    #analyzeResults(outBin)
+    #analyzeResults(fsap_outBin)
