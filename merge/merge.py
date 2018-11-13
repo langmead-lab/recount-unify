@@ -44,7 +44,7 @@ def read_from_sources(args, fhs, filebuf, heap, current_chrm, files, last_col):
         if not args.append_samples:
             fields.append(files[i][FILE_SAMPLE_ID_COL])
         #made it to the heap, meaning it's on the current chromosome
-        heapq.heappush(heap, (int(fields[START_COL]), fields))
+        heapq.heappush(heap, (fields[CHRM_COL], int(fields[START_COL]), int(fields[END_COL]), fields))
         #since we pushed one on the heap we can read another
         if fhs[i] is not None:
             filebuf[i] = fhs[i].readline().rstrip().split('\t')[:last_col]
@@ -87,7 +87,7 @@ def merge(args):
         if len(heap) == 0 or heap[0] is None:
             current_chrm = None
             continue
-        current = heapq.heappop(heap)[1]
+        current = heapq.heappop(heap)[3]
         #print current
         #format sampleID:coverage for Snaptron
         if not args.append_samples:
