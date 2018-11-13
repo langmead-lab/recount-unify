@@ -97,7 +97,7 @@ rule merge_jxs:
 		filtered_manifest=lambda wildcards, input: '.'.join(input[0].split('.')[:-1]),
 		script_path=SCRIPTS['merge']
 	shell:
-		"python2 {params.script_path} --list-file {params.filtered_manifest} --gzip | gzip > {params.filtered_manifest}.jx_sample_files.merged.tsv.gz"
+		"python2 {params.script_path} --list-file {params.filtered_manifest} --gzip | sort -k1,1 -k2,2n -k3,3n | gzip > {params.filtered_manifest}.jx_sample_files.merged.tsv.gz"
 
 def get_jx_merged_files(wildcards):
 	return [config['staging']+"/jx.%s.manifest.jx_sample_files.merged.tsv.gz" % f.split('/').pop() for f in glob.glob(config['input']+'/*/??')]	
