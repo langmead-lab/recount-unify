@@ -5,6 +5,8 @@ SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'paste':os.pa
 
 if 'existing_jx_db' not in config:
 	config['existing_jx_db']=""
+if 'existing_sums' not in config:
+	config['existing_sums']=""
 
 rule all:
 	input:
@@ -32,7 +34,7 @@ rule paste_sums_per_group:
 		staging=config['staging'],
 		script_path=SCRIPTS['paste']
 	shell:
-		"{params.script_path} {params.staging}/sums.{params.group_num}.manifest {output} get_ids"
+		"{params.script_path} {params.staging}/sums.{params.group_num}.manifest {output}"
 
 import glob
 def get_pasted_sum_files(wildcards):
@@ -52,11 +54,12 @@ rule paste_sums_final:
 	input:
 		config['staging'] + '/sums_groups.pasted.files.list'
 	output:
-		config['staging'] + '/sums.all.pasted'
+		config['staging'] + '/sums.all.pasted.gz'
 	params:
-		script_path=SCRIPTS['paste']
+		script_path=SCRIPTS['paste'],
+		existing_sums=config['existing_sums']
 	shell:
-		"{params.script_path} {input} {output}"
+		"{params.script_path} {input} {output} dont_get_ids {params.existing_sums}"
 			
 
 #junction related rules
