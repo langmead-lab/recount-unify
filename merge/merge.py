@@ -18,6 +18,7 @@ FILE_SAMPLE_ID_COL=1
 
 def read_from_sources(args, fhs, filebuf, heap, current_chrm, files, last_col):
     #read 1 line from each source file looking for 1) same chromosome and 2) file EOF
+    on_same_chrom = []
     for (i,fin) in enumerate(fhs):
         fields = []
         filedone = False
@@ -26,19 +27,28 @@ def read_from_sources(args, fhs, filebuf, heap, current_chrm, files, last_col):
             #skip header
             if fields[0] == 'chrom':
                 fields = filebuf[i] = fin.readline().rstrip().split('\t')[:last_col]
-            filedone = filebuf[i][0] == ''
+            if filebuf[i][0] == '': fhs[i] = None
         elif filebuf[i][0] != '':
             fields = filebuf[i]
-        if len(fields) > 0 and (current_chrm is None or fields[CHRM_COL] == current_chrm):
+        #find the earliest chromosome
+        if len(fields) > 0 and (current_chrm is None or fields[CHRM_COL] <= current_chrm):
             current_chrm = fields[CHRM_COL]
-            #make sure we trak the sample ID
-            if not args.append_samples:
-                fields.append(files[i][FILE_SAMPLE_ID_COL])
-            heapq.heappush(heap, (int(fields[START_COL]), fields))
-            if fin is not None:
-                filebuf[i] = fin.readline().rstrip().split('\t')[:last_col]
-                filedone = filebuf[i][0] == ''
-        if filedone: fhs[i] = None
+            on_same_chrom.append(i)
+    #now we check to see if the list is actually sharing the same (earliest) chromosome
+    #if an entry is, then we add it to the heap, otherwise it stays in the filebuf until later
+    for i in on_same_chrom:
+        fields = filebuf[i]
+        if current_chrm != fields[CHRM_COL]:
+            continue
+        #make sure we trak the sample ID
+        if not args.append_samples:
+            fields.append(files[i][FILE_SAMPLE_ID_COL])
+        #made it to the heap, meaning it's on the current chromosome
+        heapq.heappush(heap, (int(fields[START_COL]), fields))
+        #since we pushed one on the heap we can read another
+        if fhs[i] is not None:
+            filebuf[i] = fhs[i].readline().rstrip().split('\t')[:last_col]
+            if filebuf[i][0] == '': fhs[i] = None
     #if this is None, means we're at the end of all files
     return current_chrm
 
