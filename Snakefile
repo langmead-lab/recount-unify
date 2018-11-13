@@ -1,5 +1,5 @@
 #start
-FILES=[config['staging'] + '/all.jxs.merged.annotated.tsv.gz', config['staging'] + '/sums.all.pasted']
+FILES=[config['staging'] + '/all.jxs.merged.annotated.tsv.gz', config['staging'] + '/sums.all.pasted.gz']
 main_script_path=os.path.join(workflow.basedir,'scripts')
 SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_jxs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_jxs.py')}
 
