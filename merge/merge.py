@@ -30,26 +30,17 @@ def read_from_sources(args, fhs, filebuf, heap, current_chrm, files, last_col):
             if filebuf[i][0] == '': fhs[i] = None
         elif filebuf[i][0] != '':
             fields = filebuf[i]
-        #find the earliest chromosome
-        if len(fields) > 0 and (current_chrm is None or fields[CHRM_COL] <= current_chrm):
+        if len(fields) > 0:
             current_chrm = fields[CHRM_COL]
             on_same_chrom.append(i)
-    #now we check to see if the list is actually sharing the same (earliest) chromosome
-    #if an entry is, then we add it to the heap, otherwise it stays in the filebuf until later
-    for i in on_same_chrom:
-        fields = filebuf[i]
-        if current_chrm != fields[CHRM_COL]:
-            continue
-        #make sure we trak the sample ID
-        if not args.append_samples:
-            fields.append(files[i][FILE_SAMPLE_ID_COL])
-        #made it to the heap, meaning it's on the current chromosome
-        heapq.heappush(heap, (fields[CHRM_COL], int(fields[START_COL]), int(fields[END_COL]), fields))
-        #since we pushed one on the heap we can read another
-        if fhs[i] is not None:
-            filebuf[i] = fhs[i].readline().rstrip().split('\t')[:last_col]
-            if filebuf[i][0] == '': fhs[i] = None
-    #if this is None, means we're at the end of all files
+            if not args.append_samples:
+                fields.append(files[i][FILE_SAMPLE_ID_COL])
+            heapq.heappush(heap, (fields[CHRM_COL], int(fields[START_COL]), int(fields[END_COL]), fields))
+            #since we pushed one on the heap we can read another
+            if fhs[i] is not None:
+                filebuf[i] = fhs[i].readline().rstrip().split('\t')[:last_col]
+                #check to see if we've exhausted the file
+                if filebuf[i][0] == '': fhs[i] = None
     return current_chrm
 
 
@@ -67,7 +58,7 @@ def merge(args):
     with open(args.list_file, "rb") as fin:
         files = [f.rstrip().split('\t') for f in list(fin)]
     if len(args.existing_jx_db) > 0:
-        #this only works in --append-mode
+        #this only works in --append-samples mode
         files.append([args.existing_jx_db])
     fhs = []
     if args.gzip:
