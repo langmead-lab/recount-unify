@@ -1,6 +1,7 @@
 #!/bin/env python2
 import sys
 import argparse
+from collections import Counter
 import buildIDs
 
 COMPILATION_CODE_BIT_LENGTH=8
@@ -12,6 +13,7 @@ def main(args):
     if args.compilation_code != -1:
         compilation_code = str(bin(args.compilation_code)[2:].zfill(COMPILATION_CODE_BIT_LENGTH))
     fin = open(args.accessions_file, "rb")
+    prefix_counters = Counter()
     for line in fin:
         if counter == -1 and not args.no_header:
             counter+=1
@@ -22,9 +24,12 @@ def main(args):
             sys.exit(-1)
         acc = fields[args.acc_col]
         prefix_str = buildIDs.encodeString(acc, buildIDs.alphaParseSuffix)
-        counter_str = str(bin(counter)[2:])
+        #use prefix-relative counters
+        counter_str = str(bin(prefix_counters[prefix_str])[2:])
+        prefix_counters[prefix_str] += 1
         prefix_ctr_str = compilation_code+prefix_str+counter_str
-        sys.stdout.write(acc+"\t"+str(int(prefix_ctr_str,2))+"\n")
+        #sys.stdout.write(str(int(prefix_ctr_str,2))+"\t"+acc+\t"+"\n")
+        sys.stdout.write(fields[0]+"\t"+acc+"\t"+str(int(prefix_ctr_str,2))+"\n")
         counter+=1
 
 
