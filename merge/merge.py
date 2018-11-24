@@ -15,7 +15,6 @@ SAMPLES_COL=8
 #separate file columns
 FILE_SAMPLE_ID_COL=1
 
-
 def read_from_sources(args, fhs, filebuf, heap, current_chrm, files, last_col):
     #read 1 line from each source file looking for 1) same chromosome and 2) file EOF
     on_same_chrom = []
@@ -57,9 +56,9 @@ def merge(args):
     files = []
     with open(args.list_file, "rb") as fin:
         files = [f.rstrip().split('\t') for f in list(fin)]
-    if len(args.existing_jx_db) > 0:
+    if len(args.existing_sj_db) > 0:
         #this only works in --append-samples mode
-        files.append([args.existing_jx_db])
+        files.append([args.existing_sj_db])
     fhs = []
     if args.gzip:
         fhs = [gzip.open(f[0],"rb") for f in files]
@@ -88,9 +87,6 @@ def merge(args):
             #different junction, print the previous one
             if current[CHRM_COL] != previous[CHRM_COL] or current[START_COL] != previous[START_COL] or current[END_COL] != previous[END_COL]:
                 p = previous[:END_COL+1]
-                if args.regtools_format:
-                    p[START_COL] = str(int(p[START_COL]) + 1)
-                    p[END_COL] = str(int(p[END_COL]) + 1)
                 p.extend([previous[strand_col],previous[motif_col],previous[samples_col]])
                 sys.stdout.write("%s\n" % ("\t".join(p)))
                 previous = current
@@ -102,23 +98,19 @@ def merge(args):
     #last one
     if len(previous) > 0:
         p = previous[:END_COL+1]
-        if args.regtools_format:
-            p[START_COL] = str(int(p[START_COL]) + 1)
-            p[END_COL] = str(int(p[END_COL]) + 1)
         p.extend([previous[strand_col],previous[motif_col],previous[samples_col]])
         sys.stdout.write("%s\n" % ("\t".join(p)))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='junction merge')
-    parser.add_argument('--list-file', metavar='/path/to/manifest_file_of_per_sample_jx_files', type=str, default=None, help='path to a file with list of junction files to aggregate and optionally their sample IDs (rail_ids) and study names)')
-    parser.add_argument('--existing-jx-db', metavar='/path/to/existing_db_of_junctions', type=str, default="", help='allows to merge with an existing database of junctionss (assumes same format as output from --append-samples mode), default is empty string')
+    parser.add_argument('--list-file', metavar='/path/to/manifest_file_of_per_sample_sj_files', type=str, default=None, help='path to a file with list of junction files to aggregate and optionally their sample IDs (rail_ids) and study names)')
+    parser.add_argument('--existing-sj-db', metavar='/path/to/existing_db_of_junctions', type=str, default="", help='allows to merge with an existing database of junctionss (assumes same format as output from --append-samples mode), default is empty string')
     parser.add_argument('--gzip', action='store_const', const=True, default=False, help='input files are gzipped')
     parser.add_argument('--append-samples', action='store_const', const=True, default=False, help='set this if aggregating beyond sample-level results')
-    parser.add_argument('--regtools-format', action='store_const', const=True, default=False, help='need to +1 start and -1 end coordinates')
     args = parser.parse_args()
     
-    if len(args.existing_jx_db) > 0 and not args.append_samples:
-        sys.stderr.write("ERROR: --existing-jx-db option only works when --append-samples is also specified, exiting!\n")
+    if len(args.existing_sj_db) > 0 and not args.append_samples:
+        sys.stderr.write("ERROR: --existing-sj-db option only works when --append-samples is also specified, exiting!\n")
         sys.exit(-1)
 
     merge(args)
