@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail -o nounset -o errexit 
 
 search_dir=$1
 #map between Rail generated IDs and externall accessions/UUIDs, format: rail_id<TAB>accession

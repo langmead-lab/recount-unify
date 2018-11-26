@@ -1,4 +1,6 @@
 #!/bin/bash
+set -o pipefail -o nounset -o errexit 
+
 #filter out non-canonical splice junctions and sort by coordinates, while cutting out extraneous fields, and ? stranded junctions
 #assumes $f's directory is writable
 for f in `cut -f 3 ${1}`; do

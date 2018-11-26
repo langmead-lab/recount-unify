@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail -o nounset -o errexit 
 
 #date=`date +%Y%m%d.%s`
 date=`date +%s`
