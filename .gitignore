@@ -1,1 +1,9 @@
 *.swp
+*.gz
+*.bgz
+*.zst
+*.tsv.*
+*.tsv
+*.txt
+*.run
+t?
