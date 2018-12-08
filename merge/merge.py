@@ -15,31 +15,42 @@ SAMPLES_COL=8
 #separate file columns
 FILE_SAMPLE_ID_COL=1
 
-def read_from_sources(args, fhs, filebuf, heap, current_chrm, files, last_col):
-    #read 1 line from each source file looking for 1) same chromosome and 2) file EOF
-    on_same_chrom = []
-    for (i,fin) in enumerate(fhs):
-        fields = []
-        filedone = False
-        if filebuf[i][0] == '' and fin is not None:
-            fields = filebuf[i] = fin.readline().rstrip().split('\t')[:last_col]
-            #skip header
-            if fields[0] == 'chrom':
-                fields = filebuf[i] = fin.readline().rstrip().split('\t')[:last_col]
+#get the next line, either from the file buffer or a read a new line from the next filehandle
+#if there is no more, than that file is done and we'll read another from the heap higher up the stack
+def get_record(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fhs):
+    i = next_fhs
+    fh = fhs[i]
+    fields = []
+    filedone = False
+    if filebuf[i][0] == '' and fh is not None:
+        fields = filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
+        #skip header
+        if fields[0] == 'chrom':
+            fields = filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
+        if filebuf[i][0] == '': fhs[i] = None
+    elif filebuf[i][0] != '':
+        fields = filebuf[i]
+    if len(fields) > 0:
+        current_chrm = fields[CHRM_COL]
+        if not args.append_samples:
+            fields.append(files[i][FILE_SAMPLE_ID_COL])
+        heapq.heappush(heap, (fields[CHRM_COL], int(fields[START_COL]), int(fields[END_COL]), (fields, next_fhs)))
+        #since we pushed one on the heap we can read another
+        if fh is not None:
+            filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
+            #check to see if we've exhausted the file
             if filebuf[i][0] == '': fhs[i] = None
-        elif filebuf[i][0] != '':
-            fields = filebuf[i]
-        if len(fields) > 0:
-            current_chrm = fields[CHRM_COL]
-            on_same_chrom.append(i)
-            if not args.append_samples:
-                fields.append(files[i][FILE_SAMPLE_ID_COL])
-            heapq.heappush(heap, (fields[CHRM_COL], int(fields[START_COL]), int(fields[END_COL]), fields))
-            #since we pushed one on the heap we can read another
-            if fhs[i] is not None:
-                filebuf[i] = fhs[i].readline().rstrip().split('\t')[:last_col]
-                #check to see if we've exhausted the file
-                if filebuf[i][0] == '': fhs[i] = None
+    return current_chrm
+
+#either read all of the filehandles (first time) or just the next_fhs
+def read_from_sources(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fhs=-1):
+    #read 1 line from each source file looking for 1) same chromosome and 2) file EOF
+    current_chrm = None
+    if next_fhs >= 0:
+        current_chrm = get_record(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fhs)
+    else:
+        for (i, fh) in enumerate(fhs):
+            current_chrm = get_record(args, fhs, filebuf, heap, current_chrm, files, last_col, i)
     return current_chrm
 
 
@@ -69,15 +80,15 @@ def merge(args):
     heap = []
     current_chrm = None
     previous = []
+    next_fh = -1
     while(True):
-        current_chrm = read_from_sources(args, fhs, filebuf, heap, current_chrm, files, last_col)
+        #first time (next_fh == -1) read a whole n worth of lines, otherwise just read one more line from the last source that was popped
+        current_chrm = read_from_sources(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fh)
         #no more data, end
-        if current_chrm is None: break
         #no more data for this chromosome, possibly no more data period, but do another read to find out
-        if len(heap) == 0 or heap[0] is None:
-            current_chrm = None
-            continue
-        current = heapq.heappop(heap)[3]
+        if len(heap) == 0 or heap[0] == '' or heap[0] is None:
+            break
+        (current, next_fh) = heapq.heappop(heap)[3]
         #print current
         #format sampleID:coverage for Snaptron
         if not args.append_samples:
@@ -95,7 +106,11 @@ def merge(args):
                 previous[samples_col] += current[samples_col]
         else:
             previous = current
+        #sys.stderr.write("FILBUF_SIZE\t"+str(sys.getsizeof(filebuf))+'\t')
+        #sys.stderr.write("HEAP_SIZE\t"+str(sys.getsizeof(heap))+'\n')
     #last one
+    #sys.stderr.write("FILBUF_SIZE\t"+str(sys.getsizeof(filebuf))+'\t')
+    #sys.stderr.write("HEAP_SIZE\t"+str(sys.getsizeof(heap))+'\n')
     if len(previous) > 0:
         p = previous[:END_COL+1]
         p.extend([previous[strand_col],previous[motif_col],previous[samples_col]])
