@@ -1,5 +1,8 @@
 #start
-FILES=[config['staging'] + '/all.sjs.merged.annotated.tsv.gz', config['staging'] + '/all.exon_bw_count.pasted.gz', config['staging'] + '/unique.exon_bw_count.pasted.gz']
+import os
+import glob
+
+FILES=[os.path.join(config['staging'], config['study'] + '.all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], config['study'] + '.all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], config['study'] + '.unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], config['study'] + '.all.logs.tar.gz')]
 main_script_path=os.path.join(workflow.basedir,'scripts')
 SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py')}
 
@@ -16,6 +19,18 @@ rule all:
 	input:
 		expand("{file}", file=FILES)
 
+#tar and gzip all the logs, but maintain the directory structure
+rule tar_logs:
+	input:
+		config['input']
+	output:
+		os.path.join(config['staging'], config['study'] + '.all.logs.tar.gz')
+	params:
+		log_path=config['input'] + '/' + config['study'] + '/??/*/*.log'
+	shell:
+		"tar -cvzf {output} {params.log_path}"
+
+#exon sum pasting related rules
 rule find_sums:
 	input: 
 		config['input'], config['sample_ids_file']
@@ -55,7 +70,6 @@ rule paste_sums_per_group:
 	shell:
 		"{params.script_path} {params.staging}/{params.type}.exon_bw_count.{params.group_num}.manifest {output}"
 
-import glob
 def get_pasted_sum_files(wildcards):
 	return [config['staging']+"/%s.exon_bw_count.%s.pasted" % (wildcards.type, f.split('/').pop()) for f in glob.glob(config['input']+'/*/??')]	
 
@@ -74,7 +88,7 @@ rule paste_sums_final:
 	input:
 		config['staging'] + '/{type}.exon_bw_count.groups.pasted.files.list'
 	output:
-		config['staging'] + '/{type}.exon_bw_count.pasted.gz'
+		os.path.join(config['staging'], config['study'] + '.{type}.exon_bw_count.pasted.gz')
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['paste'],
@@ -148,7 +162,7 @@ rule annotate_all_sjs:
 	input:
 		config['staging'] + '/all.sjs.merged.tsv.gz'
 	output:
-		config['staging'] + '/all.sjs.merged.annotated.tsv.gz'
+		os.path.join(config['staging'], config['study'] + '.all.sjs.merged.annotated.tsv.gz')
 	params:
 		annot_sjs=config['annotated_sjs'],
 		script_path=SCRIPTS['annotate']
