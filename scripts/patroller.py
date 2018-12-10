@@ -56,14 +56,15 @@ def check_study_status(args, study):
             #generate sample ids file for study
             pass
     #TODO: return false for now
-    return (False, sample_ids_file)
+    return (True, sample_ids_file)
 
-def generate_snakemake_cmd_args(args, output_dir, sample_ids_file):
+def generate_snakemake_cmd_args(args, staging_dir, output_dir, study, sample_ids_file):
     cmd_args = [SNAKEMAKE_PATH,'-j%d' % args.num_sm_proc, args.snakefile, '-r', '--config']
-    cmd_args.append('input=%s' % args.staging_dir)
+    cmd_args.append('input=%s' % staging_dir)
     cmd_args.append('staging=%s' % output_dir)
     cmd_args.append('sample_ids_file=%s' % sample_ids_file)
     cmd_args.append('annotated_sjs=%s' % args.annotated_sj_file)
+    cmd_args.append('study=%s' % study)
 
     #optional config params
     if args.existing_sj_file is not None:
@@ -73,33 +74,34 @@ def generate_snakemake_cmd_args(args, output_dir, sample_ids_file):
     return cmd_args
 
 
-def process_study(args, study, study_map, sample_ids_file):
-    dest_dir = args.staging_dir
-    if not os.path.exists(os.path.join(dest_dir, study)):
-        Path(os.path.join(dest_dir, study)).mkdir(parents=True, exist_ok=True)
+def process_study(args, loworder, study, study_map, sample_ids_file):
+    staging_dir = os.path.join(args.staging_dir, loworder, study)
+    if not os.path.exists(staging_dir):
+        Path(staging_dir).mkdir(parents=True, exist_ok=True)
     ds = datetime.datetime.now().timestamp()
-    fout = open(os.path.join(dest_dir, study, "attempts.moved.%s" % (ds)), "w")
+    fout = open(os.path.join(staging_dir, "attempts.moved.%s" % (ds)), "w")
     for job in study_map.keys():
-        (attempt_num, fpath, loworder) = study_map[job]
+        (attempt_num, fpath, fname) = study_map[job]
         f = fpath.split(os.path.sep)[-1]
         fout.write("%s\n" % (fpath)) 
         #TODO: this is temporary (making soft links), need to hardlink, then delete
-        d = os.path.join(dest_dir, study, loworder, job+'_'+attempt_num)
+        d = os.path.join(staging_dir, fname)
         if not os.path.exists(d):
             Path(d).mkdir(parents=True, exist_ok=True)
         os.symlink(fpath, os.path.join(d, f))
-        #shutil.copytree(fpath, os.path.join(dest_dir, study, loworder, job+'_'+attempt_num ))
+        #shutil.copytree(fpath, os.path.join(dest_dir, loworder, study, job+'_'+attempt_num ))
         #if args.remove_incoming:
         #    shutil.rmtree(fpath)
     fout.close()
 
-    output_dir = os.path.join(args.output_dir, study)
+    output_dir = os.path.join(args.output_dir, loworder, study)
     if not os.path.exists(output_dir):
         Path(output_dir).mkdir(parents=True, exist_ok=True)
     #now fire up snakemake on DEST_DIR/study
-    snakemake_cmd_args = generate_snakemake_cmd_args(args, output_dir, sample_ids_file)
+    snakemake_cmd_args = generate_snakemake_cmd_args(args, staging_dir, output_dir, study, sample_ids_file)
     print (snakemake_cmd_args)
     #run_command(snakemake_cmd_args, 'snakemake', ds)
+    return True
 
         
 def main():
@@ -119,8 +121,11 @@ def main():
     args = parser.parse_args()
 
     seen = {}
+    done = {}
     fpath_patt = re.compile(r'^((.+)_attempt(\d+)).done$')
     loop = True
+    counter = 0
+    loworders = {}
     while(loop):
         files = search_for_files(args.incoming_dir)
         for f in files:
@@ -135,22 +140,24 @@ def main():
             #e.g. 1
             attempt_num = m.group(3)
 
-            fields = f.split('/')
+            fields = fdir.split('/')
             #e.g. proj1_input5472_attempt0.done 
             fname = fields[-1]
             #e.g. SRP008339
             study = fields[-2]
             #e.g. 39
             loworder = fields[-3]
+            loworders[study] = loworder
 
             if study not in seen:
                 seen[study]={}
             if fkey not in seen[study] or seen[study][fkey][0] > attempt_num:
-                seen[study][fkey] = [attempt_num, fdir, loworder]
+                seen[study][fkey] = [attempt_num, fdir, fname]
        
-        print (seen)
- 
-        for study in seen.keys():
+        keys = set(seen.keys())
+        to_process = keys - set(done.keys())
+        while(len(to_process) > 0):
+            study = to_process.pop()
             #find out:
             #1) study started processing?
             #2) have sample IDs been generated for the study, and if so where are they?
@@ -160,8 +167,10 @@ def main():
             if not status:
                 continue
             #pump processing is done, so prepare the file hierarchy and unify the results
-            process_study(args, study, seen[study], sample_ids_file) 
-            del seen[study]
+            processed = process_study(args, loworders[study], study, seen[study], sample_ids_file) 
+            if processed:
+                done[study] = counter
+                counter += 1
 
         loop = False
 
