@@ -30,7 +30,7 @@ def get_record(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fhs
         if filebuf[i][0] == '': fhs[i] = None
     elif filebuf[i][0] != '':
         fields = filebuf[i]
-    if len(fields) > 0:
+    if len(fields) > 0 and fields[0] != '':
         current_chrm = fields[CHRM_COL]
         if not args.append_samples:
             fields.append(files[i][FILE_SAMPLE_ID_COL])
