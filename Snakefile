@@ -26,7 +26,7 @@ rule tar_logs:
 	output:
 		os.path.join(config['staging'], config['study'] + '.all.logs.tar.gz')
 	params:
-		log_path=config['input'] + '/' + config['study'] + '/??/*/*.log'
+		log_path=config['input'] + '/??/*/*.log'
 	shell:
 		"tar -cvzf {output} {params.log_path}"
 
@@ -71,7 +71,7 @@ rule paste_sums_per_group:
 		"{params.script_path} {params.staging}/{params.type}.exon_bw_count.{params.group_num}.manifest {output}"
 
 def get_pasted_sum_files(wildcards):
-	return [config['staging']+"/%s.exon_bw_count.%s.pasted" % (wildcards.type, f.split('/').pop()) for f in glob.glob(config['input']+'/*/??')]	
+	return [config['staging']+"/%s.exon_bw_count.%s.pasted" % (wildcards.type, f.split('/').pop()) for f in glob.glob(config['input']+'/??')]	
 
 rule collect_pasted_sums:
 	input:
@@ -135,7 +135,7 @@ rule merge_sjs:
 		"pypy {params.script_path} --list-file {params.filtered_manifest} --gzip | sort -k1,1 -k2,2n -k3,3n | gzip > {params.filtered_manifest}.sj_sample_files.merged.tsv.gz"
 
 def get_sj_merged_files(wildcards):
-	return [config['staging']+"/sj.%s.manifest.sj_sample_files.merged.tsv.gz" % f.split('/').pop() for f in glob.glob(config['input']+'/*/??')]	
+	return [config['staging']+"/sj.%s.manifest.sj_sample_files.merged.tsv.gz" % f.split('/').pop() for f in glob.glob(config['input']+'/??')]	
 
 rule collect_merged_sjs:
 	input:
