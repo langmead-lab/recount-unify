@@ -48,6 +48,7 @@ import glob
 import os
 import gzip
 import sys
+import re
 
 file2source = {"hg19/gencode.v19.annotation.gtf.gz":"gC19","hg19/refGene.txt.gz":"rG19","hg19/acembly.txt.gz":"aC19","hg19/ccdsGene.txt.gz":"cG19","hg19/vegaGene.txt.gz":"vG19","hg19/knownGene.txt.gz":"kG19","hg19/mgcGenes.txt.gz":"mG19","hg19/lincRNAsTranscripts.txt.gz":"lR19","hg19/sibGene.txt.gz":"sG19","hg38/refGene.txt.gz":"rG38","hg38/ccdsGene.txt.gz":"cG38","hg38/gencode.v29.annotation.gtf.gz":"gC38","hg38/knownGene.txt.gz":"kG38","hg38/mgcGenes.txt.gz":"mG38","hg38/lincRNAsTranscripts.txt.gz":"lR38","hg38/sibGene.txt.gz":"sG38","hg38/chess2.1_assembly.gtf.gz":"cH38"} #,"hg38/knownAlt.txt.gz":"kA38","hg19/knownAlt.txt.gz":"kA19"}
 
@@ -127,7 +128,7 @@ if __name__ == '__main__':
                                 tokens[0], tokens[1], tokens[2], junction_file
                             )
                     continue
-                tokens.append(datasource_code)
+                tokens[-1] = datasource_code + ':::' + tokens[-1]
                 junction_to_add = tuple(tokens)
                 annotated_junctions.add(junction_to_add)
                 unique_junctions.add(junction_to_add)
@@ -140,10 +141,11 @@ if __name__ == '__main__':
                                                                 )
                 )
         else:
+            transcript_id_col = 1
+            offset = 1
             if 'knownGene' in junction_file:
                 offset = 0
-            else:
-                offset = 1
+                transcript_id_col = 11
             for line in gzip.open(junction_file):
                 line = line.rstrip()
                 tokens = line.split('\t')
@@ -152,7 +154,7 @@ if __name__ == '__main__':
                                     tokens[9+offset].split(','))[:-1]]
                 junctions_to_add = [
                         (tokens[1+offset], exons[i-1][1] + 1, exons[i][0],
-                            tokens[2+offset], datasource_code)
+                         tokens[2+offset], "%s:::%s" % (datasource_code, tokens[transcript_id_col]))
                         for i in xrange(1, len(exons))
                     ]
                 final_junctions_to_add = []
@@ -223,14 +225,20 @@ if __name__ == '__main__':
                                 after_liftover - before_liftover
                             )
     junc2datasource = {}
+    junc2transcript = {}
     for junction in annotated_junctions_hg38:
         if junction[0] in refs:
+            (source, transcript) = re.split(':::',junction[4])
             if junction[:4] not in junc2datasource:
                 junc2datasource[junction[:4]]=set()
-            junc2datasource[junction[:4]].add(junction[4])
+            junc2datasource[junction[:4]].add(source)
+            if junction[:4] not in junc2transcript:
+                junc2transcript[junction[:4]]=set()
+            junc2transcript[junction[:4]].add(junction[4])
     seen = set()
     for junction in annotated_junctions_hg38:
         if junction[0] in refs and junction[:4] not in seen:
             sources = ",".join(sorted(junc2datasource[junction[:4]]))
-            print "%s\t%s" % ('\t'.join(map(str, junction[:4])),sources)
+            transcripts = ",".join(sorted(junc2transcript[junction[:4]]))
+            print "%s\t%s\t%s" % ('\t'.join(map(str, junction[:4])), sources, transcripts)
             seen.add(junction[:4])

@@ -49,6 +49,7 @@ def extract_splice_sites(gtf_file, verbose=False):
         if feature != 'exon' or left >= right:
             continue
 
+
         values_dict = {}
         for attr in values.split(';')[:-1]:
             attr, _, val = attr.strip().partition(' ')
@@ -57,6 +58,7 @@ def extract_splice_sites(gtf_file, verbose=False):
         if 'gene_id' not in values_dict or \
                 'transcript_id' not in values_dict:
             continue
+        
 
         transcript_id = values_dict['transcript_id']
         if transcript_id not in trans:
@@ -78,13 +80,18 @@ def extract_splice_sites(gtf_file, verbose=False):
 
     # Calculate and print the unique junctions
     junctions = set()
+    jx2trans = dd(set)
     for chrom, strand, exons in trans.values():
         for i in range(1, len(exons)):
             junctions.add((chrom, exons[i-1][1], exons[i][0], strand))
+            jx2trans[tuple([chrom, exons[i-1][1], exons[i][0], strand])].add(tran)
     junctions = sorted(junctions)
     for chrom, left, right, strand in junctions:
+        #keep transcript ID here ("tran")
+        #e.g. transcript_id "ENST00000456328.2";
+        trans = ','.join(jx2trans[tuple([chrom, left, right, strand])])
         # Zero-based offset
-        print('{}\t{}\t{}\t{}'.format(chrom, left-1, right-1, strand))
+        print('{}\t{}\t{}\t{}\t{}'.format(chrom, left-1, right-1, strand, trans))
 
     # Print some stats if asked
     if verbose:
