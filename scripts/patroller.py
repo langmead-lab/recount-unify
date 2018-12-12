@@ -78,8 +78,8 @@ def generate_snakemake_cmd_args(args, staging_dir, output_dir, study, sample_ids
     return cmd_args
 
 
-def process_study(args, loworder, study, study_map, sample_ids_file):
-    staging_dir = os.path.join(args.staging_dir, loworder, study)
+def process_study(args, study_loworder, study, study_map, sample_ids_file):
+    staging_dir = os.path.join(args.staging_dir, study_loworder, study)
     if not os.path.exists(staging_dir):
         Path(staging_dir).mkdir(parents=True, exist_ok=True)
     ds = datetime.datetime.now().timestamp()
@@ -87,10 +87,10 @@ def process_study(args, loworder, study, study_map, sample_ids_file):
     for job in study_map.keys():
         (attempt_num, fpath, run, fname) = study_map[job]
         f = fpath.split(os.path.sep)[-1]
-        loworder = run[-2:]
+        run_loworder = run[-2:]
         fout.write("%s\n" % (fpath)) 
         #TODO: this is temporary (making soft links), need to hardlink, then delete
-        d = os.path.join(staging_dir, loworder)
+        d = os.path.join(staging_dir, run_loworder)
         if not os.path.exists(d):
             Path(d).mkdir(parents=True, exist_ok=True)
         try:
@@ -102,7 +102,7 @@ def process_study(args, loworder, study, study_map, sample_ids_file):
         #    shutil.rmtree(fpath)
     fout.close()
 
-    output_dir = os.path.join(args.output_dir, loworder, study)
+    output_dir = os.path.join(args.output_dir, study_loworder, study)
     if not os.path.exists(output_dir):
         Path(output_dir).mkdir(parents=True, exist_ok=True)
     #now fire up snakemake on DEST_DIR/study
