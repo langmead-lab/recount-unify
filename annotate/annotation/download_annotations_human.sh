@@ -7,11 +7,14 @@ set -o pipefail -o nounset -o errexit
 
 date=`date +%b_%d_%Y`
 echo $date
-annotations_file="${date}_annotations.tar.gz"
+annotations_file="${date}_hg38_annotations.tar.gz"
 echo $annotations_file
 
 LIFTOVER=$1
 CHAIN=$2
+
+mkdir human
+cd human
 
 mkdir -p anno/hg38
 cd anno/hg38
@@ -40,4 +43,4 @@ cd ../../
 
 tar -cvzf ${annotations_file} anno
 
-pypy hg38_rip_annotated_junctions.py --hisat2-dir ./ --annotations ${annotations_file} --liftover $LIFTOVER --chain $CHAIN --unmapped unmapped_hg19.bed 2> annotated_junctions_stats.txt | sort -k1,1 -k2,2n -k3,3n | gzip > annotated_junctions.tsv.gz
+pypy ../rip_annotated_junctions.py --extract-script-dir ../ --annotations ${annotations_file} --liftover $LIFTOVER --chain $CHAIN --unmapped unmapped_hg19.bed --org hg38 --org-sizes ../hg38.sizes 2> hg38.annotated_junctions_stats.txt | sort -k1,1 -k2,2n -k3,3n | gzip > annotated_junctions.hg38.${date}.tsv.gz
