@@ -9,6 +9,8 @@ import re
 import subprocess
 import argparse
 import shlex
+import urllib.request as urlr
+from collections import Counter
 
 #stubbing the basic set of compilations here before we code the
 #interface to the remote DB
@@ -25,13 +27,25 @@ PUMP_DIR="srav1"
 DEST_DIR="staging"
 OUTPUT_DIR="unified"
 
+#example: https://recount-meta.s3.amazonaws.com/srav1/srav1.txt'
+S3_MANIFEST_URL_PREFIX='http://recount-meta.s3.amazonaws.com'
 
+def log(msg):
+    #TODO: add real logging
+    sys.stderr.write(msg)
 
+def retrieve_project_manifest(args):
+    url = '%s/%s/%s.txt' % (S3_MANIFEST_URL_PREFIX, args.project, args.project)
+    log("retrieving study2run manifest from S3: %s\n" % url)
+    with urlr.urlopen(str(url)) as fin:
+        #study2run = dict(x.rstrip().split(' ') for x in str(fin.read()).split('\\n')[:-1])
+        study2run_count = Counter(x.rstrip().split(' ')[0] for x in str(fin.read()).split('\\n')[:-1])
+        return study2run_count
 
 def run_command(cmd_args, cmd_name, datetime_stamp):
     #dont use shlex.quote, screws up the commandline
     cmd_args = ' '.join([' '.join(cmd_args), '>', '%s/%s.%s' % (LOGS_DIR, cmd_name, datetime_stamp), '2>&1'])
-    print ("running %s" % cmd_args)
+    log("running %s\n" % cmd_args)
     try:
         cp = subprocess.run(args=cmd_args, shell=True, check=True, universal_newlines=True) 
     except subprocess.CalledProcessError as cpe:
@@ -40,27 +54,6 @@ def run_command(cmd_args, cmd_name, datetime_stamp):
 
 def search_for_files(directory):
     return glob.glob("%s/**/*.done" % (directory), recursive=True)
-
-#stubbed currently, needs to interface with remote DB in AWS
-#needs to know:
-#0) is study fully done processing?
-#1) study2compilation mapping
-#2) compilation ID prefix code
-#3) compilation last used counts (per loworder prefix)
-#
-#from this set of data it can either:
-#1) use existing study sample IDs if present
-#2) generate study sample IDs if not present already
-#this assumes we only ever process one study at a time at the recount-unify stage
-def check_study_status(args, study):
-    sample_ids_file = args.sample_ID_file
-    if sample_ids_file is None:
-        sample_ids_file = os.path.join(dest_dir, "%s.samples.tsv" % (study))
-        if not os.path.exists(sample_ids_file):
-            #generate sample ids file for study
-            pass
-    #TODO: return false for now
-    return (True, sample_ids_file)
 
 def generate_snakemake_cmd_args(args, staging_dir, output_dir, study, sample_ids_file):
     cmd_args = [SNAKEMAKE_PATH,'-j%d' % args.num_sm_proc, '--snakefile', args.snakefile, '-r', '--config']
@@ -107,13 +100,13 @@ def process_study(args, study_loworder, study, study_map, sample_ids_file):
         Path(output_dir).mkdir(parents=True, exist_ok=True)
     #now fire up snakemake on DEST_DIR/study
     snakemake_cmd_args = generate_snakemake_cmd_args(args, staging_dir, output_dir, study, sample_ids_file)
-    print (snakemake_cmd_args)
+    log("%s\n" % snakemake_cmd_args)
     run_command(snakemake_cmd_args, study, ds)
     return True
 
-        
-def main():
+def create_parser():
     parser = argparse.ArgumentParser(description='recount-unify script to "patrol" the directories containing processed files from recount-pump and move them to a pre-staging directorty, and then run the jx merge/annotate and exon sum paste steps (recount-unify) on them.')
+    parser.add_argument('--project', metavar='project-name', type=str, required=True, help='name of project (group of one or more studies run together); this is used to retrieve the manifest of study2run mappings to determine which studies are finished and ready to be unified')
     parser.add_argument('--incoming-dir', metavar='/path/to/dir_containing_pump_processed_files', type=str, default=PUMP_DIR, help='the path where recount-pump dumps it\'s procssed files.')
     parser.add_argument('--staging-dir', metavar='/path/to/dir_to_store_finished_pump_processed_files', type=str, default=DEST_DIR, help='the path where recount-pump runs which have the *.done file present, are moved.')
     parser.add_argument('--output-dir', metavar='/path/to/dir_to_store_recount-unify_output', type=str, default=OUTPUT_DIR, help='the path where in process and fully merged sj and exon sum files are stored.')
@@ -125,72 +118,95 @@ def main():
     parser.add_argument('--existing-sj-file', metavar='/path/to/file_with_existing_junctions', type=str, default=None, help='if merging these new splice junctions with an already merged set of splice junctions')
     parser.add_argument('--existing-exon-sums-file', metavar='/path/to/file_with_existing_exon_sums', type=str, default=None, help='if merging these new exon sums with an already pasted set of exon sample sums OR just the original BED file/coordinates.')
     parser.add_argument('--sample-ID-file', metavar='/path/to/file_with_sample_IDs_mapped_to_study_and_run_accessions', type=str, default=None, help='this file contains the pre-generated mapping between recount-unify assigned sample IDs and study/run accessions/UUIDs. If not provided and not already present in the default location (<pre-staging>/<study-accession>.samples.tsv) it will be generated.')
+    parser.add_argument('--debug', action='store_const', const=True, default=False, help='run one time through loop processing up to 5 studies')
 
+    return parser
+    
+fpath_patt = re.compile(r'^((.+)_attempt(\d+)).done$')
+def find_runs(args, loworders, studies_done, seen):
+    files = search_for_files(args.incoming_dir)
+    count = 0
+    for f in files:
+        #args.pump_dir/??/study/proj#_input#_attempt#.done
+        #example: srav1/39/SRP008339/proj1_input5472_attempt0.done
+        m = fpath_patt.search(f)
+        assert(m)
+        #e.g. srav1/39/SRP008339/proj1_input5472_attempt0
+        fdir = m.group(1)
+        #e.g. srav1/39/SRP008339/proj1_input5472
+        fkey = m.group(2)
+        #e.g. 1
+        attempt_num = m.group(3)
+        
+        #now get the run accession
+        #need this at this step to be able to further split the
+        #input for this study into subgroups based on the low order of the run accession
+        manifest = glob.glob("%s/*.manifest" % (fdir))[0]
+        #e.g. SRR306518
+        run = manifest.split(os.path.sep)[-1].split('_')[0]
+
+        fields = fdir.split(os.path.sep)
+        #e.g. proj1_input5472_attempt0.done 
+        fname = fields[-1]
+        #e.g. SRP008339
+        study = fields[-2]
+        #e.g. 39
+        loworder = fields[-3]
+        loworders[study] = loworder
+
+        studies_done[study]+=1
+        count += 1
+
+        if study not in seen:
+            seen[study]={}
+        if fkey not in seen[study] or seen[study][fkey][0] > attempt_num:
+            seen[study][fkey] = [attempt_num, fdir, run, fname]
+    return count
+   
+def main():
+    parser = create_parser()
     args = parser.parse_args()
 
+    study2run_count = retrieve_project_manifest(args)
+
+    loworders = {}
+    studies_done = Counter()
     seen = {}
     done = {}
-    fpath_patt = re.compile(r'^((.+)_attempt(\d+)).done$')
-    loop = True
     counter = 0
-    loworders = {}
+    loop = True
+    if args.debug:
+        log("DEBUG mode\n")
     while(loop):
-        files = search_for_files(args.incoming_dir)
-        for f in files:
-            #args.pump_dir/??/study/proj#_input#_attempt#.done
-            #example: srav1/39/SRP008339/proj1_input5472_attempt0.done
-            m = fpath_patt.search(f)
-            assert(m)
-            #e.g. srav1/39/SRP008339/proj1_input5472_attempt0
-            fdir = m.group(1)
-            #e.g. srav1/39/SRP008339/proj1_input5472
-            fkey = m.group(2)
-            #e.g. 1
-            attempt_num = m.group(3)
-            
-            #now get the run accession
-            #need this at this step to be able to further split the
-            #input for this study into subgroups based on the low order of the run accession
-            manifest = glob.glob("%s/*.manifest" % (fdir))[0]
-            #e.g. SRR306518
-            run = manifest.split(os.path.sep)[-1].split('_')[0]
-
-            fields = fdir.split(os.path.sep)
-            #e.g. proj1_input5472_attempt0.done 
-            fname = fields[-1]
-            #e.g. SRP008339
-            study = fields[-2]
-            #e.g. 39
-            loworder = fields[-3]
-            loworders[study] = loworder
-
-            if study not in seen:
-                seen[study]={}
-            if fkey not in seen[study] or seen[study][fkey][0] > attempt_num:
-                seen[study][fkey] = [attempt_num, fdir, run, fname]
-       
+        log("finding runs which are done in %s\n" % args.incoming_dir) 
+        runs_done_count = find_runs(args, loworders, studies_done, seen)
+        log("found %d runs which are done\n" % runs_done_count)
+        #overall, keep track of studies on FS that aren't done vs. those that have been unified already 
         keys = set(seen.keys())
-        to_process = keys - set(done.keys())
+        studies_to_process = keys - set(done.keys())
+        log("studies to process this round: %d\n" % len(studies_to_process))
         ctr = 0
-        while(len(to_process) > 0):
-            study = to_process.pop()
-            #find out:
-            #1) study started processing?
-            #2) have sample IDs been generated for the study, and if so where are they?
-            #if no to 2), this will generate the sample IDs for the whole study
-            (status, sample_ids_file) = check_study_status(args, study)
-            #not done processing through the pump
-            if not status or ctr >= 5:
-            #if not status:
-                continue
+        while(len(studies_to_process) > 0):
+            study = studies_to_process.pop()
+            log("popping study %s\n" % study)
+            #first check to see if all the runs for this study are done
+            #if not, skip for now
+            num_runs_done = studies_done[study]
+            num_runs_total = study2run_count[study]
+            if num_runs_done != num_runs_total: continue
+            #for debugging
+            if args.debug and ctr >= 5:
+                break
             ctr += 1
+            log("processing study %s\n" % study)
             #pump processing is done, so prepare the file hierarchy and unify the results
-            processed = process_study(args, loworders[study], study, seen[study], sample_ids_file) 
+            processed = process_study(args, loworders[study], study, seen[study], args.sample_ID_file) 
             if processed:
                 done[study] = counter
                 counter += 1
-
-        loop = False
+                log("processed study %s successfully\n" % study)
+        #for debugging, only loop once
+        loop = not args.debug
 
 if __name__ == '__main__':
     main()
