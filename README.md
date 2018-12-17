@@ -8,6 +8,7 @@ where `--num-sm-proc` is the number of concurrent Snakemake processes you want t
 `--existing-exon-sums-file` is a tab delimited list of just chromosome,start,ends,
 `<project_name>` is for downloading the project study2run mapping from S3 (e.g. `srav1`).
 
+## Other functionality
 
 merge is for merging junctions from all samples into one sparse matrix
 
