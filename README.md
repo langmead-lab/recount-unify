@@ -2,11 +2,20 @@
 next step after recount-pump in the monorail pipeline
 
 ## To run the patroller script:
-`python3 ./scripts/patroller.py --num-sm-proc 8 --snakefile ./Snakefile --annotated-sj-file /path/to/annotated_junctions.tsv.gz --sample-ID-file /path/to/samples.tsv --incoming-dir /path/to/recount_pump_output --existing-exon-sums-file exons.bed.gz --debug --project <project_name>`
+`python3 ./scripts/patroller.py --num-sm-proc #_procs --snakefile ./Snakefile --annotated-sj-file /path/to/annotated_junctions.tsv.gz --sample-ID-file /path/to/samples.tsv --incoming-dir /path/to/recount_pump_output --staging-dir /path/to/dir_to_hardlink_into --output-dir /path/to/dir_to_store_final_unified_output --existing-exon-sums-file exons.bed.gz --project <project_name> --debug`
 
-where `--num-sm-proc` is the number of concurrent Snakemake processes you want to run (i.e. `snakemake -j`),
-`--existing-exon-sums-file` is a tab delimited list of just chromosome,start,ends,
-`<project_name>` is for downloading the project study2run mapping from S3 (e.g. `srav1`).
+where:
+* `--num-sm-proc` is the number of concurrent Snakemake processes you want to run (i.e. `snakemake -j`)
+* `--annotated-sj-file` takes a gzipped, tab-delimited list of known annotated junctions and their source annotation abbreviations
+* `--sample-ID-file` takes a uncompressed, tab-delimited file of rail_id2run_accession mappings
+* `--incoming-dir` takes the top-level directory where all recount-pump output is dumped
+* `--staging-dir` takes a path to store all the hardlinks to all files in the recount_pump_output dir
+* `--output-dir ` takes a path to store the output of the unifier process which will be organized along the same lines as the --incoming-dir
+* `--existing-exon-sums-file` is a gzipped, tab-delimited list of just chromosome,start,ends
+*`<project_name>` is for downloading the project study2run mapping from S3 (e.g. `srav1`)
+
+`--debug` will force the pipeline to only run upto 4 studies and then quit, otherwise it'll do every study that
+has a complete set of "done" runs and then loop forever after sleeping for a few seconds at each loop.
 
 ## Other functionality
 
