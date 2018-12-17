@@ -12,8 +12,6 @@ import urllib.request as urlr
 from collections import Counter
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('patroller')
 
 
 #stubbing the basic set of compilations here before we code the
@@ -34,22 +32,22 @@ OUTPUT_DIR="unified"
 #example: https://recount-meta.s3.amazonaws.com/srav1/srav1.txt'
 S3_MANIFEST_URL_PREFIX='http://recount-meta.s3.amazonaws.com'
 
-def log(msg, logger=logger.debug):
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('patroller')
+def log(msg, logger=logger.info):
     logger(msg)
-    #sys.stderr.write(msg)
 
 def retrieve_project_manifest(args):
     url = '%s/%s/%s.txt' % (S3_MANIFEST_URL_PREFIX, args.project, args.project)
-    log("retrieving study2run manifest from S3: %s\n" % url)
+    log("retrieving study2run manifest from S3: %s" % url)
     with urlr.urlopen(str(url)) as fin:
-        #study2run = dict(x.rstrip().split(' ') for x in str(fin.read()).split('\\n')[:-1])
         study2run_count = Counter(x.rstrip().split(' ')[0] for x in str(fin.read()).split('\\n')[:-1])
         return study2run_count
 
 def run_command(cmd_args, cmd_name, datetime_stamp):
     #dont use shlex.quote, screws up the commandline
     cmd_args = ' '.join([' '.join(cmd_args), '>', '%s/%s.%s' % (LOGS_DIR, cmd_name, datetime_stamp), '2>&1'])
-    log("running %s\n" % cmd_args)
+    log("running %s" % cmd_args)
     try:
         cp = subprocess.run(args=cmd_args, shell=True, check=True, universal_newlines=True) 
     except subprocess.CalledProcessError as cpe:
@@ -104,7 +102,6 @@ def process_study(args, study_loworder, study, study_map, sample_ids_file):
         Path(output_dir).mkdir(parents=True, exist_ok=True)
     #now fire up snakemake on DEST_DIR/study
     snakemake_cmd_args = generate_snakemake_cmd_args(args, staging_dir, output_dir, study, sample_ids_file)
-    log("%s\n" % snakemake_cmd_args)
     run_command(snakemake_cmd_args, study, ds)
     return True
 
@@ -181,20 +178,21 @@ def main():
     counter = 0
     loop = True
     if args.debug:
-        log("DEBUG mode\n")
+        logger.setLevel(logging.DEBUG)
+        log("DEBUG mode")
     round_idx = 0
     while(loop):
-        log("ROUND %d\tfinding runs which are done in\t%s\n" % (round_idx, args.incoming_dir))
+        log("ROUND %d\tfinding runs which are done in\t%s" % (round_idx, args.incoming_dir))
         runs_done_count = find_runs(args, loworders, studies_done, seen)
-        log("ROUND %d\truns found which are done this round:\t%d\n" % (round_idx, runs_done_count))
+        log("ROUND %d\truns found which are done this round:\t%d" % (round_idx, runs_done_count))
         #overall, keep track of studies on FS that aren't done vs. those that have been unified already 
         keys = set(seen.keys())
         studies_to_process = keys - set(done.keys())
-        log("ROUND %d\tstudies to process this round:\t%d\n" % (round_idx, len(studies_to_process)))
+        log("ROUND %d\tstudies to process this round:\t%d" % (round_idx, len(studies_to_process)))
         ctr = 0
         while(len(studies_to_process) > 0):
             study = studies_to_process.pop()
-            log("ROUND %d\tpopping study\t%s\n" % (round_idx, study))
+            log("ROUND %d\tpopping study\t%s" % (round_idx, study))
             #first check to see if all the runs for this study are done
             #if not, skip for now
             num_runs_done = studies_done[study]
@@ -204,13 +202,13 @@ def main():
             if args.debug and ctr >= 5:
                 break
             ctr += 1
-            log("ROUND %d\tprocessing study\t%s\n" % (round_idx, study))
+            log("ROUND %d\tprocessing study\t%s" % (round_idx, study))
             #pump processing is done, so prepare the file hierarchy and unify the results
             processed = process_study(args, loworders[study], study, seen[study], args.sample_ID_file) 
             if processed:
                 done[study] = counter
                 counter += 1
-                log("ROUND %d\tprocessed study successfully\t%s\n" % (round_idx, study))
+                log("ROUND %d\tprocessed study successfully\t%s" % (round_idx, study))
         #for debugging, only loop once
         loop = not args.debug
         round_idx += 1
