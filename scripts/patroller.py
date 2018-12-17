@@ -2,6 +2,7 @@
 import sys
 import os
 import shutil
+from time import sleep
 import datetime
 import glob
 from pathlib import Path
@@ -23,7 +24,7 @@ compilations={'sra':[1,'sra_samples.tsv',1],
 SNAKEMAKE_PATH = 'snakemake'
 
 #in sec
-SLEEP=10
+SLEEP=5
 LOGS_DIR="logs"
 PUMP_DIR="srav1"
 DEST_DIR="staging"
@@ -54,7 +55,7 @@ def run_command(cmd_args, cmd_name, datetime_stamp):
         sys.stderr.write("error in run_command for command: %s\n" % cmd_args)
         raise cpe
 
-def search_for_files(directory):
+def search_for_done_files(directory):
     return glob.glob("%s/**/*.done" % (directory), recursive=True)
 
 def generate_snakemake_cmd_args(args, staging_dir, output_dir, study, sample_ids_file):
@@ -81,15 +82,18 @@ def process_study(args, study_loworder, study, study_map, sample_ids_file):
     fout = open(os.path.join(staging_dir, "attempts.moved.%s" % (ds)), "w")
     for job in study_map.keys():
         (attempt_num, fpath, run, fname) = study_map[job]
-        f = fpath.split(os.path.sep)[-1]
+        attempt_name = fpath.split(os.path.sep)[-1]
         run_loworder = run[-2:]
         fout.write("%s\n" % (fpath)) 
         #TODO: this is temporary (making soft links), need to hardlink, then delete
-        d = os.path.join(staging_dir, run_loworder)
+        #d = os.path.join(staging_dir, run_loworder)
+        d = os.path.join(staging_dir, run_loworder, attempt_name)
         if not os.path.exists(d):
             Path(d).mkdir(parents=True, exist_ok=True)
         try:
-            os.symlink(fpath, os.path.join(d, f))
+            #os.symlink(fpath, os.path.join(d, f))
+            #[os.link(file_, os.path.join(d, file_.split(os.path.sep)[-1])) for file_ in glob.glob('%s/*' % fpath)]
+            [os.symlink(file_, os.path.join(d, file_.split(os.path.sep)[-1])) for file_ in glob.glob('%s/*' % fpath)]
         except FileExistsError as fee:
             pass
         #shutil.copytree(fpath, os.path.join(dest_dir, loworder, study, job+'_'+attempt_num ))
@@ -125,8 +129,8 @@ def create_parser():
     return parser
     
 fpath_patt = re.compile(r'^((.+)_attempt(\d+)).done$')
-def find_runs(args, loworders, studies_done, seen):
-    files = search_for_files(args.incoming_dir)
+def find_done_runs(args, loworders, studies_done, seen, attempts_tracker):
+    files = glob.glob("%s/**/*.done" % (args.incoming_dir), recursive=True)
     count = 0
     for f in files:
         #args.pump_dir/??/study/proj#_input#_attempt#.done
@@ -139,30 +143,40 @@ def find_runs(args, loworders, studies_done, seen):
         fkey = m.group(2)
         #e.g. 1
         attempt_num = m.group(3)
-        
-        #now get the run accession
-        #need this at this step to be able to further split the
-        #input for this study into subgroups based on the low order of the run accession
-        manifest = glob.glob("%s/*.manifest" % (fdir))[0]
-        #e.g. SRR306518
-        run = manifest.split(os.path.sep)[-1].split('_')[0]
+
+        #only get the earliest finished one for stability's sake
+        #if fkey in attempts_tracker and attempts_tracker[fkey] < attempt_num:
+        #attempts_tracker[fkey] = attempt_num 
 
         fields = fdir.split(os.path.sep)
         #e.g. proj1_input5472_attempt0.done 
         fname = fields[-1]
         #e.g. SRP008339
         study = fields[-2]
+        if study in seen and fkey in seen[study] and seen[study][fkey][0] < attempt_num:
+            continue 
         #e.g. 39
         loworder = fields[-3]
         loworders[study] = loworder
 
-        studies_done[study]+=1
         count += 1
 
         if study not in seen:
             seen[study]={}
         if fkey not in seen[study] or seen[study][fkey][0] > attempt_num:
-            seen[study][fkey] = [attempt_num, fdir, run, fname]
+            seen[study][fkey] = [attempt_num, fdir, fname, fname]
+
+    for study in seen.keys():
+        for fkey in seen[study].keys():
+            (attempt_num, fdir, run, fname) = seen[study][fkey]
+            #now get the run accession
+            #need this at this step to be able to further split the
+            #input for this study into subgroups based on the low order of the run accession
+            for run_manifest in glob.glob("%s/*.manifest" % (fdir)):
+                #e.g. SRR306518
+                run = run_manifest.split(os.path.sep)[-1].split('_')[0]
+                seen[study][fkey][2] = run
+                studies_done[study] += 1
     return count
    
 def main():
@@ -181,9 +195,10 @@ def main():
         logger.setLevel(logging.DEBUG)
         log("DEBUG mode")
     round_idx = 0
+    attempts_tracker = {}
     while(loop):
         log("ROUND %d\tfinding runs which are done in\t%s" % (round_idx, args.incoming_dir))
-        runs_done_count = find_runs(args, loworders, studies_done, seen)
+        runs_done_count = find_done_runs(args, loworders, studies_done, seen, attempts_tracker)
         log("ROUND %d\truns found which are done this round:\t%d" % (round_idx, runs_done_count))
         #overall, keep track of studies on FS that aren't done vs. those that have been unified already 
         keys = set(seen.keys())
@@ -197,7 +212,9 @@ def main():
             #if not, skip for now
             num_runs_done = studies_done[study]
             num_runs_total = study2run_count[study]
-            if num_runs_done != num_runs_total: continue
+            if num_runs_done != num_runs_total:
+                log("ROUND %d\tskipping study\t%s\t%d\tvs\t%d\n" % (round_idx, study, num_runs_total, num_runs_done))
+                continue
             #for debugging
             if args.debug and ctr >= 5:
                 break
@@ -210,8 +227,11 @@ def main():
                 counter += 1
                 log("ROUND %d\tprocessed study successfully\t%s" % (round_idx, study))
         #for debugging, only loop once
+        #loop = False
         loop = not args.debug
         round_idx += 1
+        log("Sleeping before round %d" % round_idx)
+        sleep(SLEEP)
 
 if __name__ == '__main__':
     main()
