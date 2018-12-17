@@ -19,11 +19,11 @@ has a complete set of "done" runs and then loop forever after sleeping for a few
 
 ## Other functionality
 
-### merge is for merging junctions from all samples into one sparse matrix
+*merge* is for merging junctions from all samples into one sparse matrix
 
-### disjoin is for taking an annotation and creating a disjoint set of exons from it
+*disjoin* is for taking an annotation and creating a disjoint set of exons from it
 it also contains code to re-assemble counts for transcripts, genes, original exons from the disjoint exon counts
 
-### annotate/annotation contains scripts for compiling a multi-source junction annotation
+*annotate/annotation* contains scripts for compiling a multi-source junction annotation
 
 annotate contains script(s) for annotating the merged junction file
