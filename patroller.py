@@ -47,9 +47,6 @@ def run_command(cmd_args, cmd_name, datetime_stamp):
         sys.stderr.write("error in run_command for command: %s\n" % cmd_args)
         raise cpe
 
-def search_for_done_files(directory):
-    return glob.glob("%s/**/*.done" % (directory), recursive=True)
-
 def generate_snakemake_cmd_args(args, staging_dir, output_dir, study, sample_ids_file):
     cmd_args = [SNAKEMAKE_PATH,'-j%d' % args.num_sm_proc, '--snakefile', args.snakefile, '-r', '--config']
     cmd_args.append('study=%s' % study)
@@ -214,7 +211,7 @@ def main():
                 log("ROUND %d\tskipping study\t%s\t%d\tvs\t%d" % (round_idx, study, num_runs_total, num_runs_done))
                 continue
             #for debugging
-            if args.debug and ctr >= 5:
+            if args.debug and ctr >= 7:
                 break
             ctr += 1
             log("ROUND %d\tprocessing study\t%s" % (round_idx, study))
