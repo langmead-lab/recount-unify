@@ -2,7 +2,7 @@
 next step after recount-pump in the monorail pipeline
 
 ## To run the patroller script:
-`python3 ./scripts/patroller.py --num-sm-proc #_procs --snakefile ./Snakefile --annotated-sj-file /path/to/annotated_junctions.tsv.gz --sample-ID-file /path/to/samples.tsv --incoming-dir /path/to/recount_pump_output --staging-dir /path/to/dir_to_hardlink_into --output-dir /path/to/dir_to_store_final_unified_output --existing-exon-sums-file /path/to/exons.bed.gz --project <project_name> --debug`
+`python3 ./patroller.py --num-sm-proc #_procs --snakefile ./Snakefile --annotated-sj-file /path/to/annotated_junctions.tsv.gz --sample-ID-file /path/to/samples.tsv --incoming-dir /path/to/recount_pump_output --staging-dir /path/to/dir_to_hardlink_into --output-dir /path/to/dir_to_store_final_unified_output --existing-exon-sums-file /path/to/exons.bed.gz --project <project_name> --debug`
 
 where:
 * `--num-sm-proc` is the number of concurrent Snakemake processes you want to run (i.e. `snakemake -j`)
