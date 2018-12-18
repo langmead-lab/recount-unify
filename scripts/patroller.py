@@ -129,7 +129,7 @@ def create_parser():
     return parser
     
 fpath_patt = re.compile(r'^((.+)_attempt(\d+)).done$')
-def find_done_runs(args, loworders, studies_done, seen, attempts_tracker):
+def find_done_runs(args, loworders, studies_done, seen, attempts_tracker, finished_studies):
     files = glob.glob("%s/**/*.done" % (args.incoming_dir), recursive=True)
     count = 0
     for f in files:
@@ -153,7 +153,7 @@ def find_done_runs(args, loworders, studies_done, seen, attempts_tracker):
         fname = fields[-1]
         #e.g. SRP008339
         study = fields[-2]
-        if study in seen and fkey in seen[study] and seen[study][fkey][0] < attempt_num:
+        if study in finished_studies or (study in seen and fkey in seen[study] and seen[study][fkey][0] < attempt_num):
             continue 
         #e.g. 39
         loworder = fields[-3]
@@ -180,15 +180,22 @@ def find_done_runs(args, loworders, studies_done, seen, attempts_tracker):
                 studies_done[study] += 1
                 runs_done_count += 1
     return runs_done_count
-   
+
+
+def load_finished_studies(args):
+    #e.g. unified/13/SRP001313/SRP001313.all.sjs.merged.annotated.tsv.gz
+    finished_studies = glob.glob("%s/??/*/*.all.sjs.merged.annotated.tsv.gz" % (args.output_dir))
+    return set([x.split(os.path.sep)[-2] for x in finished_studies])
+  
+ 
 def main():
     parser = create_parser()
     args = parser.parse_args()
 
     study2run_count = retrieve_project_manifest(args)
+    finished_studies = load_finished_studies(args)
 
     loworders = {}
-    studies_done = Counter()
     seen = {}
     done = {}
     counter = 0
@@ -199,12 +206,13 @@ def main():
     round_idx = 0
     attempts_tracker = {}
     while(loop):
+        runs_by_study_done = Counter()
         log("ROUND %d\tfinding runs which are done in\t%s" % (round_idx, args.incoming_dir))
-        runs_done_count = find_done_runs(args, loworders, studies_done, seen, attempts_tracker)
+        runs_done_count = find_done_runs(args, loworders, runs_by_study_done, seen, attempts_tracker, finished_studies)
         log("ROUND %d\truns found which are done this round:\t%d" % (round_idx, runs_done_count))
         #overall, keep track of studies on FS that aren't done vs. those that have been unified already 
         keys = set(seen.keys())
-        studies_to_process = keys - set(done.keys())
+        studies_to_process = keys - finished_studies
         log("ROUND %d\tstudies to process this round:\t%d" % (round_idx, len(studies_to_process)))
         ctr = 0
         while(len(studies_to_process) > 0):
@@ -212,7 +220,7 @@ def main():
             log("ROUND %d\tpopping study\t%s" % (round_idx, study))
             #first check to see if all the runs for this study are done
             #if not, skip for now
-            num_runs_done = studies_done[study]
+            num_runs_done = runs_by_study_done[study]
             num_runs_total = study2run_count[study]
             if num_runs_done != num_runs_total:
                 log("ROUND %d\tskipping study\t%s\t%d\tvs\t%d\n" % (round_idx, study, num_runs_total, num_runs_done))
@@ -225,15 +233,15 @@ def main():
             #pump processing is done, so prepare the file hierarchy and unify the results
             processed = process_study(args, loworders[study], study, seen[study], args.sample_ID_file) 
             if processed:
-                done[study] = counter
+                finished_studies.add(study)
                 counter += 1
                 log("ROUND %d\tprocessed study successfully\t%s" % (round_idx, study))
         #for debugging, only loop once
-        #loop = False
-        loop = not args.debug
+        loop = False
+        #loop = not args.debug
         round_idx += 1
-        log("Sleeping before round %d" % round_idx)
-        sleep(SLEEP)
+        #log("Sleeping before round %d" % round_idx)
+        #sleep(SLEEP)
 
 if __name__ == '__main__':
     main()
