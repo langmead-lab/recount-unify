@@ -17,7 +17,7 @@ where:
 `--debug` will force the pipeline to only run upto 5 random studies and then quit, otherwise it'll do every study that
 has a complete set of "done" runs and then loop forever after sleeping for a few seconds at each loop.
 
-Before running, make sure you've created the `--staging-dir`, the `--output-dir`, and a subdirectory in the working directory `logs` where per-study output from the Snakemake will be deposited.
+Before running, make sure you've created the `--staging-dir`, the `--output-dir`, and a subdirectory in the working directory `logs` where per-study output from the Snakemake will be deposited.  Make the staging, output and logs directories be subdirectories of `$PWD` when running script.  Assumption is that `$PWD/logs` subdirectory exists.
 
 ### Patroller Dependencies
 * zstd executable in the path
