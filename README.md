@@ -17,6 +17,12 @@ where:
 `--debug` will force the pipeline to only run upto 5 random studies and then quit, otherwise it'll do every study that
 has a complete set of "done" runs and then loop forever after sleeping for a few seconds at each loop.
 
+### Patroller Dependencies
+* zstd executable in the path
+* Snakemake executable in the path
+* Python 3.6
+* Python 2.7
+
 ## Other functionality
 
 *merge* is for merging junctions from all samples into one sparse matrix
