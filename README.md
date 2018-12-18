@@ -17,6 +17,8 @@ where:
 `--debug` will force the pipeline to only run upto 5 random studies and then quit, otherwise it'll do every study that
 has a complete set of "done" runs and then loop forever after sleeping for a few seconds at each loop.
 
+Before running, make sure you've created the `--staging-dir`, the `--output-dir`, and a subdirectory in the working directory `logs` where per study output from the Snakemake will be deposited.
+
 ### Patroller Dependencies
 * zstd executable in the path
 * Snakemake executable in the path
