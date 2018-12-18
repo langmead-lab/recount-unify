@@ -166,6 +166,7 @@ def find_done_runs(args, loworders, studies_done, seen, attempts_tracker):
         if fkey not in seen[study] or seen[study][fkey][0] > attempt_num:
             seen[study][fkey] = [attempt_num, fdir, fname, fname]
 
+    runs_done_count = 0
     for study in seen.keys():
         for fkey in seen[study].keys():
             (attempt_num, fdir, run, fname) = seen[study][fkey]
@@ -177,7 +178,8 @@ def find_done_runs(args, loworders, studies_done, seen, attempts_tracker):
                 run = run_manifest.split(os.path.sep)[-1].split('_')[0]
                 seen[study][fkey][2] = run
                 studies_done[study] += 1
-    return count
+                runs_done_count += 1
+    return runs_done_count
    
 def main():
     parser = create_parser()
