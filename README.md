@@ -23,7 +23,7 @@ Before running, make sure you've created the `--staging-dir`, the `--output-dir`
 * zstd executable in the path
 * Snakemake executable in the path
 * Python 3.6
-* Python 2.7
+* pypy2.7
 
 ## Other functionality
 
