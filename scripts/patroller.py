@@ -13,14 +13,6 @@ import urllib.request as urlr
 from collections import Counter
 import logging
 
-
-
-#stubbing the basic set of compilations here before we code the
-#interface to the remote DB
-compilations={'sra':[1,'sra_samples.tsv',1],
-                'gtex':[2,'gtex_samples.tsv',1],
-                'tcga':[3,'gtex_samples.tsv',23]}
-
 SNAKEMAKE_PATH = 'snakemake'
 
 #in sec
@@ -85,8 +77,7 @@ def process_study(args, study_loworder, study, study_map, sample_ids_file):
         attempt_name = fpath.split(os.path.sep)[-1]
         run_loworder = run[-2:]
         fout.write("%s\n" % (fpath)) 
-        #TODO: this is temporary (making soft links), need to hardlink, then delete
-        #d = os.path.join(staging_dir, run_loworder)
+        #TODO: this is temporary (making soft links), need to hardlink, then delete in a separate process
         d = os.path.join(staging_dir, run_loworder, attempt_name)
         if not os.path.exists(d):
             Path(d).mkdir(parents=True, exist_ok=True)
@@ -96,9 +87,6 @@ def process_study(args, study_loworder, study, study_map, sample_ids_file):
             [os.symlink(file_, os.path.join(d, file_.split(os.path.sep)[-1])) for file_ in glob.glob('%s/*' % fpath)]
         except FileExistsError as fee:
             pass
-        #shutil.copytree(fpath, os.path.join(dest_dir, loworder, study, job+'_'+attempt_num ))
-        #if args.remove_incoming:
-        #    shutil.rmtree(fpath)
     fout.close()
 
     output_dir = os.path.join(args.output_dir, study_loworder, study)
@@ -223,7 +211,7 @@ def main():
             num_runs_done = runs_by_study_done[study]
             num_runs_total = study2run_count[study]
             if num_runs_done != num_runs_total:
-                log("ROUND %d\tskipping study\t%s\t%d\tvs\t%d\n" % (round_idx, study, num_runs_total, num_runs_done))
+                log("ROUND %d\tskipping study\t%s\t%d\tvs\t%d" % (round_idx, study, num_runs_total, num_runs_done))
                 continue
             #for debugging
             if args.debug and ctr >= 5:
