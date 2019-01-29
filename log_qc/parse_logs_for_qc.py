@@ -61,8 +61,8 @@ qc = {}
 
 def run_command(cmd_args, cmd_name):
     #dont use shlex.quote, screws up the commandline
-    #cmd_args = ' '.join([' '.join(cmd_args), '>', '%s/%s.%s' % (LOGS_DIR, cmd_name, datetime_stamp), '2>&1'])
     cmd_args = ' '.join(cmd_args)
+    sys.stderr.write(cmd_args+'\n')
     try:
         cp = subprocess.run(args=cmd_args, shell=True, check=True, universal_newlines=True) 
     except subprocess.CalledProcessError as cpe:
@@ -77,47 +77,25 @@ def process_line(line, pattern, suffix, qc):
         if suffix in two_group:
             label = match.group(1)
             value = match.group(2)
-            if suffix == SEQTK_SUFFIX:
-                value_ = label
-                label = 'avgQ'
-                #use the nice program name.field_label for key
-                qc[sample]["%s.%s" % (names[suffix],label)] = value_
-                label = 'errQ'
-                qc[sample]["%s.%s" % (names[suffix],label)] = value
-            else:
-                qc[sample]["%s.%s" % (names[suffix],label)] = value
+            qc[sample]["%s.%s" % (names[suffix],label)] = value
         else:
             label = match.group(1)
             value = match.group(2)
             if suffix == KALLISTO_SUFFIX:
                 value = value.replace(',','')
-            if suffix == SEQTK_SUFFIX:
-                value_ = label
-                label = 'avgQ'
-                #use the nice program name.field_label for key
-                qc[sample]["%s.P1.%s" % (names[suffix],label)] = value_
-                label = 'errQ'
-                qc[sample]["%s.P1.%s" % (names[suffix],label)] = value
-                label = match.group(3)
-                value = match.group(4)
-                value_ = label
-                label = 'avgQ'
-                #use the nice program name.field_label for key
-                qc[sample]["%s.P2.%s" % (names[suffix],label)] = value_
-                label = 'errQ'
-                qc[sample]["%s.P2.%s" % (names[suffix],label)] = value
-            else:
-                qc[sample]["%s.%s" % (names[suffix],label)] = value
-                label = match.group(3)
-                value = match.group(4)
-                #Kallisto's pseudoaligned label vs. value is swapped
-                if suffix == KALLISTO_SUFFIX:
-                    temp_ = label
-                    label = value
-                    value = temp_
-                    value = value.replace(',','')
-                qc[sample]["%s.%s" % (names[suffix],label)] = value
+            qc[sample]["%s.%s" % (names[suffix],label)] = value
+            label = match.group(3)
+            value = match.group(4)
+            #Kallisto's pseudoaligned label vs. value is swapped
+            if suffix == KALLISTO_SUFFIX:
+                temp_ = label
+                label = value
+                value = temp_
+                value = value.replace(',','')
+            qc[sample]["%s.%s" % (names[suffix],label)] = value
     return matched
+
+sample2study = {}
 
 for f in log_files:
     (path, file_) = os.path.split(f)
@@ -126,20 +104,31 @@ for f in log_files:
     (sample, study, ref) = fields[FILE_PREFIX_FIELD_IDX].split(FILE_PREFIX_SEP)
     if sample not in qc:
         qc[sample] = {}
+        sample2study[sample] = study
     if suffix not in patterns:
         continue
     pattern = patterns[suffix]
     #need to decode zstd for seqtk log
     if suffix == SEQTK_SUFFIX:
         f1 = "%s.unc" % file_
-        #run_command(['zstd','-do',f1,f], "zstd_seqtk")
-        run_command(['zstd','-dc',f,' | egrep "^ALL" > %s' % f1], "zstd_seqtk")
+        run_command(['zstd','-dc',f,' | egrep -e "^ALL" | cut -f 8,9 > %s' % f1], "zstd_seqtk")
         f = f1
     line = None
     with open(f, "r") as fin:
         line = fin.read()
-        if suffix == SEQTK_SUFFIX:
-            os.unlink(f)
+    #handle seqTK differently given it's special format
+    if suffix == SEQTK_SUFFIX:
+        #os.unlink(f)
+        mate_idx = 0
+        lines = line.split('\n')
+        for line in lines:
+            if len(line) == 0:
+                continue
+            fields_ = line.rstrip().split('\t')
+            qc[sample]['%s.P%d.avgQ' % (names[suffix], mate_idx)] = fields_[0] 
+            qc[sample]['%s.P%d.errQ' % (names[suffix], mate_idx)] = fields_[1]
+            mate_idx += 1
+        continue
     if suffix not in SPLIT_LINE_SUFFIXES_MAP:
         lines = line.split('\n')
     else:
@@ -152,11 +141,12 @@ for f in log_files:
 
 header = None
 for sample in qc:
+    study = sample2study[sample]
     values = qc[sample]
     [sys.stderr.write(x+'\t'+values[x]+'\n') for x in values.keys()]
     if header is None:
         header = '\t'.join(sorted([x.lower() for x in values.keys()]))
-        sys.stdout.write(header+'\n')
+        sys.stdout.write('study\tsample\t'+header+'\n')
     output = '\t'.join([values[x] for x in sorted(values.keys())])
-    sys.stdout.write(output+'\n')
+    sys.stdout.write(study+'\t'+sample+'\t'+output+'\n')
 
