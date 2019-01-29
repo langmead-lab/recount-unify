@@ -4,6 +4,7 @@ import os
 import glob
 import re
 from operator import itemgetter
+import subprocess
 
 FILE_FIELD_SEP = '.'
 FILE_PREFIX_SEP = '_'
@@ -12,18 +13,18 @@ FILE_PREFIX_FIELD_IDX = 0
 STAR_SUFFIX = 'align.log'
 KALLISTO_SUFFIX = 'kallisto.log'
 FC_SUFFIXES = ['gene_fc_count_all.log','gene_fc_count_unique.log','exon_fc_count_all.log','exon_fc_count_unique.log']
-FC_SUFFIXES_MAP = set(FC_SUFFIXES)
+SPLIT_LINE_SUFFIXES_MAP = set(FC_SUFFIXES)
 BAMCOUNT_SUFFIXES = ['bamcount_auc.tsv','bamcount_frag.tsv']
 SEQTK_SUFFIX='fastq_check.tsv.zst'
+SPLIT_LINE_SUFFIXES_MAP.add(SEQTK_SUFFIX)
 
 STAR_PATTERN = re.compile(r'^\s*([^\|]+)\s+\|\t(\d+(\.\d+)?)')
 KALLISTO_PATTERN = re.compile(r'\[quant\]\s+(processed)\s+([\d,]+)\s+reads,\s+([\d,]+)\s+reads\s+(pseudoaligned)')
 #featurecounts has only 4 fields we want, but spread across 2 lines (consecutively)
-#FC_PATTERN = re.compile(r'(Total\s+[^\s]+)\s*:\s*(\d+).+\n.+(Successfully\s+assigned)\s+[^\s]+\s*:\s*([^\s]+)')
 FC_PATTERN = re.compile(r'(Total)\s+[^\s]+\s*:\s*(\d+).+\n.+Successfully\s+(assigned)\s+[^\s]+\s*:\s*([^\s]+)')
 BAMCOUNT_AUC_PATTERN = re.compile(r'^([^\t]+)\t(\d+)$')
 BAMCOUNT_FRAG_PATTERN = re.compile(r'^STAT\t([^\t]+)\t(\d+(\.\d+)?)$')
-SEQTK_PATTERN = re.compile(r'^ALL\s+\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+(\d+\.\d+)\s+(\d+\.\d+)')
+SEQTK_PATTERN = re.compile(r'ALL\s+\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+(\d+\.\d+)\s+(\d+\.\d+).+\nALL\s+\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+(\d+\.\d+)\s+(\d+\.\d+)')
 
 patterns = {
     STAR_SUFFIX:STAR_PATTERN, 
@@ -45,9 +46,11 @@ names[SEQTK_SUFFIX]='seqtk'
 names[STAR_SUFFIX]='star'
 
 #program patterns that have a label/value (2 group)
-two_group = set([STAR_SUFFIX, BAMCOUNT_SUFFIXES[1], BAMCOUNT_SUFFIXES[0], SEQTK_SUFFIX])
+two_group = set([STAR_SUFFIX, BAMCOUNT_SUFFIXES[1], BAMCOUNT_SUFFIXES[0]])
 #program patterns that have a 2 label/value groupings (4 group)
-four_group = set([KALLISTO_SUFFIX, FC_SUFFIXES[0], FC_SUFFIXES[2], FC_SUFFIXES[2], FC_SUFFIXES[3]])
+four_group = set([KALLISTO_SUFFIX, FC_SUFFIXES[0], FC_SUFFIXES[2], FC_SUFFIXES[2], FC_SUFFIXES[3], SEQTK_SUFFIX])
+
+single_match = four_group
 
 top_dir = sys.argv[1]
 
@@ -56,9 +59,21 @@ log_files.extend(glob.glob("%s/**/*.tsv*" % (top_dir), recursive=True))
 
 qc = {}
 
+def run_command(cmd_args, cmd_name):
+    #dont use shlex.quote, screws up the commandline
+    #cmd_args = ' '.join([' '.join(cmd_args), '>', '%s/%s.%s' % (LOGS_DIR, cmd_name, datetime_stamp), '2>&1'])
+    cmd_args = ' '.join(cmd_args)
+    try:
+        cp = subprocess.run(args=cmd_args, shell=True, check=True, universal_newlines=True) 
+    except subprocess.CalledProcessError as cpe:
+        sys.stderr.write("error in run_command for command: %s\n" % cmd_args)
+        raise cpe
+
 def process_line(line, pattern, suffix, qc):
     match = pattern.search(line)
+    matched = False
     if match:
+        matched = True
         if suffix in two_group:
             label = match.group(1)
             value = match.group(2)
@@ -76,16 +91,33 @@ def process_line(line, pattern, suffix, qc):
             value = match.group(2)
             if suffix == KALLISTO_SUFFIX:
                 value = value.replace(',','')
-            qc[sample]["%s.%s" % (names[suffix],label)] = value
-            label = match.group(3)
-            value = match.group(4)
-            #Kallisto's pseudoaligned label vs. value is swapped
-            if suffix == KALLISTO_SUFFIX:
-                temp_ = label
-                label = value
-                value = temp_
-                value = value.replace(',','')
-            qc[sample]["%s.%s" % (names[suffix],label)] = value
+            if suffix == SEQTK_SUFFIX:
+                value_ = label
+                label = 'avgQ'
+                #use the nice program name.field_label for key
+                qc[sample]["%s.P1.%s" % (names[suffix],label)] = value_
+                label = 'errQ'
+                qc[sample]["%s.P1.%s" % (names[suffix],label)] = value
+                label = match.group(3)
+                value = match.group(4)
+                value_ = label
+                label = 'avgQ'
+                #use the nice program name.field_label for key
+                qc[sample]["%s.P2.%s" % (names[suffix],label)] = value_
+                label = 'errQ'
+                qc[sample]["%s.P2.%s" % (names[suffix],label)] = value
+            else:
+                qc[sample]["%s.%s" % (names[suffix],label)] = value
+                label = match.group(3)
+                value = match.group(4)
+                #Kallisto's pseudoaligned label vs. value is swapped
+                if suffix == KALLISTO_SUFFIX:
+                    temp_ = label
+                    label = value
+                    value = temp_
+                    value = value.replace(',','')
+                qc[sample]["%s.%s" % (names[suffix],label)] = value
+    return matched
 
 for f in log_files:
     (path, file_) = os.path.split(f)
@@ -97,18 +129,26 @@ for f in log_files:
     if suffix not in patterns:
         continue
     pattern = patterns[suffix]
-    #TODO need to decode zstd for seqtk log
+    #need to decode zstd for seqtk log
     if suffix == SEQTK_SUFFIX:
-        continue
+        f1 = "%s.unc" % file_
+        #run_command(['zstd','-do',f1,f], "zstd_seqtk")
+        run_command(['zstd','-dc',f,' | egrep "^ALL" > %s' % f1], "zstd_seqtk")
+        f = f1
     line = None
     with open(f, "r") as fin:
         line = fin.read()
-    if suffix not in FC_SUFFIXES_MAP:
+        if suffix == SEQTK_SUFFIX:
+            os.unlink(f)
+    if suffix not in SPLIT_LINE_SUFFIXES_MAP:
         lines = line.split('\n')
     else:
         lines = [line]
     for line in lines:
-        process_line(line, pattern, suffix, qc)
+        matched = process_line(line, pattern, suffix, qc)
+        #performance, break if we matched and we're only looking for one
+        if matched and suffix in single_match:
+            break
 
 header = None
 for sample in qc:
