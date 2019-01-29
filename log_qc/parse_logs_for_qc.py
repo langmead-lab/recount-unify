@@ -52,13 +52,6 @@ four_group = set([KALLISTO_SUFFIX, FC_SUFFIXES[0], FC_SUFFIXES[2], FC_SUFFIXES[2
 
 single_match = four_group
 
-top_dir = sys.argv[1]
-
-log_files = glob.glob("%s/**/*.log" % (top_dir), recursive=True)
-log_files.extend(glob.glob("%s/**/*.tsv*" % (top_dir), recursive=True))
-
-qc = {}
-
 def run_command(cmd_args, cmd_name):
     #dont use shlex.quote, screws up the commandline
     cmd_args = ' '.join(cmd_args)
@@ -95,7 +88,18 @@ def process_line(line, pattern, suffix, qc):
             qc[sample]["%s.%s" % (names[suffix],label)] = value
     return matched
 
+
+top_dir = sys.argv[1]
+
+log_files = glob.glob("%s/**/*.log" % (top_dir), recursive=True)
+log_files.extend(glob.glob("%s/**/*.tsv*" % (top_dir), recursive=True))
+
+qc = {}
+#separate map for seqTK since it can have a variable # of fields
+stk = {}
+
 sample2study = {}
+num_mates = 0
 
 for f in log_files:
     (path, file_) = os.path.split(f)
@@ -104,6 +108,7 @@ for f in log_files:
     (sample, study, ref) = fields[FILE_PREFIX_FIELD_IDX].split(FILE_PREFIX_SEP)
     if sample not in qc:
         qc[sample] = {}
+        stk[sample] = {}
         sample2study[sample] = study
     if suffix not in patterns:
         continue
@@ -125,9 +130,10 @@ for f in log_files:
             if len(line) == 0:
                 continue
             fields_ = line.rstrip().split('\t')
-            qc[sample]['%s.P%d.avgQ' % (names[suffix], mate_idx)] = fields_[0] 
-            qc[sample]['%s.P%d.errQ' % (names[suffix], mate_idx)] = fields_[1]
+            stk[sample]['%s.P%d.avgQ' % (names[suffix], mate_idx)] = fields_[0] 
+            stk[sample]['%s.P%d.errQ' % (names[suffix], mate_idx)] = fields_[1]
             mate_idx += 1
+        num_mates = mate_idx
         continue
     if suffix not in SPLIT_LINE_SUFFIXES_MAP:
         lines = line.split('\n')
@@ -143,10 +149,22 @@ header = None
 for sample in qc:
     study = sample2study[sample]
     values = qc[sample]
+    stks = stk[sample]
     [sys.stderr.write(x+'\t'+values[x]+'\n') for x in values.keys()]
     if header is None:
         header = '\t'.join(sorted([x.lower() for x in values.keys()]))
+        header += '\t'+'\t'.join(['seqtk.P%d.avgQ\tseqtk.P%d.errQ' % (i,i) for i in range(0,num_mates)])
         sys.stdout.write('study\tsample\t'+header+'\n')
     output = '\t'.join([values[x] for x in sorted(values.keys())])
+    for i in range(0,num_mates):
+        v = "NA"
+        v2 = "NA"
+        k = 'seqtk.P%d.avgQ' % i
+        k2 = 'seqtk.P%d.errQ' % i
+        #if one key is in, then the other will be as well
+        if k in stks:
+            v = stks[k]
+            v2 = stks[k2]
+        output += '\t'+v+'\t'+v2
     sys.stdout.write(study+'\t'+sample+'\t'+output+'\n')
 
