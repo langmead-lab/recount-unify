@@ -17,9 +17,10 @@ SPLIT_LINE_SUFFIXES_MAP = set(FC_SUFFIXES)
 BAMCOUNT_SUFFIXES = ['bamcount_auc.tsv','bamcount_frag.tsv']
 SEQTK_SUFFIX='fastq_check.tsv.zst'
 SPLIT_LINE_SUFFIXES_MAP.add(SEQTK_SUFFIX)
+SPLIT_LINE_SUFFIXES_MAP.add(KALLISTO_SUFFIX)
 
 STAR_PATTERN = re.compile(r'^\s*([^\|]+)\s+\|\t(\d+(\.\d+)?)')
-KALLISTO_PATTERN = re.compile(r'\[quant\]\s+(processed)\s+([\d,]+)\s+reads,\s+([\d,]+)\s+reads\s+(pseudoaligned)')
+KALLISTO_PATTERN = re.compile(r'\[quant\]\s+(processed)\s+([\d,]+)\s+reads,\s+([\d,]+)\s+reads\s+(pseudoaligned)\n\[quant\]\s+(estimated\s+average\s+fragment\s+length):\s+(\d+(\.\d+)?)')
 #featurecounts has only 4 fields we want, but spread across 2 lines (consecutively)
 FC_PATTERN = re.compile(r'(Total)\s+[^\s]+\s*:\s*(\d+).+\n.+Successfully\s+(assigned)\s+[^\s]+\s*:\s*([^\s]+)')
 BAMCOUNT_AUC_PATTERN = re.compile(r'^([^\t]+)\t(\d+)$')
@@ -80,11 +81,15 @@ def process_line(line, pattern, suffix, qc):
             label = match.group(3)
             value = match.group(4)
             #Kallisto's pseudoaligned label vs. value is swapped
+            #we also need a 3rd value (est. avg. frag. len.)
             if suffix == KALLISTO_SUFFIX:
                 temp_ = label
                 label = value
                 value = temp_
                 value = value.replace(',','')
+                qc[sample]["%s.%s" % (names[suffix],label)] = value
+                label = match.group(5)
+                value = match.group(6)
             qc[sample]["%s.%s" % (names[suffix],label)] = value
     return matched
 
