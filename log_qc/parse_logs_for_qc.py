@@ -5,6 +5,9 @@ import glob
 import re
 from operator import itemgetter
 import subprocess
+import argparse
+from collections import Counter
+import patroller
 
 FILE_FIELD_SEP = '.'
 FILE_PREFIX_SEP = '_'
@@ -94,7 +97,18 @@ def process_line(line, pattern, suffix, qc):
     return matched
 
 
-top_dir = sys.argv[1]
+parser = argparse.ArgumentParser(description='Parse log/summary stat files from monorail run')
+parser.add_argument('--incoming-dir', metavar='/path/to/dir_containing_pump_processed_files', type=str, default=None, help='the path where recount-pump dumps it\'s procssed files.')
+args = parser.parse_args()
+top_dir = args.incoming_dir
+
+seen = {}
+loworders = {}
+done = {}
+attempts_tracker = {}
+runs_by_study_done = Counter()
+#only use "seen" here, the rest are just for compatibility
+patroller.find_done_runs(args, {}, runs_by_study_done, seen, {}, {})
 
 log_files = glob.glob("%s/**/*.log" % (top_dir), recursive=True)
 log_files.extend(glob.glob("%s/**/*.tsv*" % (top_dir), recursive=True))
@@ -106,17 +120,29 @@ stk = {}
 sample2study = {}
 num_mates = 0
 
+dups = set()
+
+fpath_patt = re.compile(r'^((.+)_attempt(\d+))')
 for f in log_files:
     (path, file_) = os.path.split(f)
+    if file_ in dups:
+        continue
     fields = file_.split(FILE_FIELD_SEP)
     suffix = FILE_FIELD_SEP.join(fields[1:])
     (sample, study, ref) = fields[FILE_PREFIX_FIELD_IDX].split(FILE_PREFIX_SEP)
+    m = fpath_patt.search(path)
+    fkey = m.group(2)
+    attempt_num = m.group(3)
+    #keep track of what study, proj_path, and attempt
+    if study not in seen or fkey not in seen[study] or seen[study][fkey][0] != attempt_num:
+        continue
     if sample not in qc:
         qc[sample] = {}
         stk[sample] = {}
         sample2study[sample] = study
     if suffix not in patterns:
         continue
+    dups.add(file_)
     pattern = patterns[suffix]
     #need to decode zstd for seqtk log
     if suffix == SEQTK_SUFFIX:
@@ -150,18 +176,30 @@ for f in log_files:
         if matched and suffix in single_match:
             break
 
+ratio_cols = [
+            ['bc_auc.all_%','bc_auc.ALL_READS_ANNOTATED_BASES','bc_auc.ALL_READS_ALL_BASES'],
+            ['bc_auc.unique_%','bc_auc.UNIQUE_READS_ANNOTATED_BASES','bc_auc.UNIQUE_READS_ALL_BASES'],
+            ['gene_gc.all_%','gene_fc_count_all.assigned','star.All_mapped_reads'],
+            ['gene_gc.unique_%','gene_fc_count_unique.assigned','star.Uniquely mapped reads number'],
+            ['exon_gc.all_%','exon_fc_count_all.assigned','star.All_mapped_reads'],
+            ['exon_gc.unique_%','exon_fc_count_unique.assigned','star.Uniquely mapped reads number']
+]
+
 header = None
 header_keys = []
 for sample in qc:
     study = sample2study[sample]
     values = qc[sample]
     stks = stk[sample]
-    [sys.stderr.write(x+'\t'+values[x]+'\n') for x in values.keys()]
+    values['star.All_mapped_reads'] = str(int(values['star.Uniquely mapped reads number']) + \
+                                        int(values['star.Number of reads mapped to multiple loci']))
+    values.update({n[0]:str(round(100*int(values[n[1]])/int(values[n[2]]),2)) for n in ratio_cols})
     if header is None:
         header_keys = sorted(values.keys())
         header = '\t'.join([x.lower() for x in header_keys])
         header += '\t'+'\t'.join(['seqtk.P%d.avgQ\tseqtk.P%d.errQ' % (i,i) for i in range(0,num_mates)])
         sys.stdout.write('study\tsample\t'+header+'\n')
+    [sys.stderr.write(x+'\t'+values[x]+'\n') for x in header_keys]
     output = '\t'.join([values[x] for x in header_keys])
     for i in range(0,num_mates):
         v = "NA"

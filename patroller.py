@@ -119,14 +119,15 @@ def find_done_runs(args, loworders, studies_done, seen, attempts_tracker, finish
     count = 0
     for f in files:
         #args.pump_dir/??/study/proj#_input#_attempt#.done
-        #example: srav1/39/SRP008339/proj1_input5472_attempt0.done
+        #old example: srav1/39/SRP008339/proj1_input5472_attempt0.done
+        #new example (loworder from run also): geuv_sc/42/ERP001942/92/proj1_input193_attempt0.done
         m = fpath_patt.search(f)
         assert(m)
-        #e.g. srav1/39/SRP008339/proj1_input5472_attempt0
+        #e.g. geuv_sc/42/ERP001942/92/proj1_input193_attempt0
         fdir = m.group(1)
-        #e.g. srav1/39/SRP008339/proj1_input5472
+        #e.g. geuv_sc/42/ERP001942/92/proj1_input193
         fkey = m.group(2)
-        #e.g. 1
+        #e.g. 0
         attempt_num = m.group(3)
 
         #only get the earliest finished one for stability's sake
@@ -134,14 +135,14 @@ def find_done_runs(args, loworders, studies_done, seen, attempts_tracker, finish
         #attempts_tracker[fkey] = attempt_num 
 
         fields = fdir.split(os.path.sep)
-        #e.g. proj1_input5472_attempt0.done 
+        #e.g. proj1_input193_attempt0.done
         fname = fields[-1]
-        #e.g. SRP008339
-        study = fields[-2]
+        #e.g. ERP001942
+        study = fields[-3]
         if study in finished_studies or (study in seen and fkey in seen[study] and seen[study][fkey][0] < attempt_num):
             continue 
-        #e.g. 39
-        loworder = fields[-3]
+        #e.g. 42
+        loworder = fields[-4]
         loworders[study] = loworder
 
         count += 1
