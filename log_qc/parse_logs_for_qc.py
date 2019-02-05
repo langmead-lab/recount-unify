@@ -151,16 +151,18 @@ for f in log_files:
             break
 
 header = None
+header_keys = []
 for sample in qc:
     study = sample2study[sample]
     values = qc[sample]
     stks = stk[sample]
     [sys.stderr.write(x+'\t'+values[x]+'\n') for x in values.keys()]
     if header is None:
-        header = '\t'.join(sorted([x.lower() for x in values.keys()]))
+        header_keys = sorted(values.keys())
+        header = '\t'.join([x.lower() for x in header_keys])
         header += '\t'+'\t'.join(['seqtk.P%d.avgQ\tseqtk.P%d.errQ' % (i,i) for i in range(0,num_mates)])
         sys.stdout.write('study\tsample\t'+header+'\n')
-    output = '\t'.join([values[x] for x in sorted(values.keys())])
+    output = '\t'.join([values[x] for x in header_keys])
     for i in range(0,num_mates):
         v = "NA"
         v2 = "NA"
