@@ -123,6 +123,7 @@ num_mates = 0
 dups = set()
 
 fpath_patt = re.compile(r'^((.+)_attempt(\d+))')
+fpath_patt2 = re.compile(r'^((.+)_att(\d+))')
 for f in log_files:
     (path, file_) = os.path.split(f)
     if file_ in dups:
@@ -131,6 +132,8 @@ for f in log_files:
     suffix = FILE_FIELD_SEP.join(fields[1:])
     (sample, study, ref) = fields[FILE_PREFIX_FIELD_IDX].split(FILE_PREFIX_SEP)
     m = fpath_patt.search(path)
+    if m is None:
+        m = fpath_patt2.search(f)
     fkey = m.group(2)
     attempt_num = m.group(3)
     #keep track of what study, proj_path, and attempt

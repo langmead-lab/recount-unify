@@ -114,6 +114,7 @@ def create_parser():
     return parser
     
 fpath_patt = re.compile(r'^((.+)_attempt(\d+)).done$')
+fpath_patt2 = re.compile(r'^((.+)_att(\d+)).done$')
 def find_done_runs(args, loworders, studies_done, seen, attempts_tracker, finished_studies):
     files = glob.glob("%s/**/*.done" % (args.incoming_dir), recursive=True)
     count = 0
@@ -121,9 +122,16 @@ def find_done_runs(args, loworders, studies_done, seen, attempts_tracker, finish
         #args.pump_dir/??/study/proj#_input#_attempt#.done
         #old example: srav1/39/SRP008339/proj1_input5472_attempt0.done
         #new example (loworder from run also): geuv_sc/42/ERP001942/92/proj1_input193_attempt0.done
+        #mixed with even newer example:
+        #./42/ERP001942/56/ERR204856/geuv_sc1_in1188_att0.done
         m = fpath_patt.search(f)
-        assert(m)
-        #e.g. geuv_sc/42/ERP001942/92/proj1_input193_attempt0
+        study_col = -3
+        loworder_col = -4
+        if m is None:
+            m = fpath_patt2.search(f)
+            study_col = -4
+            loworder_col = -5
+        #e.g. geuv_sc/42/ERP001942/92/proj1_input193_attempt0/att0
         fdir = m.group(1)
         #e.g. geuv_sc/42/ERP001942/92/proj1_input193
         fkey = m.group(2)
@@ -138,11 +146,11 @@ def find_done_runs(args, loworders, studies_done, seen, attempts_tracker, finish
         #e.g. proj1_input193_attempt0.done
         fname = fields[-1]
         #e.g. ERP001942
-        study = fields[-3]
+        study = fields[study_col]
         if study in finished_studies or (study in seen and fkey in seen[study] and seen[study][fkey][0] < attempt_num):
             continue 
         #e.g. 42
-        loworder = fields[-4]
+        loworder = fields[loworder_col]
         loworders[study] = loworder
 
         count += 1
