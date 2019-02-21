@@ -10,7 +10,8 @@ from collections import Counter
 import patroller
 
 FILE_FIELD_SEP = '.'
-FILE_PREFIX_SEP = '_'
+#FILE_PREFIX_SEP = '_'
+FILE_PREFIX_SEP = '!'
 FILE_PREFIX_FIELD_IDX = 0
 
 STAR_SUFFIX = 'align.log'
@@ -98,6 +99,7 @@ def process_line(line, pattern, suffix, qc):
 
 
 parser = argparse.ArgumentParser(description='Parse log/summary stat files from monorail run')
+#e.g. --incoming-dir /home-1/cwilks3@jhu.edu/storage/recount-pump/destination/geuv_sc.20190206
 parser.add_argument('--incoming-dir', metavar='/path/to/dir_containing_pump_processed_files', type=str, default=None, help='the path where recount-pump dumps it\'s procssed files.')
 args = parser.parse_args()
 top_dir = args.incoming_dir
@@ -130,7 +132,7 @@ for f in log_files:
         continue
     fields = file_.split(FILE_FIELD_SEP)
     suffix = FILE_FIELD_SEP.join(fields[1:])
-    (sample, study, ref) = fields[FILE_PREFIX_FIELD_IDX].split(FILE_PREFIX_SEP)
+    (sample, study, ref, download_method) = fields[FILE_PREFIX_FIELD_IDX].split(FILE_PREFIX_SEP)
     m = fpath_patt.search(path)
     if m is None:
         m = fpath_patt2.search(f)
