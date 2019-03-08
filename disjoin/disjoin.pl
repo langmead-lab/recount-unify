@@ -2,6 +2,9 @@
 #like GenomeRanges.disjoin
 use strict;
 
+print "DISJOIN is currently BROKEN, DONT USE!\n";
+exit(-1);
+
 my $START=0;
 my $END=1;
 
