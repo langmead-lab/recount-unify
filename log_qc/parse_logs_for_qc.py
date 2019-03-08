@@ -132,7 +132,8 @@ for f in log_files:
         continue
     fields = file_.split(FILE_FIELD_SEP)
     suffix = FILE_FIELD_SEP.join(fields[1:])
-    (sample, study, ref, download_method) = fields[FILE_PREFIX_FIELD_IDX].split(FILE_PREFIX_SEP)
+    fields2 = fields[FILE_PREFIX_FIELD_IDX].split(FILE_PREFIX_SEP)
+    (sample, study, ref) = fields2[:3]
     m = fpath_patt.search(path)
     if m is None:
         m = fpath_patt2.search(f)
@@ -198,6 +199,12 @@ for sample in qc:
     stks = stk[sample]
     values['star.All_mapped_reads'] = str(int(values['star.Uniquely mapped reads number']) + \
                                         int(values['star.Number of reads mapped to multiple loci']))
+    #count of fragments vs. total input from STAR
+    num_frags = values['bc_frag.COUNT']
+    if int(num_frags) != int(values['star.All_mapped_reads']):
+        sys.stderr.write("WARNING\tNUM_FRAGS != STAR MAPPED READS: %d vs. %d\n" % (num_frags,values['star.All_mapped_reads'])) 
+    total_input_frags = values['star.Number of input reads']
+    values['mapped fragments/total input %'] = str(int(100*round(int(num_frags) / int(total_input_frags),2)))
     values.update({n[0]:str(round(100*int(values[n[1]])/int(values[n[2]]),2)) for n in ratio_cols})
     if header is None:
         header_keys = sorted(values.keys())
@@ -217,4 +224,3 @@ for sample in qc:
             v2 = stks[k2]
         output += '\t'+v+'\t'+v2
     sys.stdout.write(study+'\t'+sample+'\t'+output+'\n')
-
