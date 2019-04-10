@@ -33,6 +33,14 @@ Tab-separated output written to stdout (unchanged unless noted):
 10. 1 if right splice site is annotated else 0
 
 everything else that was after the 3' motif column
+
+additionally, sample coverage related fields:
+count of samples
+sum
+average
+median
+
+compilation_id (data_source_id)
 """
 import sys
 import os
@@ -78,6 +86,17 @@ def load_preformatted_annotated_junctions(f):
                 three_p[hkey]=set()
             three_p[hkey].update(sources_set)
     return (annotated_junctions, five_p, three_p)
+
+def sample_summary_stats(sum_, covs):
+    covs = sorted(covs)
+    count = len(covs)
+    median = int(count/2)
+    if count % 2 == 0:
+        median = round((covs[median-1] + covs[median])/2.0, 3)
+    else:
+        median = covs[median]
+    avg = round(sum_/float(count), 3)
+    return (count, avg, median)
              
 if __name__ == '__main__':
     import argparse
@@ -87,6 +106,9 @@ if __name__ == '__main__':
     # Add command-line arguments
     parser.add_argument('--compiled-annotations', type=str, required=True,
             help='TSV of pre-compiled junctions which occur in >=1 annotations'
+        )
+    parser.add_argument('--compilation-id', type=int, required=True,
+            help='source compilation ID for Snaptron output'
         )
     args = parser.parse_args()
 
@@ -111,6 +133,12 @@ if __name__ == '__main__':
             five_atype = five_p[(chrm, start)]
         if (chrm, end) in three_p:
             three_atype = three_p[(chrm, end)]
+            
+        covs = [int(s.split(':')[1]) for s in tokens[SAMP_COV_COL].split(',')]
+        sum_ = sum(covs)
+        (count, avg, median) = sample_summary_stats(sum_, covs)
+
+        additional_fields.extend([str(count), str(sum_), str(avg), str(median), str(args.compilation_id)])
 
         print '\t'.join([str(snaptron_id), '\t'.join(junction), str(length), strand,
             ",".join(sorted(annotated)) if len(annotated) > 0 else '0', left_motif, right_motif,
