@@ -2,6 +2,11 @@
 import os
 import glob
 
+#current (4/13/2019) versions assumes this file structure in input:
+#config[input]/study_loworder/study/run_loworder/run/groupname_attempt#
+#e.g. (for CCLE, replace UUID with SRR accession if SRA/GTEx):
+#ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
+
 FILES=[os.path.join(config['staging'], config['study'] + '.all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], config['study'] + '.all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], config['study'] + '.unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], config['study'] + '.all.logs.tar.gz')]
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
