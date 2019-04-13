@@ -134,7 +134,7 @@ if __name__ == '__main__':
         if (chrm, end) in three_p:
             three_atype = three_p[(chrm, end)]
             
-        covs = [int(s.split(':')[1]) for s in tokens[SAMP_COV_COL].split(',')]
+        covs = [int(s.split(':')[1]) for s in tokens[SAMP_COV_COL].split(',')[1:]]
         sum_ = sum(covs)
         (count, avg, median) = sample_summary_stats(sum_, covs)
 

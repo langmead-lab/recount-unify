@@ -3,13 +3,19 @@ import os
 import glob
 
 FILES=[os.path.join(config['staging'], config['study'] + '.all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], config['study'] + '.all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], config['study'] + '.unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], config['study'] + '.all.logs.tar.gz')]
+
 main_script_path=os.path.join(workflow.basedir,'scripts')
+
 SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py')}
+
 
 if 'existing_sj_db' not in config:
 	config['existing_sj_db']=""
 if 'existing_sums' not in config:
 	config['existing_sums']=""
+
+if 'compilation_id' not in config:
+	config['compilation_id']=0
 
 wildcard_constraints:
 	group_num="[0-9a-zA-Z]{2}",
@@ -170,6 +176,7 @@ rule annotate_all_sjs:
 		os.path.join(config['staging'], config['study'] + '.all.sjs.merged.annotated.tsv.gz')
 	params:
 		annot_sjs=config['annotated_sjs'],
-		script_path=SCRIPTS['annotate']
+		script_path=SCRIPTS['annotate'],
+		compilation_id=config['compilation_id']
 	shell:
-		"zcat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} | gzip > {output}"
+		"zcat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --compilation-id {params.compilation_id} | gzip > {output}"
