@@ -26,6 +26,7 @@ static const int START_COL=7;
 static const int END_COL=8;
 
 static const int GENE_COL=9;
+static const int STRAND_COL=11;
 
 //first 6 columns are the key field for matching between
 //the annotation map and the disjoint exon sums
@@ -40,17 +41,22 @@ static const int MAX_REGION_BUFFER_SZ=500;
 //TODO2: figure this out automatically
 static const int NUM_SAMPLES=1393;
 
+typedef std::vector<char*> charlist;
+typedef hash_map<std::string, int> charmap;
+
 typedef struct {
-    char* name;
+    /*char* name;
     long start;
-    long end;
-    void* counts;
+    long end;*/
+    //gene names that have this exon
+    charmap* names;
+    //raw read count per sample
+    unsigned long* counts;
 } annotation_t;
 
 //track disjoint exon "keys" (chrm,start,end,name,score,strand) to array indexes
 //for actual genes/exons from annotation
 //list of actual annotations (annotation_t structs) for gene/exons
-typedef std::vector<char*> charlist;
 typedef hash_map<std::string, annotation_t*> annotation_t_map_t;
 typedef hash_map<std::string, charlist*> annotation_map_t;
 static const int process_region_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist) {
@@ -63,11 +69,12 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     long end = -1;
 	
     char* gname = nullptr;
+    char* strand = nullptr;
     
     char* key = new char[1024];
 
     int ret = 0;
-	int last_col = GENE_COL;
+	int last_col = STRAND_COL;
 	while(tok != nullptr) {
 		if(i > last_col)
 			break;
@@ -92,8 +99,10 @@ static const int process_region_line(char* line, const char* delim, annotation_m
 			end = atol(tok);
             memcpy((*key_fields)[i-CHRM_COL],tok,strlen(tok)+1);
         }
-        else if(i == GENE_COL) {
+        else if(i == GENE_COL)
 			gname = strdup(tok);
+        else if(i == STRAND_COL) {
+			strand = strdup(tok);
             memcpy((*key_fields)[i-CHRM_COL],tok,strlen(tok)+1);
         }
 		i++;
@@ -101,7 +110,7 @@ static const int process_region_line(char* line, const char* delim, annotation_m
 	}
     //make 2nd key (original annotated exon)
     char* key2 = new char[1024];
-    sprintf(key2,"%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[3]);
+    sprintf(key2,"%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[5]);
    
     //establish map between disjoint exon key and
     //original annotated exon key 
@@ -118,17 +127,15 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     free_key = true;
     if(alist->find(key2) == alist->end()) {
         annotation_t* coords = new annotation_t[1];
-        coords->start = start;
-        coords->end = end;
-        coords->name = gname;
+        coords->names = new charmap[1];
         coords->counts = nullptr;
         (*alist)[key2] = coords;
         free_key = false;
     }
+    //add gene name to exon's gene map
+    (*(*alist)[key2]->names)[gname]=1;
     if(free_key)
         delete key2;
-
-    //fprintf(stderr,"key1 %s key2 %s\n",key,key2);
 
     if(line_copy)
 		free(line_copy);
