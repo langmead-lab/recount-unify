@@ -131,8 +131,14 @@ for f in log_files:
     if file_ in dups:
         continue
     fields = file_.split(FILE_FIELD_SEP)
+    if len(fields) < 2:
+        sys.stderr.write("%s format not expected, skipping\n" % (f))
+        continue
     suffix = FILE_FIELD_SEP.join(fields[1:])
     fields2 = fields[FILE_PREFIX_FIELD_IDX].split(FILE_PREFIX_SEP)
+    if len(fields) < 3:
+        sys.stderr.write("%s format not expected, skipping\n" % (f))
+        continue
     (sample, study, ref) = fields2[:3]
     m = fpath_patt.search(path)
     if m is None:
@@ -185,11 +191,14 @@ for f in log_files:
 ratio_cols = [
             ['bc_auc.all_%','bc_auc.ALL_READS_ANNOTATED_BASES','bc_auc.ALL_READS_ALL_BASES'],
             ['bc_auc.unique_%','bc_auc.UNIQUE_READS_ANNOTATED_BASES','bc_auc.UNIQUE_READS_ALL_BASES'],
-            ['gene_gc.all_%','gene_fc_count_all.assigned','star.All_mapped_reads'],
-            ['gene_gc.unique_%','gene_fc_count_unique.assigned','star.Uniquely mapped reads number'],
-            ['exon_gc.all_%','exon_fc_count_all.assigned','star.All_mapped_reads'],
-            ['exon_gc.unique_%','exon_fc_count_unique.assigned','star.Uniquely mapped reads number']
+            ['gene_fc.all_%','gene_fc_count_all.assigned','star.All_mapped_reads'],
+            ['gene_fc.unique_%','gene_fc_count_unique.assigned','star.Uniquely mapped reads number'],
+            ['exon_fc.all_%','exon_fc_count_all.assigned','star.All_mapped_reads'],
+            ['exon_fc.unique_%','exon_fc_count_unique.assigned','star.Uniquely mapped reads number']
 ]
+
+#these might not be present
+optional_ratio_cols = ['gene_fc_count_all.assigned','gene_fc_count_unique.assigned','exon_fc_count_all.assigned','exon_fc_count_unique.assigned']
 
 header = None
 header_keys = []
@@ -197,6 +206,9 @@ for sample in qc:
     study = sample2study[sample]
     values = qc[sample]
     stks = stk[sample]
+    if 'gene_fc_count_all.assigned' not in values:
+        for k in optional_ratio_cols:
+            values[k] = "0"
     values['star.All_mapped_reads'] = str(int(values['star.Uniquely mapped reads number']) + \
                                         int(values['star.Number of reads mapped to multiple loci']))
     #count of fragments vs. total input from STAR
