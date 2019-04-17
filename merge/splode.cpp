@@ -177,7 +177,7 @@ static const int process_region_line(char* line, const char* delim, annotation_m
 }
 
 typedef std::vector<uint32_t*> intlist;
-static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list, hs* h) {
+static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list, hs* h, FILE* fout) {
 	char* line_copy = strdup(line);
 	char* tok = strtok(line_copy, delim);
     char* key = new char[1024];
@@ -233,10 +233,10 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
             while(chrm_cmp < 0 || ( chrm_cmp == 0 && h->heap.a[0].end < end)) {
                 //pop top of the heap and print
                 annot_heap_t aht = h->heap.a[0];
-                fprintf(stdout,"%s",aht.key->c_str());
+                fprintf(fout,"%s",aht.key->c_str());
                 for(int z = 0; z < NUM_SAMPLES; z++)
-                    fprintf(stdout,"\t%u",aht.counts[z]);
-                fprintf(stdout,"\n");
+                    fprintf(fout,"\t%u",aht.counts[z]);
+                fprintf(fout,"\n");
                 h->heap.a[0] = kv_pop(h->heap);
                 //maintain heap min property
                 ks_heapdown_aheap(0, h->heap.n, h->heap.a);
@@ -302,9 +302,7 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     hs h;
     h.heap.n = 0;
     h.heap.m = 1;
-    //ah.heap.a = new annot_heap_t[1];
     h.heap.a = (annot_heap_t*) calloc(sizeof(annot_heap_t),1);
-    //ah.heap.a = 0;
     h.seen = new countmap[1];
 
     //load mapping from disjoint exons to original annotated exons and genes
@@ -328,20 +326,25 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
 	size_t length = 0;
 	ssize_t bytes_read = getline(&line, &length, fin);
     err = 0;
+    //now output annotated sums already calculated
+    char* foutname = new char[1024];
+    sprintf(foutname,"%s.counts",key_column_type.c_str());
+    FILE* fout = fopen(foutname,"w");
 	while(bytes_read != -1) {
         //annotated sums get calculated in this function
-	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h);
+	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h, fout);
         assert(err == 0);
 		bytes_read = getline(&line, &length, fin);
     }
     for(int i = 0; i < h.heap.n; i++) {
         //heap min property doesn't matter here, just want to get what's left
         annot_heap_t aht = h.heap.a[i];
-        fprintf(stdout,"%s",aht.key->c_str());
+        fprintf(fout,"%s",aht.key->c_str());
         for(int z = 0; z < NUM_SAMPLES; z++)
-            fprintf(stdout,"\t%u",aht.counts[z]);
-        fprintf(stdout,"\n");
+            fprintf(fout,"\t%u",aht.counts[z]);
+        fprintf(fout,"\n");
     }
+    fclose(fout);
 }
 
 int main(int argc, char* argv[]) {
