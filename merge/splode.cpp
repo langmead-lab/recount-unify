@@ -37,10 +37,10 @@ static const int KEY_FIELD_COL_END=5;
 static const int LINE_BUFFER_LENGTH=1048576;
 //this sets the maximum number of overlapping original exons we expect
 //in any given region (how many we're prepared to keep in memory until they fall off the heap)
-//TODO: replace both of these with user passed in values
-static const int MAX_REGION_BUFFER_SZ=500;
+//both of these are overwritten with passed in values
+static int REGION_BUFFER_SZ=0;
 //TODO2: figure this out automatically
-static const int NUM_SAMPLES=1393;
+static int NUM_SAMPLES=0;
 
 typedef std::vector<std::string> strlist;
 typedef std::vector<char*> charlist;
@@ -228,8 +228,8 @@ static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t
 void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std::string key_column_type)
 {
     //start with static count matrix of 1024 exons
-    uint32_t** counts = new uint32_t*[1024];
-    for(int i = 0; i < 1024; i++)
+    uint32_t** counts = new uint32_t*[REGION_BUFFER_SZ];
+    for(int i = 0; i < REGION_BUFFER_SZ; i++)
         counts[i] = new uint32_t[NUM_SAMPLES]();
 
     //load mapping from disjoint exons to original annotated exons and genes
@@ -275,22 +275,32 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     delete[] key_fields;
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 	int o;
 	std::string disjoint_exon_sum_file;
 	std::string annotation_map_file;
     //this determine which columns in the annotation_map_file
     //are used to form the unique annotation identifier of the annotated entity (exon,gene)
 	std::string key_column_type = "exon";
-	while((o  = getopt(argc, argv, "a:d:k:")) != -1) 
-	{
+    int num_samples = 0;
+    //how large the counts array is, i.e. this is the maximum number of annated entities
+    //expected to be overlapping in the same region at any given time
+    int region_buffer_size = 1024;
+	while((o  = getopt(argc, argv, "a:d:s:k:")) != -1) {
 		switch(o) 
 		{
 			case 'a': annotation_map_file = optarg; break;
 			case 'd': disjoint_exon_sum_file = optarg; break;
+			case 's': num_samples = atoi(optarg); break;
 			case 'k': key_column_type = optarg; break;
+			case 'b': region_buffer_size = atoi(optarg); break;
 		}
 	}
+	if(num_samples <= 0) {
+		std::cerr << "You must give a positive number > 0 for num_samples, currently=" << num_samples << "\n";
+		exit(-1);
+	}
+    NUM_SAMPLES = num_samples;
+    REGION_BUFFER_SZ = region_buffer_size;
 	go(annotation_map_file, disjoint_exon_sum_file, key_column_type);
 }

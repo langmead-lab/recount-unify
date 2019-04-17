@@ -14,10 +14,10 @@ test_merge: tests/test.bed merge
 	diff tests/test.bed.expected test.bed.test 
 
 test: splode
-	./splode -a amap -d gsums -k exon
+	./splode -a amap -d gsums -s 1393 -k exon
 	sort -k1,4 exon.counts > exon.counts.sorted
 	diff gsums.exon.counts.sorted exon.counts.sorted
-	./splode -a amap -d gsums -k gene
+	./splode -a amap -d gsums -s 1393 -k gene
 	sort -k1,4 gene.counts > gene.counts.sorted
 	diff gsums.gene.counts.sorted gene.counts.sorted
 
