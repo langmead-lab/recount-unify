@@ -1,9 +1,9 @@
 #all: merge
-all: expand
+all: splode
 
-expand: expand.cpp
-	g++ -O3 -std=c++11 expand.cpp -o expand
-	#g++ -g -std=c++11 expand.cpp -o expand
+splode: splode.cpp
+	#g++ -O3 -std=c++11 splode.cpp -o splode
+	g++ -g -std=c++11 splode.cpp -o splode
 
 #merge: merge.cpp
 	#g++ -O3 -Wno-write-strings -std=c++11 merge.cpp -o merge
@@ -14,4 +14,4 @@ test: tests/test.bed merge
 	diff tests/test.bed.expected test.bed.test 
 
 clean: 
-	rm merge expand
+	rm merge splode
