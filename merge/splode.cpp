@@ -9,16 +9,44 @@
 #include <vector>
 #include <cstdint>
 #include <fcntl.h>
+#include "ksort.h"
+#include "kvec.h"
 
-#if USE_SKA_FLAT_HASH
-    #  include "flat_hash_map.hpp"
-    template<typename K, typename V>
-    using hash_map = ska::flat_hash_map<K,V>;
-#else
-#  include <unordered_map>
-    template<typename K, typename V>
-    using hash_map = std::unordered_map<K,V>;
-#endif
+#include <unordered_map>
+template<typename K, typename V>
+using hash_map = std::unordered_map<K,V>;
+
+typedef std::vector<std::string> strlist;
+typedef std::vector<char*> charlist;
+typedef hash_map<std::string, int> strmap;
+typedef hash_map<std::string, uint32_t*> countmap;
+
+typedef struct {
+    //gene names that have this exon
+    char* chrm;
+    long start;
+    long end;
+    strmap* names;
+} annotation_t;
+
+typedef struct {
+    char* chrm;
+    long start;
+    long end;
+    //raw read count per sample
+    uint32_t* counts;
+    //original annotation entry
+    annotation_t* a;
+    const std::string* key;
+} annot_heap_t;
+
+#define heap_lt(a, b) (strcmp((a).chrm, (b).chrm) < 0 || ( strcmp((a).chrm, (b).chrm) == 0 && (a).end < (b).end))
+KSORT_INIT(aheap, annot_heap_t, heap_lt)
+
+typedef struct {
+    kvec_t(annot_heap_t) heap;
+    countmap* seen;
+} hs;
 
 //used for annotation-mapping file where we read a 3+ column BED file
 static const int CHRM_COL=6;
@@ -42,23 +70,13 @@ static int REGION_BUFFER_SZ=0;
 //TODO2: figure this out automatically
 static int NUM_SAMPLES=0;
 
-typedef std::vector<std::string> strlist;
-typedef std::vector<char*> charlist;
-typedef hash_map<std::string, int> charmap;
-typedef hash_map<std::string, uint32_t*> countmap;
 
-typedef struct {
-    //gene names that have this exon
-    charmap* names;
-    //raw read count per sample
-    uint32_t* counts;
-} annotation_t;
 
 //track disjoint exon "keys" (chrm,start,end,name,score,strand) to array indexes
 //for actual genes/exons from annotation
 //list of actual annotations (annotation_t structs) for gene/exons
 typedef hash_map<std::string, annotation_t*> annotation_t_map_t;
-typedef hash_map<std::string, charmap*> annotation_map_t;
+typedef hash_map<std::string, strmap*> annotation_map_t;
 static const int process_region_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, uint32_t** counts, int last_col, std::string key_column_type) {
 	char* line_copy = strdup(line);
 	char* tok = strtok(line_copy, delim);
@@ -123,7 +141,7 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     //original annotated entity key 
     bool free_key = true;
     if(amap->find(key) == amap->end()) {
-        (*amap)[key] = new charmap[1];
+        (*amap)[key] = new strmap[1];
         free_key = false;
     }
 
@@ -132,8 +150,11 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     auto it = alist->find(key2);
     if(it == alist->end()) {
         annotation_t* coords = new annotation_t[1];
-        coords->names = new charmap[1];
-        coords->counts = *counts;
+        coords->chrm = strdup((*key_fields)[0]);
+        coords->start = atol((*key_fields)[1]);
+        coords->end = atol((*key_fields)[2]);
+        coords->names = new strmap[1];
+        //coords->counts = *counts;
         (*alist)[key2] = coords;
         free_key2 = false;
     }
@@ -156,14 +177,16 @@ static const int process_region_line(char* line, const char* delim, annotation_m
 }
 
 typedef std::vector<uint32_t*> intlist;
-static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list) {
+static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list, hs* h) {
 	char* line_copy = strdup(line);
 	char* tok = strtok(line_copy, delim);
     char* key = new char[1024];
 	int i = 0;
     int ret = 0;
     int k = 0;
-    charmap* annotations = nullptr;
+    char* chrm = nullptr;
+    long end = -1;
+    strmap* annotations = nullptr;
 	while(tok != nullptr) {
         if(i <= KEY_FIELD_COL_END) {
             memcpy((*key_fields)[i],tok,strlen(tok)+1);
@@ -173,11 +196,55 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
         }
         //make the first (disjoint exon) key
         else if(i == KEY_FIELD_COL_END+1) {
+            chrm = (*key_fields)[0];
+            end = atol((*key_fields)[2]);
             sprintf(key,"%s\t%s\t%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[3],(*key_fields)[4],(*key_fields)[5]);
+            //get list of annotations (e.g. exons) which overlap this disjoin exon
             annotations = (*amap)[key];
-            for(auto const& kv: *annotations) {
-                uint32_t* c = (*alist)[kv.first]->counts;
-                counts_list->push_back(c);
+            //for each overlapping annotation, we've either added it already
+            //or it needs to be added to the heap
+            for(auto const& annot_key : *annotations) {
+                auto it = h->seen->find(annot_key.first);
+                //check if we've already added this annotation to the heap
+                if(it == h->seen->end()) {
+                    annotation_t* annot_coord = (*alist)[annot_key.first];
+                    annot_heap_t aht;
+                    aht.chrm = annot_coord->chrm;
+                    aht.start = annot_coord->start;
+                    aht.end = annot_coord->end;
+                    aht.key = &annot_key.first;
+                    //TODO replace this with a static buffer of counts arrays, pre-allocated
+                    //and a free list
+                    aht.counts = new uint32_t[NUM_SAMPLES]();
+                    kv_push(annot_heap_t, h->heap, aht);
+                    //re-establish heapmin property
+                    ks_heapup_aheap(h->heap.n, h->heap.a);    
+                    //mark as added to heap
+                    (*(h->seen))[annot_key.first] = aht.counts;
+                    //need to track counts array for incrementing later in this function
+                    counts_list->push_back(aht.counts);
+                }
+                //added annotation already, but get its counts array
+                else
+                    counts_list->push_back(it->second);
+            }
+            //check heap here if the lowest is non-overlapping (by end coordinate) with the current disjoint exon
+            int chrm_cmp = strcmp(h->heap.a[0].chrm,chrm);
+            while(chrm_cmp < 0 || ( chrm_cmp == 0 && h->heap.a[0].end < end)) {
+                //pop top of the heap and print
+                annot_heap_t aht = h->heap.a[0];
+                fprintf(stdout,"%s",aht.key->c_str());
+                for(int z = 0; z < NUM_SAMPLES; z++)
+                    fprintf(stdout,"\t%u",aht.counts[z]);
+                fprintf(stdout,"\n");
+                h->heap.a[0] = kv_pop(h->heap);
+                //maintain heap min property
+                ks_heapdown_aheap(0, h->heap.n, h->heap.a);
+                //check next chromosome match
+                chrm_cmp = strcmp(h->heap.a[0].chrm,chrm);
+                //clean up
+                h->seen->erase(*aht.key);
+                delete aht.counts;
             }
         }
         //reaching here means we're in the counts part of the line
@@ -185,7 +252,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
         k = i - COUNTS_START_COL;
         //from here for each count, loop through the set of count arrays, update sum at each array position k
         for(auto const& e: *counts_list)
-            e[k]+=atol(tok);
+            e[k] += atol(tok);
 		i++;
 		tok = strtok(nullptr, delim);
     }
@@ -228,9 +295,17 @@ static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t
 void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std::string key_column_type)
 {
     //start with static count matrix of 1024 exons
-    uint32_t** counts = new uint32_t*[REGION_BUFFER_SZ];
-    for(int i = 0; i < REGION_BUFFER_SZ; i++)
-        counts[i] = new uint32_t[NUM_SAMPLES]();
+    uint32_t** counts = nullptr;
+    //heap-related based on lh3's BFC's code:
+    //https://github.com/lh3/bfc/blob/69ab176e7aac4af482d7d8587e45bfe239d02c96/correct.c
+    //kvec_t(annot_heap_t) ah;
+    hs h;
+    h.heap.n = 0;
+    h.heap.m = 1;
+    //ah.heap.a = new annot_heap_t[1];
+    h.heap.a = (annot_heap_t*) calloc(sizeof(annot_heap_t),1);
+    //ah.heap.a = 0;
+    h.seen = new countmap[1];
 
     //load mapping from disjoint exons to original annotated exons and genes
     FILE* afp = fopen(annotation_map_file.c_str(), "r");
@@ -255,23 +330,18 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     err = 0;
 	while(bytes_read != -1) {
         //annotated sums get calculated in this function
-	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list);
+	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h);
         assert(err == 0);
 		bytes_read = getline(&line, &length, fin);
     }
-    //now output annotated sums already calculated
-    char* foutname = new char[1024];
-    sprintf(foutname,"%s.counts",key_column_type.c_str());
-    FILE* fout = fopen(foutname,"w");
-    for(auto const& annot : annot2counts) {
-        uint32_t* c = annot2counts[annot.first]->counts;
-        fprintf(fout,"%s",annot.first.c_str());
-        for(int i=0; i < NUM_SAMPLES; i++)
-            fprintf(fout,"\t%u",c[i]);
-        fprintf(fout,"\n");
+    for(int i = 0; i < h.heap.n; i++) {
+        //heap min property doesn't matter here, just want to get what's left
+        annot_heap_t aht = h.heap.a[i];
+        fprintf(stdout,"%s",aht.key->c_str());
+        for(int z = 0; z < NUM_SAMPLES; z++)
+            fprintf(stdout,"\t%u",aht.counts[z]);
+        fprintf(stdout,"\n");
     }
-    fclose(fout);
-    delete[] key_fields;
 }
 
 int main(int argc, char* argv[]) {
