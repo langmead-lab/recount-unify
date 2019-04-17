@@ -245,22 +245,21 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     char** key_fields = new char*[KEY_FIELD_COL_END+1];
     for(int i=0;i<=KEY_FIELD_COL_END;i++)
         key_fields[i]=new char[100];
+    intlist* counts_list = new intlist[1];
 
-	char* line = nullptr;
+    int last_col = NUM_SAMPLES+GENE_COL-1;
+	
+    char* line = nullptr;
 	size_t length = 0;
 	ssize_t bytes_read = getline(&line, &length, fin);
     err = 0;
-    int counts_idx = 0;
-    int last_col = NUM_SAMPLES+GENE_COL-1;
-    uint32_t* counts_temp = new uint32_t[NUM_SAMPLES]();
-    intlist* counts_list = new intlist[1];
 	while(bytes_read != -1) {
-        //annotated exon sums get calculated in this function
+        //annotated sums get calculated in this function
 	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list);
-        assert(err==0);
+        assert(err == 0);
 		bytes_read = getline(&line, &length, fin);
     }
-    //now output annotated sums alread calculated
+    //now output annotated sums already calculated
     char* foutname = new char[1024];
     sprintf(foutname,"%s.counts",key_column_type.c_str());
     FILE* fout = fopen(foutname,"w");
