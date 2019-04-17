@@ -45,6 +45,7 @@ static const int NUM_SAMPLES=1393;
 typedef std::vector<std::string> strlist;
 typedef std::vector<char*> charlist;
 typedef hash_map<std::string, int> charmap;
+typedef hash_map<std::string, uint32_t*> countmap;
 
 typedef struct {
     //gene names that have this exon
@@ -57,7 +58,6 @@ typedef struct {
 //for actual genes/exons from annotation
 //list of actual annotations (annotation_t structs) for gene/exons
 typedef hash_map<std::string, annotation_t*> annotation_t_map_t;
-//typedef hash_map<std::string, strlist*> annotation_map_t;
 typedef hash_map<std::string, charmap*> annotation_map_t;
 static const int process_region_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, uint32_t** counts, int last_col) {
 	char* line_copy = strdup(line);
@@ -84,10 +84,8 @@ static const int process_region_line(char* line, const char* delim, annotation_m
             continue;
         }
         //make the first (disjoint exon) key
-        else if(i == KEY_FIELD_COL_END+1) {
+        else if(i == KEY_FIELD_COL_END+1)
             sprintf(key,"%s\t%s\t%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[3],(*key_fields)[4],(*key_fields)[5]);
-            //fprintf(stderr,"key: %s\n",key);
-        }
         if(i == CHRM_COL) {
             chrm = strdup(tok);
             memcpy((*key_fields)[i-CHRM_COL],tok,strlen(tok)+1);
@@ -114,13 +112,11 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     char* key2_ = new char[1024];
     sprintf(key2_,"%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[5]);
     std::string key2(key2_);
-    //fprintf(stderr,"key2: %s\n",key2);
    
     //establish map between disjoint exon key and
     //original annotated exon key 
     bool free_key = true;
     if(amap->find(key) == amap->end()) {
-        //(*amap)[key] = new strlist[1];
         (*amap)[key] = new charmap[1];
         free_key = false;
     }
@@ -159,7 +155,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
     char* key = new char[1024];
 	int i = 0;
     int ret = 0;
-    //strlist* real_exons = nullptr;
+    int k = 0;
     charmap* real_exons = nullptr;
 	while(tok != nullptr) {
         if(i <= KEY_FIELD_COL_END) {
@@ -171,21 +167,22 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
         //make the first (disjoint exon) key
         else if(i == KEY_FIELD_COL_END+1) {
             sprintf(key,"%s\t%s\t%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[3],(*key_fields)[4],(*key_fields)[5]);
-            //fprintf(stderr,"key:%s\n",key);
             real_exons = (*amap)[key];
             for(auto const& kv: *real_exons) {
-                //fprintf(stderr,"%s\ti=%d %s %s\n",line,i,key,kv.first.c_str());
                 uint32_t* c = (*alist)[kv.first]->counts;
                 counts_list->push_back(c);
             }
         }
-        int k = i - COUNTS_START_COL;
-        //TODO: from here for each count, loop through the set of count arrays, ++ each array at position k
-        //for(auto const& e: *counts_list) {
+        //reaching here means we're in the counts part of the line
+        //k starts at 0 for the counts matrix
+        k = i - COUNTS_START_COL;
+        //from here for each count, loop through the set of count arrays, update sum at each array position k
+        for(auto const& e: *counts_list)
+            e[k]+=atol(tok);
 		i++;
 		tok = strtok(nullptr, delim);
     }
-   
+    //need this for each line independently, so make sure to reset 
     counts_list->clear(); 
     delete key;
     if(line_copy)
@@ -223,10 +220,10 @@ static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t
 
 void go(std::string annotation_map_file, std::string disjoint_exon_sum_file)
 {
-    //start with static count matrix
+    //start with static count matrix of 1024 exons
     uint32_t** counts = new uint32_t*[1024];
-    for(int i = 0; i < NUM_SAMPLES; i++)
-        counts[i] = new uint32_t[NUM_SAMPLES];
+    for(int i = 0; i < 1024; i++)
+        counts[i] = new uint32_t[NUM_SAMPLES]();
 
     FILE* afp = fopen(annotation_map_file.c_str(), "r");
     annotation_map_t disjoint2annotation; 
@@ -246,13 +243,29 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file)
     err = 0;
     int counts_idx = 0;
     int last_col = NUM_SAMPLES+GENE_COL-1;
-    uint32_t* counts_temp = new uint32_t[NUM_SAMPLES];
+    uint32_t* counts_temp = new uint32_t[NUM_SAMPLES]();
     intlist* counts_list = new intlist[1];
 	while(bytes_read != -1) {
 	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &exon2counts, counts_list);
         assert(err==0);
 		bytes_read = getline(&line, &length, fin);
     }
+    countmap gene2counts;
+    FILE* fout = fopen("exons.counts","w");
+    for(auto const& exon : exon2counts) {
+        for(auto const& gene : *(exon2counts[exon.first]->names))
+            if(gene2counts.find(gene.first) == gene2counts.end())
+                gene2counts[gene.first] = new uint32_t[NUM_SAMPLES]();
+        uint32_t* c = exon2counts[exon.first]->counts;
+        fprintf(fout,"%s",exon.first.c_str());
+        for(int i=0; i < NUM_SAMPLES; i++) {
+            fprintf(fout,"\t%u",c[i]);
+            for(auto const& gene : *(exon2counts[exon.first]->names))
+                gene2counts[gene.first][i]+=c[i];
+        }
+        fprintf(fout,"\n");
+    }
+    fclose(fout);
     delete[] key_fields;
 }
 
