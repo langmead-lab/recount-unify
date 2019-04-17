@@ -59,7 +59,7 @@ typedef struct {
 //list of actual annotations (annotation_t structs) for gene/exons
 typedef hash_map<std::string, annotation_t*> annotation_t_map_t;
 typedef hash_map<std::string, charmap*> annotation_map_t;
-static const int process_region_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, uint32_t** counts, int last_col) {
+static const int process_region_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, uint32_t** counts, int last_col, std::string key_column_type) {
 	char* line_copy = strdup(line);
 	char* tok = strtok(line_copy, delim);
 	int i = 0;
@@ -98,8 +98,10 @@ static const int process_region_line(char* line, const char* delim, annotation_m
             end = atol(tok);
             memcpy((*key_fields)[i-CHRM_COL],tok,strlen(tok)+1);
         }
-        else if(i == GENE_COL)
+        else if(i == GENE_COL) {
             gname = strdup(tok);
+            memcpy((*key_fields)[i-CHRM_COL],tok,strlen(tok)+1);
+        }
         else if(i == STRAND_COL) {
             strand = strdup(tok);
             memcpy((*key_fields)[i-CHRM_COL],tok,strlen(tok)+1);
@@ -108,20 +110,24 @@ static const int process_region_line(char* line, const char* delim, annotation_m
 		i++;
 		tok = strtok(nullptr, delim);
 	}
-    //make 2nd key (original annotated exon)
+    //make 2nd key (original annotated exon/gene/other)
     char* key2_ = new char[1024];
-    sprintf(key2_,"%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[5]);
+    if(strcmp(key_column_type.c_str(),"exon") == 0)
+        sprintf(key2_,"%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[5]);
+    //gene
+    else
+        sprintf(key2_,"%s",(*key_fields)[3]);
     std::string key2(key2_);
    
     //establish map between disjoint exon key and
-    //original annotated exon key 
+    //original annotated entity key 
     bool free_key = true;
     if(amap->find(key) == amap->end()) {
         (*amap)[key] = new charmap[1];
         free_key = false;
     }
 
-    //now store the original annotated exon
+    //now store the original annotated entity
     bool free_key2 = true;
     auto it = alist->find(key2);
     if(it == alist->end()) {
@@ -139,7 +145,8 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     if(free_key)
         delete key;
     //add gene name to exon's gene map
-    (*(*alist)[key2]->names)[gname]=1;
+    if(strcmp(key_column_type.c_str(),"exon") == 0)
+        (*(*alist)[key2]->names)[gname]=1;
 
     if(line_copy)
 		free(line_copy);
@@ -156,7 +163,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
 	int i = 0;
     int ret = 0;
     int k = 0;
-    charmap* real_exons = nullptr;
+    charmap* annotations = nullptr;
 	while(tok != nullptr) {
         if(i <= KEY_FIELD_COL_END) {
             memcpy((*key_fields)[i],tok,strlen(tok)+1);
@@ -167,8 +174,8 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
         //make the first (disjoint exon) key
         else if(i == KEY_FIELD_COL_END+1) {
             sprintf(key,"%s\t%s\t%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[3],(*key_fields)[4],(*key_fields)[5]);
-            real_exons = (*amap)[key];
-            for(auto const& kv: *real_exons) {
+            annotations = (*amap)[key];
+            for(auto const& kv: *annotations) {
                 uint32_t* c = (*alist)[kv.first]->counts;
                 counts_list->push_back(c);
             }
@@ -192,7 +199,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
     return ret;
 }
     
-static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t_map_t* alist, uint32_t*** counts) {
+static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t_map_t* alist, uint32_t*** counts, std::string key_column_type) {
     //temporarily holds the distinct fields used for the matching key
     char** key_fields = new char*[KEY_FIELD_COL_END+1];
     for(int i=0;i<=KEY_FIELD_COL_END;i++)
@@ -204,7 +211,7 @@ static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t
 	int err = 0;
     int counts_idx = 0;
 	while(bytes_read != -1) {
-	    err = process_region_line(strdup(line), "\t", amap, &key_fields, alist, &((*counts)[counts_idx++]), STRAND_COL);
+	    err = process_region_line(strdup(line), "\t", amap, &key_fields, alist, &((*counts)[counts_idx++]), STRAND_COL, key_column_type);
         assert(err==0);
 		bytes_read = getline(&line, &length, fin);
     }
@@ -218,19 +225,21 @@ static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t
     return err;
 }
 
-void go(std::string annotation_map_file, std::string disjoint_exon_sum_file)
+void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std::string key_column_type)
 {
     //start with static count matrix of 1024 exons
     uint32_t** counts = new uint32_t*[1024];
     for(int i = 0; i < 1024; i++)
         counts[i] = new uint32_t[NUM_SAMPLES]();
 
+    //load mapping from disjoint exons to original annotated exons and genes
     FILE* afp = fopen(annotation_map_file.c_str(), "r");
     annotation_map_t disjoint2annotation; 
-    annotation_t_map_t exon2counts;
-    int err = read_annotation(afp, &disjoint2annotation, &exon2counts, &counts);
+    annotation_t_map_t annot2counts;
+    int err = read_annotation(afp, &disjoint2annotation, &annot2counts, &counts, key_column_type);
     fclose(afp);
-    
+   
+    //now walk through file of disjoint exon sums 
     FILE* fin = fopen(disjoint_exon_sum_file.c_str(), "r");
     //temporarily holds the distinct fields used for the matching key
     char** key_fields = new char*[KEY_FIELD_COL_END+1];
@@ -246,23 +255,20 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file)
     uint32_t* counts_temp = new uint32_t[NUM_SAMPLES]();
     intlist* counts_list = new intlist[1];
 	while(bytes_read != -1) {
-	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &exon2counts, counts_list);
+        //annotated exon sums get calculated in this function
+	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list);
         assert(err==0);
 		bytes_read = getline(&line, &length, fin);
     }
-    countmap gene2counts;
-    FILE* fout = fopen("exons.counts","w");
-    for(auto const& exon : exon2counts) {
-        for(auto const& gene : *(exon2counts[exon.first]->names))
-            if(gene2counts.find(gene.first) == gene2counts.end())
-                gene2counts[gene.first] = new uint32_t[NUM_SAMPLES]();
-        uint32_t* c = exon2counts[exon.first]->counts;
-        fprintf(fout,"%s",exon.first.c_str());
-        for(int i=0; i < NUM_SAMPLES; i++) {
+    //now output annotated sums alread calculated
+    char* foutname = new char[1024];
+    sprintf(foutname,"%s.counts",key_column_type.c_str());
+    FILE* fout = fopen(foutname,"w");
+    for(auto const& annot : annot2counts) {
+        uint32_t* c = annot2counts[annot.first]->counts;
+        fprintf(fout,"%s",annot.first.c_str());
+        for(int i=0; i < NUM_SAMPLES; i++)
             fprintf(fout,"\t%u",c[i]);
-            for(auto const& gene : *(exon2counts[exon.first]->names))
-                gene2counts[gene.first][i]+=c[i];
-        }
         fprintf(fout,"\n");
     }
     fclose(fout);
@@ -274,13 +280,17 @@ int main(int argc, char* argv[])
 	int o;
 	std::string disjoint_exon_sum_file;
 	std::string annotation_map_file;
-	while((o  = getopt(argc, argv, "a:d:")) != -1) 
+    //this determine which columns in the annotation_map_file
+    //are used to form the unique annotation identifier of the annotated entity (exon,gene)
+	std::string key_column_type = "exon";
+	while((o  = getopt(argc, argv, "a:d:k:")) != -1) 
 	{
 		switch(o) 
 		{
 			case 'a': annotation_map_file = optarg; break;
 			case 'd': disjoint_exon_sum_file = optarg; break;
+			case 'k': key_column_type = optarg; break;
 		}
 	}
-	go(annotation_map_file, disjoint_exon_sum_file);
+	go(annotation_map_file, disjoint_exon_sum_file, key_column_type);
 }
