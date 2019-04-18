@@ -40,7 +40,8 @@ typedef struct {
     const std::string* key;
 } annot_heap_t;
 
-#define heap_lt(a, b) (strcmp((a).chrm, (b).chrm) < 0 || ( strcmp((a).chrm, (b).chrm) == 0 && (a).end < (b).end))
+//this is the min version
+#define heap_lt(a, b) (strcmp((a).chrm, (b).chrm) > 0 || ( strcmp((a).chrm, (b).chrm) == 0 && (a).end > (b).end))
 KSORT_INIT(aheap, annot_heap_t, heap_lt)
 
 typedef struct {
@@ -154,7 +155,6 @@ static const int process_region_line(char* line, const char* delim, annotation_m
         coords->start = atol((*key_fields)[1]);
         coords->end = atol((*key_fields)[2]);
         coords->names = new strmap[1];
-        //coords->counts = *counts;
         (*alist)[key2] = coords;
         free_key2 = false;
     }
@@ -185,7 +185,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
     int ret = 0;
     int k = 0;
     char* chrm = nullptr;
-    long end = -1;
+    long start = -1;
     strmap* annotations = nullptr;
 	while(tok != nullptr) {
         if(i <= KEY_FIELD_COL_END) {
@@ -197,10 +197,11 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
         //make the first (disjoint exon) key
         else if(i == KEY_FIELD_COL_END+1) {
             chrm = (*key_fields)[0];
-            end = atol((*key_fields)[2]);
+            start = atol((*key_fields)[1]);
             sprintf(key,"%s\t%s\t%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[3],(*key_fields)[4],(*key_fields)[5]);
             //get list of annotations (e.g. exons) which overlap this disjoin exon
             annotations = (*amap)[key];
+            //fprintf(stderr,"key1:%s\n",key);
             //for each overlapping annotation, we've either added it already
             //or it needs to be added to the heap
             for(auto const& annot_key : *annotations) {
@@ -230,7 +231,8 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
             }
             //check heap here if the lowest is non-overlapping (by end coordinate) with the current disjoint exon
             int chrm_cmp = strcmp(h->heap.a[0].chrm,chrm);
-            while(chrm_cmp < 0 || ( chrm_cmp == 0 && h->heap.a[0].end < end)) {
+            while(chrm_cmp != 0 || ( chrm_cmp == 0 && h->heap.a[0].end < start)) {
+                //fprintf(stderr,"popping heap\n");
                 //pop top of the heap and print
                 annot_heap_t aht = h->heap.a[0];
                 fprintf(fout,"%s",aht.key->c_str());
