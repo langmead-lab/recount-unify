@@ -303,8 +303,8 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     //kvec_t(annot_heap_t) ah;
     hs h;
     h.heap.n = 0;
-    h.heap.m = 1;
-    h.heap.a = (annot_heap_t*) calloc(sizeof(annot_heap_t),1);
+    h.heap.m = REGION_BUFFER_SZ;
+    h.heap.a = (annot_heap_t*) calloc(sizeof(annot_heap_t),REGION_BUFFER_SZ);
     h.seen = new countmap[1];
 
     //load mapping from disjoint exons to original annotated exons and genes
