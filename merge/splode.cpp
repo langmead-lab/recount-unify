@@ -133,9 +133,6 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     char* key2_ = new char[1024];
     if(strcmp(key_column_type.c_str(),"exon") == 0)
         sprintf(key2_,"%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[5]);
-    //gene
-    else
-        sprintf(key2_,"%s",(*key_fields)[3]);
     std::string key2(key2_);
    
     //establish map between disjoint exon key and

@@ -13,9 +13,9 @@ splode: splode.cpp
 #	diff tests/test.bed.expected test.bed.test 
 
 test: splode
-	./splode -a amap -d gsums -s 1393 -k exon
+	./splode -a test/dexon2aexon_map.tsv -d test/aexon_sums.tsv -s 1393
 	sort -k1,4 exon.counts > exon.counts.sorted
-	diff gsums.exon.counts.sorted exon.counts.sorted
+	diff test/aexon_sums.rejoined.tsv exon.counts.sorted
 
 clean: 
 	rm merge splode
