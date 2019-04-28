@@ -101,6 +101,7 @@ def process_line(line, pattern, suffix, qc):
 parser = argparse.ArgumentParser(description='Parse log/summary stat files from monorail run')
 #e.g. --incoming-dir /home-1/cwilks3@jhu.edu/storage/recount-pump/destination/geuv_sc.20190206
 parser.add_argument('--incoming-dir', metavar='/path/to/dir_containing_pump_processed_files', type=str, default=None, help='the path where recount-pump dumps it\'s procssed files.')
+parser.add_argument('--dont-use-patroller', action='store_const', const=True, default=False, help='if user has already filtered the attempts to be the correct set then they can skip using the patroller to find finished monorail runs')
 args = parser.parse_args()
 top_dir = args.incoming_dir
 
@@ -146,7 +147,7 @@ for f in log_files:
     fkey = m.group(2)
     attempt_num = m.group(3)
     #keep track of what study, proj_path, and attempt
-    if study not in seen or fkey not in seen[study] or seen[study][fkey][0] != attempt_num:
+    if !args.dont_use_patroller and (study not in seen or fkey not in seen[study] or seen[study][fkey][0] != attempt_num):
         continue
     if sample not in qc:
         qc[sample] = {}
