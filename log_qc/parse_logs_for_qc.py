@@ -277,7 +277,8 @@ for sample in qc:
         sys.stderr.write("WARNING\tNUM_FRAGS != STAR MAPPED READS for %s: %s vs. %s\n" % (sample, str(num_frags),str(values['star.All_mapped_reads']))) 
     total_input_frags = values['star.Number of input reads']
     values['mapped fragments/total input %'] = str(int(100*round(int(num_frags) / int(total_input_frags),2)))
-    values.update({n[0]:str(round(100*int(values[n[1]])/int(values[n[2]]),2)) for n in ratio_cols})
+    values.update({n[0]:'0' for n in ratio_cols})
+    values.update({n[0]:str(round(100*int(values[n[1]])/int(values[n[2]]),2)) for n in ratio_cols if int(values[n[2]]) != 0.0})
     [sys.stderr.write(x+'\t'+values[x]+'\n') for x in header_keys]
     output = '\t'.join([values[x] for x in header_keys])
     for i in range(0,num_mates):
