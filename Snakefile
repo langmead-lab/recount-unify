@@ -7,7 +7,8 @@ import glob
 #e.g. (for CCLE, replace UUID with SRR accession if SRA/GTEx):
 #ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
 
-FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz')] #os.path.join(config['staging'], 'all.logs.tar.gz')]
+FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], 'all.logs.tar.gz')]
+
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
@@ -32,19 +33,13 @@ rule all:
 		expand("{file}", file=FILES)
 
 #tar and gzip all the logs, but maintain the directory structure
-#"tar -cvzf {output} {params.log_path}"
-#"ls {params.log_path} > list1 && tar -cvzT list1 -f {output}"
 rule tar_logs:
 	input:
 		config['input']
 	output:
 		os.path.join(config['staging'], 'all.logs.tar.gz')
-	params:
-        #study_loworder/study/acc_loworder/acc/attempt_name/*.log
-		log_path=config['input'] + '/*/*/*/*/*//*.log'
 	shell:
-		"touch {output}"
-
+		"find -L {input} -name '*.log' > all_logs && tar -zcvf {output} -T all_logs > /dev/null && rm all_logs"
 
 
 ###exon SUM pasting rules
