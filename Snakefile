@@ -7,7 +7,7 @@ import glob
 #e.g. (for CCLE, replace UUID with SRR accession if SRA/GTEx):
 #ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
 
-FILES=[os.path.join(config['staging'], config['study'] + '.all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], config['study'] + '.all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], config['study'] + '.unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], config['study'] + '.all.logs.tar.gz')]
+FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz')] #os.path.join(config['staging'], 'all.logs.tar.gz')]
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
@@ -23,7 +23,8 @@ if 'compilation_id' not in config:
 	config['compilation_id']=0
 
 wildcard_constraints:
-	group_num="[0-9a-zA-Z]{2}",
+	study_group_num="[0-9a-zA-Z]{2}",
+	run_group_num="[0-9a-zA-Z]{2}",
 	type="(all)|(unique)"
 
 rule all:
@@ -31,18 +32,22 @@ rule all:
 		expand("{file}", file=FILES)
 
 #tar and gzip all the logs, but maintain the directory structure
+#"tar -cvzf {output} {params.log_path}"
+#"ls {params.log_path} > list1 && tar -cvzT list1 -f {output}"
 rule tar_logs:
 	input:
 		config['input']
 	output:
-		os.path.join(config['staging'], config['study'] + '.all.logs.tar.gz')
+		os.path.join(config['staging'], 'all.logs.tar.gz')
 	params:
         #study_loworder/study/acc_loworder/acc/attempt_name/*.log
 		log_path=config['input'] + '/*/*/*/*/*//*.log'
 	shell:
-		"tar -cvzf {output} {params.log_path}"
+		"touch {output}"
 
-#exon sum pasting related rules
+
+
+###exon SUM pasting rules
 rule find_sums:
 	input: 
 		config['input'], config['sample_ids_file']
@@ -59,59 +64,91 @@ rule decompress_sums:
 	input:
 		config['staging'] + '/{type}.exon_bw_count.groups.manifest'
 	output:
-		config['staging'] + '/{type}.exon_bw_count.{group_num}.decompressed'
+		config['staging'] + '/{type}.exon_bw_count.{study_group_num}.{run_group_num}.decompressed'
 	params:
-		group_num=lambda wildcards: wildcards.group_num,
+		study_group_num=lambda wildcards: wildcards.study_group_num,
+		run_group_num=lambda wildcards: wildcards.run_group_num,
 		staging=config['staging'],
 		script_path=SCRIPTS['decompress'],
 		type=lambda wildcards: wildcards.type
 	shell:
-		"{params.script_path} {params.staging}/{params.type}.exon_bw_count.{params.group_num}.manifest {output}"
+		"{params.script_path} {params.staging}/{params.type}.exon_bw_count.{params.study_group_num}.{params.run_group_num}.manifest {output}"
 
-#do a rule instantiation per low-order name grouping to do hierarchical pastes
+#do a rule instantiation per *run* low-order name grouping to do hierarchical pastes
 rule paste_sums_per_group:
 	input:
-		config['staging'] + '/{type}.exon_bw_count.{group_num}.decompressed'
+		config['staging'] + '/{type}.exon_bw_count.{study_group_num}.{run_group_num}.decompressed'
 	output:
-		config['staging'] + '/{type}.exon_bw_count.{group_num}.pasted'
+		config['staging'] + '/{type}.exon_bw_count.{study_group_num}.{run_group_num}.pasted'
 	params:
-		group_num=lambda wildcards: wildcards.group_num,
+		study_group_num=lambda wildcards: wildcards.study_group_num,
+		run_group_num=lambda wildcards: wildcards.run_group_num,
 		staging=config['staging'],
 		script_path=SCRIPTS['paste'],
 		type=lambda wildcards: wildcards.type
 	shell:
-		"{params.script_path} {params.staging}/{params.type}.exon_bw_count.{params.group_num}.manifest {output}"
+		"{params.script_path} {params.staging}/{params.type}.exon_bw_count.{params.study_group_num}.{params.run_group_num}.manifest {output}"
 
 def get_pasted_sum_files(wildcards):
-	study = config['study']
-	study_loworder = study[-2:]
-	return [config['staging']+"/%s.exon_bw_count.%s.pasted" % (wildcards.type, f.split('/').pop()) for f in glob.glob(config['input']+'/%s/%s/??' % (study_loworder,study))]
+	study_loworder = wildcards.study_group_num
+	return [config['staging']+"/%s.exon_bw_count.%s.%s.pasted" % (wildcards.type, f.split('/')[-3], f.split('/')[-1]) for f in glob.glob(config['input']+'/%s/*/??' % (study_loworder))]
 
 rule collect_pasted_sums:
 	input:
 		get_pasted_sum_files
 	output:
+		config['staging'] + '/{type}.exon_bw_count.{study_group_num}.pasted.files.list'
+	params:
+		study_group_num=lambda wildcards: wildcards.study_group_num,
+		staging=config['staging'],
+		type=lambda wildcards: wildcards.type
+	shell:
+		"ls {params.staging}/{params.type}.exon_bw_count.{params.study_group_num}.??.pasted > {output}"
+
+rule paste_sums_per_study_group:
+	input:
+		config['staging'] + '/{type}.exon_bw_count.{study_group_num}.pasted.files.list'
+	output:
+		os.path.join(config['staging'], '{type}.exon_bw_count.{study_group_num}.pasted')
+	params:
+		study_group_num=lambda wildcards: wildcards.study_group_num,
+		staging=config['staging'],
+		script_path=SCRIPTS['paste'],
+		existing_sums=config['existing_sums'],
+		type=lambda wildcards: wildcards.type
+	shell:
+		"{params.script_path} {input} {output} dont_get_ids"
+
+
+def get_study_pasted_sum_files(wildcards):
+	return [config['staging']+"/%s.exon_bw_count.%s.pasted" % (wildcards.type, f.split('/')[-1]) for f in glob.glob(config['input']+'/??')]
+
+rule collect_study_pasted_sums:
+	input:
+		get_study_pasted_sum_files
+	output:
 		config['staging'] + '/{type}.exon_bw_count.groups.pasted.files.list'
 	params:
 		staging=config['staging'],
 		type=lambda wildcards: wildcards.type
 	shell:
-		"rm {params.staging}/*.{params.type}.*.unc && ls {params.staging}/{params.type}.exon_bw_count.*.pasted > {params.staging}/{params.type}.exon_bw_count.groups.pasted.files.list"
+		"ls {params.staging}/{params.type}.exon_bw_count.??.pasted > {output}"
 
 rule paste_sums_final:
 	input:
 		config['staging'] + '/{type}.exon_bw_count.groups.pasted.files.list'
 	output:
-		os.path.join(config['staging'], config['study'] + '.{type}.exon_bw_count.pasted.gz')
+		os.path.join(config['staging'], '{type}.exon_bw_count.pasted.gz')
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['paste'],
 		existing_sums=config['existing_sums'],
 		type=lambda wildcards: wildcards.type
 	shell:
-		"{params.script_path} {input} {output} dont_get_ids {params.existing_sums} && rm {params.staging}/{params.type}.*.pasted"
+		"{params.script_path} {input} {output} dont_get_ids {params.existing_sums}"
 
-#junction related rules
+
+###Splice junction merging rules
 rule find_sjs:
 	input: 
 		config['input'], config['sample_ids_file']
@@ -128,44 +165,72 @@ rule filter_sjs:
 	input:
 		config['staging'] + '/sj.groups.manifest'
 	output:
-		config['staging'] + '/sj.{group_num}.manifest.filtered'
+		config['staging'] + '/sj.{study_group_num}.{run_group_num}.manifest.filtered'
 	params:
-		group_num=lambda wildcards: wildcards.group_num,
+		study_group_num=lambda wildcards: wildcards.study_group_num,
+		run_group_num=lambda wildcards: wildcards.run_group_num,
 		staging=config['staging'],
 		script_path=SCRIPTS['filter']
 	shell:
-		"{params.script_path} {params.staging}/sj.{params.group_num}.manifest"
+		"{params.script_path} {params.staging}/sj.{params.study_group_num}.{params.run_group_num}.manifest"
 
+#merge at the group level, uses sample_ids
 rule merge_sjs:
 	input:
-		config['staging'] + '/sj.{group_num}.manifest.filtered'
+		config['staging'] + '/sj.{study_group_num}.{run_group_num}.manifest.filtered'
 	output:
-		config['staging'] + '/sj.{group_num}.manifest.sj_sample_files.merged.tsv.gz'
+		config['staging'] + '/sj.{study_group_num}.{run_group_num}.merged.tsv.gz'
 	params:
 		staging=config['staging'],
 		filtered_manifest=lambda wildcards, input: '.'.join(input[0].split('.')[:-1]),
 		script_path=SCRIPTS['merge']
 	shell:
-		"pypy {params.script_path} --list-file {params.filtered_manifest} --gzip | sort -k1,1 -k2,2n -k3,3n | gzip > {params.filtered_manifest}.sj_sample_files.merged.tsv.gz"
+		"pypy {params.script_path} --list-file {params.filtered_manifest} --gzip | sort -k1,1 -k2,2n -k3,3n | gzip > {output}"
 
+#gets  study + run loworder groupings, e.g. unified/sj.01.42.manifest.sj_sample_files.merged.tsv.gz
+#where "42" is the loworder digits for the run, e.g. SRR8733242 in SRP005401
 def get_sj_merged_files(wildcards):
-	study = config['study']
-	study_loworder = study[-2:]
-	return [config['staging']+"/sj.%s.manifest.sj_sample_files.merged.tsv.gz" % f.split('/').pop() for f in glob.glob(config['input']+'/%s/%s/??' % (study_loworder,study))]
+	study_loworder = wildcards.study_group_num
+	return [config['staging']+"/sj.%s.%s.merged.tsv.gz" % (f.split('/')[-3],f.split('/')[-1]) for f in glob.glob(config['input']+'/%s/*/??' % (study_loworder))]
 
 rule collect_merged_sjs:
 	input:
 		get_sj_merged_files
 	output:
-		config['staging'] + '/sj_groups.merged.files.list'
+		config['staging'] + '/sj.{study_group_num}.groups.merged.files.list'
+	params:
+		staging=config['staging'],
+		study_group_num=lambda wildcards: wildcards.study_group_num
+	shell:
+		"ls {params.staging}/sj.{params.study_group_num}.??.merged.tsv.gz > {output}"
+
+rule merge_study_group_sjs:
+	input: 
+		config['staging'] + '/sj.{study_group_num}.groups.merged.files.list'
+	output:
+		config['staging'] + '/all.{study_group_num}.sjs.merged.tsv.gz'
+	params:
+		script_path=SCRIPTS['merge'],
+		existing_sj_db=config['existing_sj_db']
+	shell:
+		"pypy {params.script_path} --list-file {input} --gzip --append-samples | gzip > {output}"
+
+def get_sj_study_merged_files(wildcards):
+	return [config['staging']+"/all.%s.sjs.merged.tsv.gz" % (f.split('/')[-1]) for f in glob.glob(config['input']+'/??')]
+
+rule collect_study_merged_sjs:
+	input:
+		get_sj_study_merged_files
+	output:
+		config['staging'] + '/sj.groups.merged.files.list'
 	params:
 		staging=config['staging']
 	shell:
-		"ls {params.staging}/*.sj_sample_files.merged.tsv.gz > {params.staging}/sj_groups.merged.files.list"
+		"ls {params.staging}/all.??.sjs.merged.tsv.gz > {output}"
 
 rule merge_all_sjs:
 	input: 
-		config['staging'] + '/sj_groups.merged.files.list'
+		config['staging'] + '/sj.groups.merged.files.list'
 	output:
 		config['staging'] + '/all.sjs.merged.tsv.gz'
 	params:
@@ -178,7 +243,7 @@ rule annotate_all_sjs:
 	input:
 		config['staging'] + '/all.sjs.merged.tsv.gz'
 	output:
-		os.path.join(config['staging'], config['study'] + '.all.sjs.merged.annotated.tsv.gz')
+		os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz')
 	params:
 		annot_sjs=config['annotated_sjs'],
 		script_path=SCRIPTS['annotate'],
