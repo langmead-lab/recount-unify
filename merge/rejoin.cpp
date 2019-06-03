@@ -57,6 +57,9 @@ static const int END_COL=8;
 static const int GENE_COL=9;
 static const int STRAND_COL=11;
 static const int COUNTS_START_COL=6;
+//determine what type of exon (or if it's an intron) in the sums BED
+static const int TYPE_COL=4;
+static const int INTRON_TYPE=1;
 
 //first 6 columns are the key field for matching between
 //the annotation map and the disjoint exon sums
@@ -174,7 +177,7 @@ static const int process_region_line(char* line, const char* delim, annotation_m
 }
 
 typedef std::vector<uint32_t*> intlist;
-static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list, hs* h, FILE* fout) {
+static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list, hs* h, FILE* fout, FILE* ifout) {
 	char* line_copy = strdup(line);
 	char* tok = strtok(line_copy, delim);
     char* key = new char[1024];
@@ -186,6 +189,17 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
     strmap* annotations = nullptr;
 	while(tok != nullptr) {
         if(i <= KEY_FIELD_COL_END) {
+            //if intron, print out line, cleanup, and return
+            if(i == TYPE_COL && atoi(tok) == INTRON_TYPE) {
+                fprintf(ifout, "%s", line);
+                counts_list->clear(); 
+                delete key;
+                if(line_copy)
+                    free(line_copy);
+                if(line)
+                    free(line);
+                return 0;
+            }
             memcpy((*key_fields)[i],tok,strlen(tok)+1);
             i++;
     		tok = strtok(nullptr, delim);
@@ -329,12 +343,17 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     char* foutname = new char[1024];
     sprintf(foutname,"%s.counts",key_column_type.c_str());
     FILE* fout = fopen(foutname,"w");
+    //save intron sums separately
+    char* ifoutname = new char[1024];
+    sprintf(ifoutname,"%s.intron_counts",key_column_type.c_str());
+    FILE* ifout = fopen(ifoutname,"w");
 	while(bytes_read != -1) {
         //annotated sums get calculated in this function
-	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h, fout);
+	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h, fout, ifout);
         assert(err == 0);
 		bytes_read = getline(&line, &length, fin);
     }
+    fclose(ifout);
     for(int i = 0; i < h.heap.n; i++) {
         //heap min property doesn't matter here, just want to get what's left
         annot_heap_t aht = h.heap.a[i];

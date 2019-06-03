@@ -12,7 +12,7 @@ rejoin: rejoin.cpp
 #	cat tests/test.bed | ./merge -c tests/chr1.size -f tests/small_sm.tsv -m -s 5  > test.bed.test
 #	diff tests/test.bed.expected test.bed.test 
 
-test: rejoin
+test: rejoin test/aexon_sums.tsv test/dexon2aexon_map.tsv
 	./rejoin -a test/dexon2aexon_map.tsv -d test/aexon_sums.tsv -s 1393
 	sort -k1,4 exon.counts > exon.counts.sorted
 	diff test/aexon_sums.rejoined.tsv exon.counts.sorted
