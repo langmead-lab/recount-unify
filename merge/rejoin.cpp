@@ -305,7 +305,7 @@ static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t
     return err;
 }
 
-void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std::string key_column_type)
+void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std::string key_column_type, bool header)
 {
     //start with static count matrix of 1024 exons
     uint32_t** counts = nullptr;
@@ -338,6 +338,8 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     char* line = nullptr;
 	size_t length = 0;
 	ssize_t bytes_read = getline(&line, &length, fin);
+    if(header)
+	    bytes_read = getline(&line, &length, fin);
     err = 0;
     //now output annotated sums already calculated
     char* foutname = new char[1024];
@@ -373,10 +375,11 @@ int main(int argc, char* argv[]) {
     //are used to form the unique annotation identifier of the annotated entity (exon,gene)
 	std::string key_column_type = "exon";
     int num_samples = 0;
-    //how large the counts array is, i.e. this is the maximum number of annated entities
+    //how large the counts array is, i.e. this is the maximum number of annotated entities
     //expected to be overlapping in the same region at any given time
     int region_buffer_size = 1024;
-	while((o  = getopt(argc, argv, "a:d:s:k:")) != -1) {
+    bool header = false;
+	while((o  = getopt(argc, argv, "a:d:s:k:h")) != -1) {
 		switch(o) 
 		{
 			case 'a': annotation_map_file = optarg; break;
@@ -384,6 +387,7 @@ int main(int argc, char* argv[]) {
 			case 's': num_samples = atoi(optarg); break;
 			case 'k': key_column_type = optarg; break;
 			case 'b': region_buffer_size = atoi(optarg); break;
+            case 'h': header = true;
 		}
 	}
 	if(num_samples <= 0) {
@@ -392,5 +396,5 @@ int main(int argc, char* argv[]) {
 	}
     NUM_SAMPLES = num_samples;
     REGION_BUFFER_SZ = region_buffer_size;
-	go(annotation_map_file, disjoint_exon_sum_file, key_column_type);
+	go(annotation_map_file, disjoint_exon_sum_file, key_column_type, header);
 }
