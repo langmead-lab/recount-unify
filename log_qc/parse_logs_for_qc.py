@@ -38,26 +38,27 @@ FILE_FIELD_SEP = '.'
 FILE_PREFIX_SEP = '!'
 FILE_PREFIX_FIELD_IDX = 0
 
+IDXSTATS_SUFFIX='idxstats'
 STAR_SUFFIX = 'align.log'
-#KALLISTO_SUFFIX = 'kallisto.log'
 FC_SUFFIXES = ['gene_fc_count_all.log','gene_fc_count_unique.log','exon_fc_count_all.log','exon_fc_count_unique.log']
 SPLIT_LINE_SUFFIXES_MAP = set(FC_SUFFIXES)
 BAMCOUNT_SUFFIXES = ['bamcount_auc.tsv','bamcount_frag.tsv']
 SEQTK_SUFFIX='fastq_check.tsv.zst'
 SPLIT_LINE_SUFFIXES_MAP.add(SEQTK_SUFFIX)
-#SPLIT_LINE_SUFFIXES_MAP.add(KALLISTO_SUFFIX)
 
 STAR_PATTERN = re.compile(r'^\s*([^\|]+)\s+\|\t(\d+(\.\d+)?)')
-#KALLISTO_PATTERN = re.compile(r'\[quant\]\s+(processed)\s+([\d,]+)\s+reads,\s+([\d,]+)\s+reads\s+(pseudoaligned)\n\[quant\]\s+(estimated\s+average\s+fragment\s+length):\s+(\d+(\.\d+)?)')
 #featurecounts has only 4 fields we want, but spread across 2 lines (consecutively)
 FC_PATTERN = re.compile(r'(Total)\s+[^\s]+\s*:\s*(\d+).+\n.+Successfully\s+(assigned)\s+[^\s]+\s*:\s*([^\s]+)')
 BAMCOUNT_AUC_PATTERN = re.compile(r'^([^\t]+)\t(\d+)$')
 BAMCOUNT_FRAG_PATTERN = re.compile(r'^STAT\t([^\t]+)\t(\d+(\.\d+)?)$')
 SEQTK_PATTERN = re.compile(r'ALL\s+\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+(\d+\.\d+)\s+(\d+\.\d+).+\nALL\s+\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+(\d+\.\d+)\s+(\d+\.\d+)')
+#get mapping rate for chrs: X, Y, and M for QC
+IDXSTATS_PATTERN=re.compile(r'^([^\*][^\t]*)\t\d+\t(\d+)\t')
+IDXSTATS_CHRS=set(['chrM','chrY','chrX'])
 
 patterns = {
+    IDXSTATS_SUFFIX:IDXSTATS_PATTERN,
     STAR_SUFFIX:STAR_PATTERN, 
-#    KALLISTO_SUFFIX:KALLISTO_PATTERN, 
     BAMCOUNT_SUFFIXES[0]:BAMCOUNT_AUC_PATTERN, 
     BAMCOUNT_SUFFIXES[1]:BAMCOUNT_FRAG_PATTERN, 
     FC_SUFFIXES[0]:FC_PATTERN,
@@ -73,9 +74,10 @@ names[BAMCOUNT_SUFFIXES[0]]='bc_auc'
 names[BAMCOUNT_SUFFIXES[1]]='bc_frag'
 names[SEQTK_SUFFIX]='seqtk'
 names[STAR_SUFFIX]='star'
+names[IDXSTATS_SUFFIX]='aligned_reads%'
 
 #program patterns that have a label/value (2 group)
-two_group = set([STAR_SUFFIX, BAMCOUNT_SUFFIXES[1], BAMCOUNT_SUFFIXES[0]])
+two_group = set([STAR_SUFFIX, BAMCOUNT_SUFFIXES[1], BAMCOUNT_SUFFIXES[0], IDXSTATS_SUFFIX])
 #program patterns that have a 2 label/value groupings (4 group)
 #four_group = set([KALLISTO_SUFFIX, FC_SUFFIXES[0], FC_SUFFIXES[2], FC_SUFFIXES[2], FC_SUFFIXES[3], SEQTK_SUFFIX])
 four_group = set([FC_SUFFIXES[0], FC_SUFFIXES[2], FC_SUFFIXES[2], FC_SUFFIXES[3], SEQTK_SUFFIX])
@@ -95,6 +97,7 @@ def run_command(cmd_args, cmd_name):
         sys.stderr.write("error in run_command for command: %s\n" % cmd_args)
         raise cpe
 
+
 def process_line(line, pattern, suffix, qc):
     match = pattern.search(line)
     matched = False
@@ -103,29 +106,24 @@ def process_line(line, pattern, suffix, qc):
         if suffix in two_group:
             label = match.group(1)
             value = match.group(2)
+            if suffix == IDXSTATS_SUFFIX:
+                qc[sample]['idxstats.all_mapped_reads'] += int(value)
+                #if not chrs M, X, or Y don't save them specifically
+                if label not in IDXSTATS_CHRS:
+                    return matched
+            if suffix == STAR_SUFFIX:
+                label = label.replace(' ','_')
             key = "%s.%s" % (names[suffix],label)
             qc[sample][key] = value
             keys.add(key)
         else:
             label = match.group(1)
             value = match.group(2)
-            #if suffix == KALLISTO_SUFFIX:
-            #    value = value.replace(',','')
             key = "%s.%s" % (names[suffix],label)
             qc[sample][key] = value
             keys.add(key)
             label = match.group(3)
             value = match.group(4)
-            #Kallisto's pseudoaligned label vs. value is swapped
-            #we also need a 3rd value (est. avg. frag. len.)
-            #if suffix == KALLISTO_SUFFIX:
-            #    temp_ = label
-            #    label = value
-            #    value = temp_
-            #    value = value.replace(',','')
-            #    qc[sample]["%s.%s" % (names[suffix],label)] = value
-            #    label = match.group(5)
-            #    value = match.group(6)
             key = "%s.%s" % (names[suffix],label)
             qc[sample][key] = value
             keys.add(key)
@@ -155,7 +153,8 @@ if not os.path.exists(fp):
 fp="all_logs_and_tsvs.pkl"
 log_files = load_cpickle_file(fp)
 if log_files is None:
-    log_files = glob.glob("%s/**/*.log" % (top_dir), recursive=True)
+    log_files = glob.glob("%s/**/*.idxstats" % (top_dir), recursive=True)
+    log_files.extend(glob.glob("%s/**/*.log" % (top_dir), recursive=True))
     log_files.extend(glob.glob("%s/**/*.tsv*" % (top_dir), recursive=True))
     store_cpickle_file(fp, log_files) 
 
@@ -180,7 +179,7 @@ for f in log_files:
         continue
     suffix = FILE_FIELD_SEP.join(fields[1:])
     fields2 = fields[FILE_PREFIX_FIELD_IDX].split(FILE_PREFIX_SEP)
-    if len(fields) < 3:
+    if len(fields2) < 3:
         sys.stderr.write("%s format not expected, skipping\n" % (f))
         continue
     (sample, study, ref) = fields2[:3]
@@ -196,6 +195,8 @@ for f in log_files:
         qc[sample] = {}
         stk[sample] = {}
         sample2study[sample] = study
+        qc[sample]['idxstats.all_mapped_reads'] = 0
+        #keys.add('idxstats.all_mapped_reads')
     if suffix not in patterns:
         continue
     dups.add(file_)
@@ -219,7 +220,6 @@ for f in log_files:
             fields_ = line.rstrip().split('\t')
             key = '%s.P%d.avgQ' % (names[suffix], mate_idx)
             stk[sample][key] = fields_[0] 
-            #keys.add(key)
             key = '%s.P%d.errQ' % (names[suffix], mate_idx)
             stk[sample][key] = fields_[1]
             #keys.add(key)
@@ -240,17 +240,20 @@ ratio_cols = [
             ['bc_auc.all_%','bc_auc.ALL_READS_ANNOTATED_BASES','bc_auc.ALL_READS_ALL_BASES'],
             ['bc_auc.unique_%','bc_auc.UNIQUE_READS_ANNOTATED_BASES','bc_auc.UNIQUE_READS_ALL_BASES'],
             ['gene_fc.all_%','gene_fc_count_all.assigned','star.All_mapped_reads'],
-            ['gene_fc.unique_%','gene_fc_count_unique.assigned','star.Uniquely mapped reads number'],
+            ['gene_fc.unique_%','gene_fc_count_unique.assigned','star.Uniquely_mapped_reads_number'],
             ['exon_fc.all_%','exon_fc_count_all.assigned','star.All_mapped_reads'],
-            ['exon_fc.unique_%','exon_fc_count_unique.assigned','star.Uniquely mapped reads number']
+            ['exon_fc.unique_%','exon_fc_count_unique.assigned','star.Uniquely_mapped_reads_number']
 ]
+
+keys.update([x[0] for x in ratio_cols])
 
 #these might not be present
 optional_ratio_cols = ['gene_fc_count_all.assigned','gene_fc_count_unique.assigned','exon_fc_count_all.assigned','exon_fc_count_unique.assigned']
 
+keys.add('star.All_mapped_reads')
 header = None
-header_keys = []
 header_keys = sorted(keys)
+#header_keys = [col.sub(' ','_') for col in sorted(keys)]
 header = '\t'.join([x.lower() for x in header_keys])
 header += '\t'+'\t'.join(['seqtk.P%d.avgQ\tseqtk.P%d.errQ' % (i,i) for i in range(0,num_mates)])
 sys.stdout.write('study\tsample\t'+header+'\n')
@@ -263,24 +266,30 @@ for sample in qc:
     for x in header_keys:
         if x not in values:
             values[x] = '0'
-        #sys.stderr.write(x+'\t'+val+'\n')
-        #output.append(val) 
-    #output = '\t'.join(output)
     if 'gene_fc_count_all.assigned' not in values or values['gene_fc_count_all.assigned'] == '0':
         for k in optional_ratio_cols:
             values[k] = '0'
-    values['star.All_mapped_reads'] = str(int(values['star.Uniquely mapped reads number']) + \
-                                        int(values['star.Number of reads mapped to multiple loci']))
+    values['star.All_mapped_reads'] = str(int(values['star.Uniquely_mapped_reads_number']) + \
+                                        int(values['star.Number_of_reads_mapped_to_multiple_loci']))
+
+    #do %'s of idxstats
+    for chrm in IDXSTATS_CHRS:
+        key_ = '%s.%s' % (names[IDXSTATS_SUFFIX], chrm)
+        values[key_] = round(100*(float(values[key_])/values['idxstats.all_mapped_reads']),2)
+   
+    #dont need this as an output value will just be confusing
+    #as it measures the total number of read mappings which can include duplicates of reads and is 2x the # of fragments 
+    del(values['idxstats.all_mapped_reads'])
     #count of fragments vs. total input from STAR
     num_frags = values['bc_frag.COUNT']
     if int(num_frags) != int(values['star.All_mapped_reads']):
         sys.stderr.write("WARNING\tNUM_FRAGS != STAR MAPPED READS for %s: %s vs. %s\n" % (sample, str(num_frags),str(values['star.All_mapped_reads']))) 
-    total_input_frags = values['star.Number of input reads']
-    values['mapped fragments/total input %'] = str(int(100*round(int(num_frags) / int(total_input_frags),2)))
+    total_input_frags = values['star.Number_of_input_reads']
+    #values['mapped fragments/total input %'] = str(int(100*round(int(num_frags) / int(total_input_frags),2)))
     values.update({n[0]:'0' for n in ratio_cols})
     values.update({n[0]:str(round(100*int(values[n[1]])/int(values[n[2]]),2)) for n in ratio_cols if int(values[n[2]]) != 0.0})
-    [sys.stderr.write(x+'\t'+values[x]+'\n') for x in header_keys]
-    output = '\t'.join([values[x] for x in header_keys])
+    [sys.stderr.write(x+'\t'+str(values[x])+'\n') for x in header_keys]
+    output = '\t'.join([str(values[x]) for x in header_keys])
     for i in range(0,num_mates):
         v = "NA"
         v2 = "NA"
