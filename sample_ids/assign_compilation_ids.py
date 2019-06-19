@@ -27,7 +27,7 @@ def main(args):
         if counter == -1 and not args.no_header:
             counter+=1
             continue
-        fields = line.rstrip().split('\t')
+        fields = line.rstrip().split(args.sep)
         if len(fields) <= args.acc_col:
             sys.stderr.write("ERROR: --acc-col of %d is larger than number of fields in %s, terminating!\n" % (args.acc_col, args.accessions_file))
             sys.exit(-1)
@@ -50,6 +50,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Assigns IDs for a specified compilation')
 
+    parser.add_argument('--sep', metavar='tab', type=str, default='\t', help='separator to split accessions file on')
     parser.add_argument('--accessions-file', metavar='/path/to/file_with_accessions', type=str, default=None, help='path to file with list of accessions to assign IDs to')
     parser.add_argument('--group-counters-file', metavar='/path/to/file_with_current_group_id_counters', type=str, default=None, help='path to file with the list of groups (low order digits) and their last used id counts; this code does not include the compilation prefix, so it is compilation specific')
     parser.add_argument('--acc-col', metavar='integer column #', type=int, default=0, help='column number in --accessions-file where accession is (defaults to 0)')
