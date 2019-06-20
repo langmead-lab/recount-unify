@@ -305,9 +305,13 @@ for sample in qc:
     bc_auc_all_all = 0
     if 'bc_auc.ALL_READS_ALL_BASES' in values:
         bc_auc_all_all = int(values['bc_auc.ALL_READS_ALL_BASES'])
-    if intron_sums_len > 0 and sample in intron_sums and bc_auc_all_all > 0:
-        values['intron_sum_%'] = str(round(100*(float(intron_sums[sample])/bc_auc_all_all),2))
-        values['intron_sum'] = intron_sums[sample]
+    if intron_sums_len > 0:
+        values['intron_sum_%'] = 0
+        values['intron_sum'] = 0
+        if sample in intron_sums and bc_auc_all_all > 0:
+            values['intron_sum_%'] = str(round(100*(float(intron_sums[sample])/bc_auc_all_all),2))
+            values['intron_sum'] = intron_sums[sample]
+
     #dont need this as an output value will just be confusing
     #as it measures the total number of read mappings which can include duplicates of reads and is 2x the # of fragments 
     del(values['idxstats.all_mapped_reads'])
