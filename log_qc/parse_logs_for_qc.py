@@ -129,12 +129,30 @@ def process_line(line, pattern, suffix, qc):
             keys.add(key)
     return matched
 
+def load_intron_sums(args):
+    sample_map = {}
+    with open(args.sample_mapping,'r') as fin:
+        sample_map = {line.split('\t')[2]:line.split('\t')[1] for line in fin.read().split('\n')[:-1]}
+    with open(args.intron_sums,'r') as fin:
+        header = fin.readline().rstrip().split('\t')
+        return {sample_map[header[i+1]]:intron_sum for (i,intron_sum) in enumerate(fin.readline().rstrip().split('\t')[1:])}
 
 parser = argparse.ArgumentParser(description='Parse log/summary stat files from monorail run')
 #e.g. --incoming-dir /home-1/cwilks3@jhu.edu/storage/recount-pump/destination/geuv_sc.20190206
 parser.add_argument('--incoming-dir', metavar='/path/to/dir_containing_pump_processed_files', type=str, default=None, help='the path where recount-pump dumps it\'s procssed files.')
+parser.add_argument('--sample-mapping', metavar='/path/to/sample_id_mapping_file.tsv', type=str, default=None, help='path to sample ID mapping to accession [optional, use only if joining intron sums')
+parser.add_argument('--intron-sums', metavar='/path/to/intron_sums.tsv', type=str, default=None, help='path to intron sums, one value per sample [optional, but requires the setting of --sample-mapping]')
 parser.add_argument('--dont-use-patroller', action='store_const', const=True, default=False, help='if user has already filtered the attempts to be the correct set then they can skip using the patroller to find finished monorail runs')
 args = parser.parse_args()
+
+intron_sums = {}
+if args.intron_sums is not None and args.sample_mapping is None:
+    sys.stderr.write("intron sums passed in but no sample mapping, skipping inron sums\n")
+elif args.intron_sums is not None:
+    intron_sums = load_intron_sums(args) 
+
+intron_sums_len = len(intron_sums)
+
 top_dir = args.incoming_dir
 
 seen = {}
@@ -253,6 +271,9 @@ keys.update([x[0] for x in ratio_cols])
 optional_ratio_cols = ['gene_fc_count_all.assigned','gene_fc_count_unique.assigned','exon_fc_count_all.assigned','exon_fc_count_unique.assigned']
 
 keys.add('star.All_mapped_reads')
+if intron_sums_len > 0:
+    keys.add('intron_sum_%')
+    keys.add('intron_sum')
 header = None
 header_keys = sorted(keys)
 #header_keys = [col.sub(' ','_') for col in sorted(keys)]
@@ -275,13 +296,18 @@ for sample in qc:
                                         int(values['star.Number_of_reads_mapped_to_multiple_loci']))
 
     #do %'s of idxstats
+    denom_ = values['idxstats.all_mapped_reads']
     for chrm in IDXSTATS_CHRS:
         key_ = '%s.%s' % (names[IDXSTATS_SUFFIX], chrm)
-    v = 0
-    denom_ = values['idxstats.all_mapped_reads']
-    if denom_ > 0:
-        v = round(100*(float(values[key_])/values['idxstats.all_mapped_reads']),2)
-    values[key_] = v
+        if denom_ > 0:
+            values[key_] = round(100*(float(values[key_])/denom_),2)
+
+    bc_auc_all_all = 0
+    if 'bc_auc.ALL_READS_ALL_BASES' in values:
+        bc_auc_all_all = int(values['bc_auc.ALL_READS_ALL_BASES'])
+    if intron_sums_len > 0 and sample in intron_sums and bc_auc_all_all > 0:
+        values['intron_sum_%'] = str(round(100*(float(intron_sums[sample])/bc_auc_all_all),2))
+        values['intron_sum'] = intron_sums[sample]
     #dont need this as an output value will just be confusing
     #as it measures the total number of read mappings which can include duplicates of reads and is 2x the # of fragments 
     del(values['idxstats.all_mapped_reads'])
