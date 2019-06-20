@@ -202,10 +202,12 @@ for f in log_files:
     dups.add(file_)
     pattern = patterns[suffix]
     #need to decode zstd for seqtk log
+    #TODO re-enable SEQTK
     if suffix == SEQTK_SUFFIX:
-        f1 = "%s.unc" % file_
-        run_command(['zstd','-dc',f,' | egrep -e "^ALL" | cut -f 8,9 > %s' % f1], "zstd_seqtk")
-        f = f1
+        continue
+        #f1 = "%s.unc" % file_
+        #run_command(['zstd','-dc',f,' | egrep -e "^ALL" | cut -f 8,9 > %s' % f1], "zstd_seqtk")
+        #f = f1
     line = None
     with open(f, "r") as fin:
         line = fin.read()
@@ -255,7 +257,7 @@ header = None
 header_keys = sorted(keys)
 #header_keys = [col.sub(' ','_') for col in sorted(keys)]
 header = '\t'.join([x.lower() for x in header_keys])
-header += '\t'+'\t'.join(['seqtk.P%d.avgQ\tseqtk.P%d.errQ' % (i,i) for i in range(0,num_mates)])
+#header += '\t'+'\t'.join(['seqtk.P%d.avgQ\tseqtk.P%d.errQ' % (i,i) for i in range(0,num_mates)])
 sys.stdout.write('study\tsample\t'+header+'\n')
 for sample in qc:
     study = sample2study[sample]
@@ -275,8 +277,11 @@ for sample in qc:
     #do %'s of idxstats
     for chrm in IDXSTATS_CHRS:
         key_ = '%s.%s' % (names[IDXSTATS_SUFFIX], chrm)
-        values[key_] = round(100*(float(values[key_])/values['idxstats.all_mapped_reads']),2)
-   
+    v = 0
+    denom_ = values['idxstats.all_mapped_reads']
+    if denom_ > 0:
+        v = round(100*(float(values[key_])/values['idxstats.all_mapped_reads']),2)
+    values[key_] = v
     #dont need this as an output value will just be confusing
     #as it measures the total number of read mappings which can include duplicates of reads and is 2x the # of fragments 
     del(values['idxstats.all_mapped_reads'])
@@ -290,6 +295,8 @@ for sample in qc:
     values.update({n[0]:str(round(100*int(values[n[1]])/int(values[n[2]]),2)) for n in ratio_cols if int(values[n[2]]) != 0.0})
     [sys.stderr.write(x+'\t'+str(values[x])+'\n') for x in header_keys]
     output = '\t'.join([str(values[x]) for x in header_keys])
+    sys.stdout.write(study+'\t'+sample+'\t'+output+'\n')
+    continue
     for i in range(0,num_mates):
         v = "NA"
         v2 = "NA"
@@ -300,4 +307,4 @@ for sample in qc:
             v = stks[k]
             v2 = stks[k2]
         output += '\t'+v+'\t'+v2
-    sys.stdout.write(study+'\t'+sample+'\t'+output+'\n')
+    #sys.stdout.write(study+'\t'+sample+'\t'+output+'\n')
