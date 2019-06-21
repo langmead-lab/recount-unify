@@ -39,7 +39,7 @@ for line in sys.stdin:
     (chrm, gstart, gend, strand)  = fields[:4]
     counts = "\t".join(fields[4:])
     #output is: Gene   bp_length       chromosome      start   end count1 count2 count3....
-    outstr = "\t".join([str(int(gend) + int(gstart) + 1), chrm, gstart, gend])+"\t"+counts+"\n"
+    outstr = "\t".join([str((int(gend) - int(gstart)) + 1), chrm, gstart, gend])+"\t"+counts+"\n"
     key = "\t".join([chrm, gstart, gend, strand])
     for (gene_id, annot_src) in annot_map[key]:
         annot_fhs[annot_src].write(gene_id + "\t" + outstr)
