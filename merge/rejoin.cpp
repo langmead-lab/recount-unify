@@ -19,7 +19,7 @@ using hash_map = std::unordered_map<K,V>;
 typedef std::vector<std::string> strlist;
 typedef std::vector<char*> charlist;
 typedef hash_map<std::string, int> strmap;
-typedef hash_map<std::string, uint32_t*> countmap;
+typedef hash_map<std::string, uint64_t*> countmap;
 
 typedef struct {
     //gene names that have this exon
@@ -34,7 +34,7 @@ typedef struct {
     long start;
     long end;
     //raw read count per sample
-    uint32_t* counts;
+    uint64_t* counts;
     //original annotation entry
     annotation_t* a;
     const std::string* key;
@@ -81,7 +81,7 @@ static int NUM_SAMPLES=0;
 //list of actual annotations (annotation_t structs) for gene/exons
 typedef hash_map<std::string, annotation_t*> annotation_t_map_t;
 typedef hash_map<std::string, strmap*> annotation_map_t;
-static const int process_region_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, uint32_t** counts, int last_col, std::string key_column_type) {
+static const int process_region_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, uint64_t** counts, int last_col, std::string key_column_type) {
 	char* line_copy = strdup(line);
 	char* tok = strtok(line_copy, delim);
 	int i = 0;
@@ -176,8 +176,8 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     return ret;
 }
 
-typedef std::vector<uint32_t*> intlist;
-static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list, hs* h, FILE* fout, FILE* ifout) {
+typedef std::vector<uint64_t*> intlist;
+static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list, hs* h, FILE* fout, FILE* ifout, bool dec_start_coord, bool skip_intron_check) {
 	char* line_copy = strdup(line);
 	char* tok = strtok(line_copy, delim);
     char* key = new char[1024];
@@ -190,7 +190,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
 	while(tok != nullptr) {
         if(i <= KEY_FIELD_COL_END) {
             //if intron, print out line, cleanup, and return
-            if(i == TYPE_COL && atoi(tok) == INTRON_TYPE) {
+            if(!skip_intron_check && i == TYPE_COL && atoi(tok) == INTRON_TYPE) {
                 fprintf(ifout, "%s", line);
                 counts_list->clear(); 
                 delete key;
@@ -209,7 +209,9 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
         else if(i == KEY_FIELD_COL_END+1) {
             chrm = (*key_fields)[0];
             start = atol((*key_fields)[1]);
-            sprintf(key,"%s\t%s\t%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[3],(*key_fields)[4],(*key_fields)[5]);
+            if(dec_start_coord)
+                start--;
+            sprintf(key,"%s\t%lu\t%s\t%s\t%s\t%s",(*key_fields)[0],start,(*key_fields)[2],(*key_fields)[3],(*key_fields)[4],(*key_fields)[5]);
             //get list of annotations (e.g. exons) which overlap this disjoin exon
             annotations = (*amap)[key];
             //fprintf(stderr,"key1:%s\n",key);
@@ -227,7 +229,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
                     aht.key = &annot_key.first;
                     //TODO replace this with a static buffer of counts arrays, pre-allocated
                     //and a free list
-                    aht.counts = new uint32_t[NUM_SAMPLES]();
+                    aht.counts = new uint64_t[NUM_SAMPLES]();
                     kv_push(annot_heap_t, h->heap, aht);
                     //re-establish heapmin property
                     ks_heapup_aheap(h->heap.n, h->heap.a);    
@@ -248,7 +250,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
                 annot_heap_t aht = h->heap.a[0];
                 fprintf(fout,"%s",aht.key->c_str());
                 for(int z = 0; z < NUM_SAMPLES; z++)
-                    fprintf(fout,"\t%u",aht.counts[z]);
+                    fprintf(fout,"\t%lu",aht.counts[z]);
                 fprintf(fout,"\n");
                 h->heap.a[0] = kv_pop(h->heap);
                 //maintain heap min property
@@ -279,7 +281,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
     return ret;
 }
     
-static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t_map_t* alist, uint32_t*** counts, std::string key_column_type) {
+static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t_map_t* alist, uint64_t*** counts, std::string key_column_type) {
     //temporarily holds the distinct fields used for the matching key
     char** key_fields = new char*[KEY_FIELD_COL_END+1];
     for(int i=0;i<=KEY_FIELD_COL_END;i++)
@@ -305,10 +307,10 @@ static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t
     return err;
 }
 
-void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std::string key_column_type, bool header)
+void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std::string key_column_type, bool header, bool dec_start_coord, bool skip_intron_check)
 {
     //start with static count matrix of 1024 exons
-    uint32_t** counts = nullptr;
+    uint64_t** counts = nullptr;
     //heap-related based on lh3's BFC's code:
     //https://github.com/lh3/bfc/blob/69ab176e7aac4af482d7d8587e45bfe239d02c96/correct.c
     //kvec_t(annot_heap_t) ah;
@@ -351,7 +353,7 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     FILE* ifout = fopen(ifoutname,"w");
 	while(bytes_read != -1) {
         //annotated sums get calculated in this function
-	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h, fout, ifout);
+	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h, fout, ifout, dec_start_coord, skip_intron_check);
         assert(err == 0);
 		bytes_read = getline(&line, &length, fin);
     }
@@ -361,7 +363,7 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
         annot_heap_t aht = h.heap.a[i];
         fprintf(fout,"%s",aht.key->c_str());
         for(int z = 0; z < NUM_SAMPLES; z++)
-            fprintf(fout,"\t%u",aht.counts[z]);
+            fprintf(fout,"\t%lu",aht.counts[z]);
         fprintf(fout,"\n");
     }
     fclose(fout);
@@ -379,7 +381,9 @@ int main(int argc, char* argv[]) {
     //expected to be overlapping in the same region at any given time
     int region_buffer_size = 1024;
     bool header = false;
-	while((o  = getopt(argc, argv, "a:d:s:k:h")) != -1) {
+    bool dec_start_coord = false;
+    bool skip_intron_check = false;
+	while((o  = getopt(argc, argv, "a:d:s:k:hci")) != -1) {
 		switch(o) 
 		{
 			case 'a': annotation_map_file = optarg; break;
@@ -388,6 +392,8 @@ int main(int argc, char* argv[]) {
 			case 'k': key_column_type = optarg; break;
 			case 'b': region_buffer_size = atoi(optarg); break;
             case 'h': header = true;
+            case 'c': dec_start_coord = true;
+            case 'i': skip_intron_check = true;
 		}
 	}
 	if(num_samples <= 0) {
@@ -396,5 +402,5 @@ int main(int argc, char* argv[]) {
 	}
     NUM_SAMPLES = num_samples;
     REGION_BUFFER_SZ = region_buffer_size;
-	go(annotation_map_file, disjoint_exon_sum_file, key_column_type, header);
+	go(annotation_map_file, disjoint_exon_sum_file, key_column_type, header, dec_start_coord, skip_intron_check);
 }
