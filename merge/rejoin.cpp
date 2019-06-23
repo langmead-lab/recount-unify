@@ -266,8 +266,15 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
         //k starts at 0 for the counts matrix
         k = i - COUNTS_START_COL;
         //from here for each count, loop through the set of count arrays, update sum at each array position k
-        for(auto const& e: *counts_list)
-            e[k] += atol(tok);
+        for(auto const& e: *counts_list) {
+            //check for sci. notation (typically from R)
+            //assumes that the exponent is always two digits, e.g. 1e+05
+            int len = strlen(tok);
+            if(len > 2 && tok[len-3] == '+')
+                e[k] += atof(tok);
+            else 
+                e[k] += atol(tok);
+        }
 		i++;
 		tok = strtok(nullptr, delim);
     }
@@ -391,9 +398,9 @@ int main(int argc, char* argv[]) {
 			case 's': num_samples = atoi(optarg); break;
 			case 'k': key_column_type = optarg; break;
 			case 'b': region_buffer_size = atoi(optarg); break;
-            case 'h': header = true;
-            case 'c': dec_start_coord = true;
-            case 'i': skip_intron_check = true;
+            case 'h': header = true; break;
+            case 'c': dec_start_coord = true; break;
+            case 'i': skip_intron_check = true; break;
 		}
 	}
 	if(num_samples <= 0) {
