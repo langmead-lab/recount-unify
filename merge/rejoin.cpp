@@ -211,7 +211,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
             start = atol((*key_fields)[1]);
             if(dec_start_coord)
                 start--;
-            sprintf(key,"%s\t%lu\t%s\t%s\t%s\t%s",(*key_fields)[0],start,(*key_fields)[2],(*key_fields)[3],(*key_fields)[4],(*key_fields)[5]);
+            sprintf(key,"%s\t%lu\t%s\t.\t0\t%s",(*key_fields)[0],start,(*key_fields)[2],(*key_fields)[5]);
             //get list of annotations (e.g. exons) which overlap this disjoin exon
             annotations = (*amap)[key];
             //fprintf(stderr,"key1:%s\n",key);
