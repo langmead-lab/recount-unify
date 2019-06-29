@@ -74,7 +74,7 @@ static int REGION_BUFFER_SZ=0;
 //TODO2: figure this out automatically
 static int NUM_SAMPLES=0;
 
-
+bool DUP_CHECK=true;
 
 //track disjoint exon "keys" (chrm,start,end,name,score,strand) to array indexes
 //for actual genes/exons from annotation
@@ -177,7 +177,7 @@ static const int process_region_line(char* line, const char* delim, annotation_m
 }
 
 typedef std::vector<uint64_t*> intlist;
-static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list, hs* h, FILE* fout, FILE* ifout, bool dec_start_coord, bool skip_intron_check) {
+static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list, hs* h, FILE* fout, FILE* ifout, bool dec_start_coord, bool skip_intron_check, strmap* disjoint_exons_seen) {
 	char* line_copy = strdup(line);
 	char* tok = strtok(line_copy, delim);
     char* key = new char[1024];
@@ -212,6 +212,20 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
             if(dec_start_coord)
                 start--;
             sprintf(key,"%s\t%lu\t%s\t.\t0\t%s",(*key_fields)[0],start,(*key_fields)[2],(*key_fields)[5]);
+            //check for duplicates
+            if(DUP_CHECK) {
+                if(disjoint_exons_seen->find(key) != disjoint_exons_seen->end()) {
+                    //bail on this counts line altogether, don't want to overcount 
+                    counts_list->clear(); 
+                    delete key;
+                    if(line_copy)
+                        free(line_copy);
+                    if(line)
+                        free(line);
+                    return -1;
+                }
+                (*disjoint_exons_seen)[key] = 1;
+            }
             //get list of annotations (e.g. exons) which overlap this disjoin exon
             annotations = (*amap)[key];
             //fprintf(stderr,"key1:%s\n",key);
@@ -357,11 +371,14 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     //save intron sums separately
     char* ifoutname = new char[1024];
     sprintf(ifoutname,"%s.intron_counts",key_column_type.c_str());
+    strmap disjoint_exon_seen;
     FILE* ifout = fopen(ifoutname,"w");
 	while(bytes_read != -1) {
         //annotated sums get calculated in this function
-	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h, fout, ifout, dec_start_coord, skip_intron_check);
-        assert(err == 0);
+	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h, fout, ifout, dec_start_coord, skip_intron_check, &disjoint_exon_seen);
+        //assert(err == 0);
+        if(err != 0)
+            fprintf(stderr,"ERR\t%s",line);
 		bytes_read = getline(&line, &length, fin);
     }
     fclose(ifout);
@@ -390,7 +407,8 @@ int main(int argc, char* argv[]) {
     bool header = false;
     bool dec_start_coord = false;
     bool skip_intron_check = false;
-	while((o  = getopt(argc, argv, "a:d:s:k:hci")) != -1) {
+    bool skip_dup_check = false;
+	while((o  = getopt(argc, argv, "a:d:s:k:hcin")) != -1) {
 		switch(o) 
 		{
 			case 'a': annotation_map_file = optarg; break;
@@ -401,6 +419,7 @@ int main(int argc, char* argv[]) {
             case 'h': header = true; break;
             case 'c': dec_start_coord = true; break;
             case 'i': skip_intron_check = true; break;
+            case 'n': skip_dup_check = true; break;
 		}
 	}
 	if(num_samples <= 0) {
@@ -409,5 +428,6 @@ int main(int argc, char* argv[]) {
 	}
     NUM_SAMPLES = num_samples;
     REGION_BUFFER_SZ = region_buffer_size;
+    DUP_CHECK = !skip_dup_check;
 	go(annotation_map_file, disjoint_exon_sum_file, key_column_type, header, dec_start_coord, skip_intron_check);
 }
