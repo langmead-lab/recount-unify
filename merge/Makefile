@@ -1,4 +1,4 @@
-all: rejoin
+all: rejoin perbase
 
 rejoin: rejoin.cpp
 	g++ -O3 -std=c++11 rejoin.cpp -o rejoin
@@ -6,13 +6,11 @@ rejoin: rejoin.cpp
 rejoin-debug: rejoin.cpp
 	g++ -g -std=c++11 rejoin.cpp -o rejoin-debug
 
-#merge: merge.cpp
-#	g++ -O3 -Wno-write-strings -std=c++11 merge.cpp -o merge
-#	g++ -g -Wno-write-strings -std=c++11 merge.cpp -o merge
+perbase: perbase.cpp
+	g++ -O3 -std=c++11 perbase.cpp -o perbase
 
-#test_merge: tests/test.bed merge
-#	cat tests/test.bed | ./merge -c tests/chr1.size -f tests/small_sm.tsv -m -s 5  > test.bed.test
-#	diff tests/test.bed.expected test.bed.test 
+perbase-debug: perbase.cpp
+	g++ -g -std=c++11 perbase.cpp -o perbase-debug
 
 test: rejoin test/aexon_sums.tsv test/dexon2aexon_map.tsv
 	./rejoin -a test/dexon2aexon_map.tsv -d test/aexon_sums.tsv -s 1393 -h -i 2> exon.counts.dups
@@ -21,4 +19,4 @@ test: rejoin test/aexon_sums.tsv test/dexon2aexon_map.tsv
 	diff test/aexon.counts.dups exon.counts.dups
 
 clean: 
-	rm merge rejoin
+	rm rejoin perbase
