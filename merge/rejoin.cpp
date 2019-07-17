@@ -75,6 +75,7 @@ static int REGION_BUFFER_SZ=0;
 static int NUM_SAMPLES=0;
 
 bool DUP_CHECK=true;
+bool SKIP_MISSING_EXONS=false;
 
 //track disjoint exon "keys" (chrm,start,end,name,score,strand) to array indexes
 //for actual genes/exons from annotation
@@ -225,6 +226,18 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
                     return -1;
                 }
                 (*disjoint_exons_seen)[key] = 1;
+            }
+            if(SKIP_MISSING_EXONS) {
+                if(amap->find(key) == amap->end()) {
+                    //skip this disjoint exon counts line altogether, rather than error out
+                    counts_list->clear(); 
+                    delete key;
+                    if(line_copy)
+                        free(line_copy);
+                    if(line)
+                        free(line);
+                    return -1;
+                }
             }
             //get list of annotations (e.g. exons) which overlap this disjoin exon
             annotations = (*amap)[key];
@@ -408,7 +421,8 @@ int main(int argc, char* argv[]) {
     bool dec_start_coord = false;
     bool skip_intron_check = false;
     bool skip_dup_check = false;
-	while((o  = getopt(argc, argv, "a:d:s:k:hcin")) != -1) {
+    bool skip_missing_exons = false;
+	while((o  = getopt(argc, argv, "a:d:s:k:hcine")) != -1) {
 		switch(o) 
 		{
 			case 'a': annotation_map_file = optarg; break;
@@ -420,6 +434,7 @@ int main(int argc, char* argv[]) {
             case 'c': dec_start_coord = true; break;
             case 'i': skip_intron_check = true; break;
             case 'n': skip_dup_check = true; break;
+            case 'e': skip_missing_exons = true; break;
 		}
 	}
 	if(num_samples <= 0) {
@@ -429,5 +444,6 @@ int main(int argc, char* argv[]) {
     NUM_SAMPLES = num_samples;
     REGION_BUFFER_SZ = region_buffer_size;
     DUP_CHECK = !skip_dup_check;
+    SKIP_MISSING_EXONS = skip_missing_exons;
 	go(annotation_map_file, disjoint_exon_sum_file, key_column_type, header, dec_start_coord, skip_intron_check);
 }
