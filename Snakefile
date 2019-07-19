@@ -8,14 +8,14 @@ import glob
 #e.g. (for CCLE, replace UUID with SRR accession if SRA/GTEx):
 #ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
 
-FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], 'all.logs.tar.gz'),os.path.join(config['staging'], 'all.gene_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz')]
+FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], 'all.logs.tar.gz'),os.path.join(config['staging'], 'all.gene_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.exon_counts.rejoined.tsv.gz')]
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
 SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'rejoin':os.path.join(workflow.basedir, 'merge', 'rejoin')}
 
-if 'gene_rejoin_mapping' not in config or 'num_samples' not in config:
-	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and/or 'num_samples' for the rejoining part of the pipeline!\n")
+if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'num_samples' not in config:
+	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and/or 'exon_rejoin_mapping' and/or 'num_samples' for the rejoining part of the pipeline!\n")
 	sys.exit(-1)	
 
 if 'existing_sj_db' not in config:
@@ -160,9 +160,26 @@ rule rejoin_genes:
 		num_samples=config['num_samples']
 	shell:
 		"""
-		{params.script_path} -a {params.gene_mapping_file} -d <(zcat {input}) -s {params.num_samples} -h 
+		{params.script_path} -a {params.gene_mapping_file} -d <(zcat {input}) -s {params.num_samples} -p gene -h  
+		cat gene.counts | gzip > {output[0]}
+		cat gene.intron_counts | gzip > {output[1]}
+		rm exon.counts exon.intron_counts
+		"""
+
+rule rejoin_exons:
+	input:
+		os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz')
+	output:
+		os.path.join(config['staging'], 'all.exon_counts.rejoined.tsv.gz')
+	params:
+		staging=config['staging'],
+		script_path=SCRIPTS['rejoin'],
+		exon_mapping_file=config['exon_rejoin_mapping'],
+		num_samples=config['num_samples']
+	shell:
+		"""
+		{params.script_path} -a {params.exon_mapping_file} -d <(zcat {input}) -s {params.num_samples} -p exon -h 
 		cat exon.counts | gzip > {output[0]}
-		cat exon.intron_counts | gzip > {output[1]}
 		rm exon.counts exon.intron_counts
 		"""
 
