@@ -21,6 +21,8 @@ typedef std::vector<char*> charlist;
 typedef hash_map<std::string, int> strmap;
 typedef hash_map<std::string, uint64_t*> countmap;
 
+std::string OUTPUT_PREFIX = "exon";
+
 typedef struct {
     //gene names that have this exon
     char* chrm;
@@ -379,11 +381,11 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     err = 0;
     //now output annotated sums already calculated
     char* foutname = new char[1024];
-    sprintf(foutname,"%s.counts",key_column_type.c_str());
+    sprintf(foutname,"%s.counts",OUTPUT_PREFIX.c_str());
     FILE* fout = fopen(foutname,"w");
     //save intron sums separately
     char* ifoutname = new char[1024];
-    sprintf(ifoutname,"%s.intron_counts",key_column_type.c_str());
+    sprintf(ifoutname,"%s.intron_counts",OUTPUT_PREFIX.c_str());
     strmap disjoint_exon_seen;
     FILE* ifout = fopen(ifoutname,"w");
 	while(bytes_read != -1) {
@@ -422,7 +424,7 @@ int main(int argc, char* argv[]) {
     bool skip_intron_check = false;
     bool skip_dup_check = false;
     bool skip_missing_exons = false;
-	while((o  = getopt(argc, argv, "a:d:s:k:hcine")) != -1) {
+	while((o  = getopt(argc, argv, "a:d:s:k:hcinep:")) != -1) {
 		switch(o) 
 		{
 			case 'a': annotation_map_file = optarg; break;
@@ -435,6 +437,7 @@ int main(int argc, char* argv[]) {
             case 'i': skip_intron_check = true; break;
             case 'n': skip_dup_check = true; break;
             case 'e': skip_missing_exons = true; break;
+			case 'p': OUTPUT_PREFIX = optarg; break;
 		}
 	}
 	if(num_samples <= 0) {
