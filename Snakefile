@@ -8,11 +8,12 @@ import glob
 #e.g. (for CCLE, replace UUID with SRR accession if SRA/GTEx):
 #ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
 
-FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], 'all.logs.tar.gz'),os.path.join(config['staging'], 'all.gene_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.exon_counts.rejoined.tsv.gz')]
+FILES=[os.path.join(config['staging'], 'qc.stats.tsv')]
+#FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], 'all.logs.tar.gz'),os.path.join(config['staging'], 'all.gene_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.exon_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'qc.stats.tsv')]
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
-SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'rejoin':os.path.join(workflow.basedir, 'merge', 'rejoin')}
+SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'rejoin':os.path.join(workflow.basedir, 'merge', 'rejoin'),'sum_counts':os.path.join(workflow.basedir, 'merge', 'sum_counts'),'QC':"python3 %s" % os.path.join(workflow.basedir, 'log_qc', 'parse_logs_for_qc.py')}
 
 if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'num_samples' not in config:
 	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and/or 'exon_rejoin_mapping' and/or 'num_samples' for the rejoining part of the pipeline!\n")
@@ -35,6 +36,52 @@ rule all:
 	input:
 		expand("{file}", file=FILES)
 
+rule find_done:
+	input:
+		config['recount_pump_output']
+	output:
+		config['input']
+	params:
+		input_dir=config['input'],
+		script_path=SCRIPTS['find_done']
+	shell:
+		"""
+		{params.script_path} {input} {params.input_dir}
+		""" 
+
+rule sum_intron_counts:
+	input:
+		os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'),
+		os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz')
+	output:
+		os.path.join(config['staging'], 'intron_counts_summed.tsv')
+	params:
+		script_path=SCRIPTS['sum_counts']
+	shell:
+		"""
+		set +eo pipefail
+		zcat {input[0]} | cut -f 6- | head -1 > {output}
+		set -eo pipefail
+		zcat {input[1]} | {params.script_path} >> {output} 2> {output}.err
+		"""
+#		paste <(head -1 {output}.temp | tr \\\\t \\\\n) <(tail -n1 {output}.temp | tr \\\\t \\\\n) > {output}
+
+rule QC:
+	input:
+		config['recount_pump_output'],
+		os.path.join(config['staging'], 'intron_counts_summed.tsv')
+	output:
+		os.path.join(config['staging'], 'qc.stats.tsv')
+	params:
+		script_path=SCRIPTS['QC'],
+		sample_ids=config['sample_ids_file']
+	shell:
+		"""
+		{params.script_path} --incoming-dir {input[0]} --sample-mapping {params.sample_ids} --intron-sums {input[1]} > {output} 2> {output}.err
+		"""
+		
+
+
 #tar and gzip all the logs, but maintain the directory structure
 rule tar_logs:
 	input:
@@ -48,7 +95,8 @@ rule tar_logs:
 ###exon SUM pasting rules
 rule find_sums:
 	input: 
-		config['input'], config['sample_ids_file']
+		config['input'],
+		config['sample_ids_file']
 	output:
 		config['staging'] + '/{type}.exon_bw_count.groups.manifest'
 	params:
@@ -186,7 +234,8 @@ rule rejoin_exons:
 ###Splice junction merging rules
 rule find_sjs:
 	input: 
-		config['input'], config['sample_ids_file']
+		config['input'],
+		config['sample_ids_file']
 	output:
 		config['staging'] + '/sj.groups.manifest'
 	params:
