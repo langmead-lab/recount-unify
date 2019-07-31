@@ -8,8 +8,7 @@ import glob
 #e.g. (for CCLE, replace UUID with SRR accession if SRA/GTEx):
 #ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
 
-FILES=[os.path.join(config['staging'], 'qc.stats.tsv')]
-#FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], 'all.logs.tar.gz'),os.path.join(config['staging'], 'all.gene_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.exon_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'qc.stats.tsv')]
+FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], 'all.logs.tar.gz'),os.path.join(config['staging'], 'all.gene_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.exon_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'qc.stats.tsv')]
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
@@ -36,50 +35,18 @@ rule all:
 	input:
 		expand("{file}", file=FILES)
 
-rule find_done:
-	input:
-		config['recount_pump_output']
-	output:
-		config['input']
-	params:
-		input_dir=config['input'],
-		script_path=SCRIPTS['find_done']
-	shell:
-		"""
-		{params.script_path} {input} {params.input_dir}
-		""" 
-
-rule sum_intron_counts:
-	input:
-		os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'),
-		os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz')
-	output:
-		os.path.join(config['staging'], 'intron_counts_summed.tsv')
-	params:
-		script_path=SCRIPTS['sum_counts']
-	shell:
-		"""
-		set +eo pipefail
-		zcat {input[0]} | cut -f 6- | head -1 > {output}
-		set -eo pipefail
-		zcat {input[1]} | {params.script_path} >> {output} 2> {output}.err
-		"""
-#		paste <(head -1 {output}.temp | tr \\\\t \\\\n) <(tail -n1 {output}.temp | tr \\\\t \\\\n) > {output}
-
-rule QC:
-	input:
-		config['recount_pump_output'],
-		os.path.join(config['staging'], 'intron_counts_summed.tsv')
-	output:
-		os.path.join(config['staging'], 'qc.stats.tsv')
-	params:
-		script_path=SCRIPTS['QC'],
-		sample_ids=config['sample_ids_file']
-	shell:
-		"""
-		{params.script_path} --incoming-dir {input[0]} --sample-mapping {params.sample_ids} --intron-sums {input[1]} > {output} 2> {output}.err
-		"""
-		
+#rule find_done:
+#	input:
+#		config['recount_pump_output']
+#	output:
+#		config['input']
+#	params:
+#		input_dir=config['input'],
+#		script_path=SCRIPTS['find_done']
+#	shell:
+#		"""
+#		{params.script_path} {input} {params.input_dir}
+#		""" 
 
 
 #tar and gzip all the logs, but maintain the directory structure
@@ -211,7 +178,7 @@ rule rejoin_genes:
 		{params.script_path} -a {params.gene_mapping_file} -d <(zcat {input}) -s {params.num_samples} -p gene -h  
 		cat gene.counts | gzip > {output[0]}
 		cat gene.intron_counts | gzip > {output[1]}
-		rm exon.counts exon.intron_counts
+		rm -f gene.counts gene.intron_counts
 		"""
 
 rule rejoin_exons:
@@ -228,7 +195,7 @@ rule rejoin_exons:
 		"""
 		{params.script_path} -a {params.exon_mapping_file} -d <(zcat {input}) -s {params.num_samples} -p exon -h 
 		cat exon.counts | gzip > {output[0]}
-		rm exon.counts exon.intron_counts
+		rm -f exon.counts exon.intron_counts
 		"""
 
 ###Splice junction merging rules
@@ -338,3 +305,33 @@ rule annotate_all_sjs:
 
 
 
+rule sum_intron_counts:
+	input:
+		os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'),
+		os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz')
+	output:
+		os.path.join(config['staging'], 'intron_counts_summed.tsv')
+	params:
+		script_path=SCRIPTS['sum_counts']
+	shell:
+		"""
+		set +eo pipefail
+		zcat {input[0]} | cut -f 6- | head -1 > {output}
+		set -eo pipefail
+		zcat {input[1]} | {params.script_path} >> {output} 2> {output}.err
+		"""
+#		paste <(head -1 {output}.temp | tr \\\\t \\\\n) <(tail -n1 {output}.temp | tr \\\\t \\\\n) > {output}
+
+rule QC:
+	input:
+		config['recount_pump_output'],
+		os.path.join(config['staging'], 'intron_counts_summed.tsv')
+	output:
+		os.path.join(config['staging'], 'qc.stats.tsv')
+	params:
+		script_path=SCRIPTS['QC'],
+		sample_ids=config['sample_ids_file']
+	shell:
+		"""
+		{params.script_path} --incoming-dir {input[0]} --sample-mapping {params.sample_ids} --intron-sums {input[1]} > {output} 2> {output}.err
+		"""
