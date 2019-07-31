@@ -143,6 +143,7 @@ parser.add_argument('--incoming-dir', metavar='/path/to/dir_containing_pump_proc
 parser.add_argument('--sample-mapping', metavar='/path/to/sample_id_mapping_file.tsv', type=str, default=None, help='path to sample ID mapping to accession [optional, use only if joining intron sums')
 parser.add_argument('--intron-sums', metavar='/path/to/intron_sums.tsv', type=str, default=None, help='path to intron sums, one value per sample [optional, but requires the setting of --sample-mapping]')
 parser.add_argument('--dont-use-patroller', action='store_const', const=True, default=False, help='if user has already filtered the attempts to be the correct set then they can skip using the patroller to find finished monorail runs')
+parser.add_argument('--use-pickled', action='store_const', const=True, default=False, help='if re-running on a large set and don\'t want to re-run the find/glob again')
 args = parser.parse_args()
 
 intron_sums = {}
@@ -164,12 +165,14 @@ runs_by_study_done = Counter()
 patroller.find_done_runs(args, {}, runs_by_study_done, seen, {}, {})
 
 fp="patroller_find_done.tsv"
-if not os.path.exists(fp):
-    with open(fp,"w") as fout:
-        [fout.write("%s\t%s\t%s\n" % (study, fkey, "\t".join(seen[study][fkey]))) for study in seen.keys() for fkey in seen[study].keys()]
+#if not os.path.exists(fp):
+with open(fp,"w") as fout:
+    [fout.write("%s\t%s\t%s\n" % (study, fkey, "\t".join(seen[study][fkey]))) for study in seen.keys() for fkey in seen[study].keys()]
 
 fp="all_logs_and_tsvs.pkl"
-log_files = load_cpickle_file(fp)
+log_files = None
+if args.use_pickled:
+    log_files = load_cpickle_file(fp)
 if log_files is None:
     log_files = glob.glob("%s/**/*.idxstats" % (top_dir), recursive=True)
     log_files.extend(glob.glob("%s/**/*.log" % (top_dir), recursive=True))
