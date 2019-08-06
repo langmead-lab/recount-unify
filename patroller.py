@@ -147,6 +147,7 @@ def find_done_runs(args, loworders, studies_done, seen, attempts_tracker, finish
         fname = fields[-1]
         #e.g. ERP001942
         study = fields[study_col]
+        attempt_num = int(attempt_num)
         if study in finished_studies or (study in seen and fkey in seen[study] and seen[study][fkey][0] < attempt_num):
             continue 
         #e.g. 42

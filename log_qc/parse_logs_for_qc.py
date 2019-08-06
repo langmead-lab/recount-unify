@@ -167,7 +167,7 @@ patroller.find_done_runs(args, {}, runs_by_study_done, seen, {}, {})
 fp="patroller_find_done.tsv"
 #if not os.path.exists(fp):
 with open(fp,"w") as fout:
-    [fout.write("%s\t%s\t%s\n" % (study, fkey, "\t".join(seen[study][fkey]))) for study in seen.keys() for fkey in seen[study].keys()]
+    [fout.write("%s\t%s\t%s\n" % (study, str(fkey), "\t".join([str(x) for x in seen[study][fkey]]))) for study in seen.keys() for fkey in seen[study].keys()]
 
 fp="all_logs_and_tsvs.pkl"
 log_files = None
@@ -208,7 +208,7 @@ for f in log_files:
     if m is None:
         m = fpath_patt2.search(f)
     fkey = m.group(2)
-    attempt_num = m.group(3)
+    attempt_num = int(m.group(3))
     #keep track of what study, proj_path, and attempt
     if not args.dont_use_patroller and (study not in seen or fkey not in seen[study] or seen[study][fkey][0] != attempt_num):
         continue
@@ -326,7 +326,7 @@ for sample in qc:
     #values['mapped fragments/total input %'] = str(int(100*round(int(num_frags) / int(total_input_frags),2)))
     values.update({n[0]:'0' for n in ratio_cols})
     values.update({n[0]:str(round(100*int(values[n[1]])/int(values[n[2]]),2)) for n in ratio_cols if int(values[n[2]]) != 0.0})
-    [sys.stderr.write(x+'\t'+str(values[x])+'\n') for x in header_keys]
+    #[sys.stderr.write(x+'\t'+str(values[x])+'\n') for x in header_keys]
     output = '\t'.join([str(values[x]) for x in header_keys])
     sys.stdout.write(study+'\t'+sample+'\t'+output+'\n')
     continue
