@@ -180,11 +180,11 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     else {
         delete key2_;
         key2 = it->first;
-        if((*glist)[key2]->find(gname) == (*glist)[key2]->end())
-            (*(*glist)[key2])[gname] = 0;
-        else
-            //fprintf(stderr,"found an existing gene name %s\n",gname);
-        (*(*glist)[key2])[gname] += (dend - dstart);
+        if(!SKIP_PRINTING_GENE_NAMES) {
+            if((*glist)[key2]->find(gname) == (*glist)[key2]->end())
+                (*(*glist)[key2])[gname] = 0;
+            (*(*glist)[key2])[gname] += (dend - dstart);
+        }
     }
     (*(*amap)[key])[key2]=1;
     if(free_key)
