@@ -18,7 +18,7 @@ using hash_map = std::unordered_map<K,V>;
 
 typedef std::vector<std::string> strlist;
 typedef std::vector<char*> charlist;
-typedef hash_map<std::string, int> strmap;
+typedef hash_map<std::string, uint32_t> strmap;
 typedef hash_map<std::string, uint64_t*> countmap;
 typedef hash_map<std::string, strmap*> strmap2;
 
@@ -92,6 +92,10 @@ static const int process_region_line(char* line, const char* delim, annotation_m
 	int i = 0;
 
 	char* chrm = nullptr;
+    //disjoint starts/ends
+    long dstart = -1;
+    long dend = -1;
+    //original annotation starts/ends
     long start = -1;
     long end = -1;
 	
@@ -111,8 +115,11 @@ static const int process_region_line(char* line, const char* delim, annotation_m
             continue;
         }
         //make the first (disjoint exon) key
-        else if(i == KEY_FIELD_COL_END+1)
+        else if(i == KEY_FIELD_COL_END+1) {
             sprintf(key,"%s\t%s\t%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[3],(*key_fields)[4],(*key_fields)[5]);
+            dstart = atol((*key_fields)[1]);
+            dend = atol((*key_fields)[2]);
+        }
         if(i == CHRM_COL) {
             chrm = strdup(tok);
             memcpy((*key_fields)[i-CHRM_COL],tok,strlen(tok)+1);
@@ -153,8 +160,7 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     //now store the original annotated entity
     bool free_key2 = true;
     auto it = alist->find(key2);
-    if(!SKIP_PRINTING_GENE_NAMES && glist->find(key2) == glist->end())
-        (*glist)[key2] = new strmap[1];
+    std::string gname2(strdup(gname));
     if(it == alist->end()) {
         annotation_t* coords = new annotation_t[1];
         coords->chrm = strdup((*key_fields)[0]);
@@ -162,13 +168,23 @@ static const int process_region_line(char* line, const char* delim, annotation_m
         coords->end = atol((*key_fields)[2]);
         coords->strand = strdup((*key_fields)[5]);
         (*alist)[key2] = coords;
-        if(!SKIP_PRINTING_GENE_NAMES)
-            (*(*glist)[key2])[std::string(strdup(gname))] = 1;
+        if(!SKIP_PRINTING_GENE_NAMES) {
+                //fprintf(stderr,"inserting key gene name %s\n",key2.c_str());
+            (*glist)[key2] = new strmap[1];
+            (*(*glist)[key2])[gname2] = (dend - dstart);
+            //store the bp lenght of the disjoint exons that make up this gene
+            //(*g2l)[gname2] += (dend - dstart);
+        }
         free_key2 = false;
     }
     else {
         delete key2_;
         key2 = it->first;
+        if((*glist)[key2]->find(gname) == (*glist)[key2]->end())
+            (*(*glist)[key2])[gname] = 0;
+        else
+            //fprintf(stderr,"found an existing gene name %s\n",gname);
+        (*(*glist)[key2])[gname] += (dend - dstart);
     }
     (*(*amap)[key])[key2]=1;
     if(free_key)
@@ -285,11 +301,15 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
                 long annot_len = aht.end - aht.start;
                 if(!SKIP_PRINTING_GENE_NAMES) {
                     bool start = true;
-                    for(auto const& kv: *((*glist)[*aht.key])) {
-                        if(!start)
+                    for(auto const& kv: (*(*glist)[*aht.key])) {
+                        if(!start) {
                             fprintf(fout,";");
+                            //if more than one gene name, return to using full length (for exons)
+                            annot_len = aht.end - aht.start;
+                        }
                         start = false;
                         fprintf(fout,"%s",kv.first.c_str());
+                        annot_len = kv.second;
                     }
                     fprintf(fout,"\t");
                 }
@@ -420,10 +440,14 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
         if(!SKIP_PRINTING_GENE_NAMES) {
             bool start = true;
             for(auto const& kv: *(glist[*aht.key])) {
-                if(!start)
+                if(!start) {
                     fprintf(fout,";");
+                    //if more than one gene name, return to using full length (for exons)
+                    annot_len = aht.end - aht.start;
+                }
                 start = false;
                 fprintf(fout,"%s",kv.first.c_str());
+                annot_len = kv.second;
             }
             fprintf(fout,"\t");
         }
