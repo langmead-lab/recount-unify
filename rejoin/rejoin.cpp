@@ -221,6 +221,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
                     //bail on this counts line altogether, don't want to overcount 
                     counts_list->clear(); 
                     delete key;
+                    fprintf(stderr,"DUP\t%s\n",line);
                     if(line_copy)
                         free(line_copy);
                     if(line)
@@ -234,6 +235,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
                     //skip this disjoint exon counts line altogether, rather than error out
                     counts_list->clear(); 
                     delete key;
+                    fprintf(stderr,"MISSING_EXON\t%s\n",line);
                     if(line_copy)
                         free(line_copy);
                     if(line)
@@ -392,8 +394,8 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
         //annotated sums get calculated in this function
 	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h, fout, ifout, dec_start_coord, skip_intron_check, &disjoint_exon_seen);
         //assert(err == 0);
-        if(err != 0)
-            fprintf(stderr,"ERR\t%s",line);
+        //if(err != 0)
+        //    fprintf(stderr,"ERR\t%s",line);
 		bytes_read = getline(&line, &length, fin);
     }
     fclose(ifout);
