@@ -24,17 +24,17 @@ typedef hash_map<std::string, uint64_t*> countmap;
 std::string OUTPUT_PREFIX = "exon";
 
 typedef struct {
-    //gene names that have this exon
     char* chrm;
     long start;
     long end;
-    strmap* names;
+    char* strand;
 } annotation_t;
 
 typedef struct {
     char* chrm;
     long start;
     long end;
+    char* strand;
     //raw read count per sample
     uint64_t* counts;
     //original annotation entry
@@ -157,7 +157,7 @@ static const int process_region_line(char* line, const char* delim, annotation_m
         coords->chrm = strdup((*key_fields)[0]);
         coords->start = atol((*key_fields)[1]);
         coords->end = atol((*key_fields)[2]);
-        coords->names = new strmap[1];
+        coords->strand = strdup((*key_fields)[5]);
         (*alist)[key2] = coords;
         free_key2 = false;
     }
@@ -168,9 +168,6 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     (*(*amap)[key])[key2]=1;
     if(free_key)
         delete key;
-    //add gene name to exon's gene map
-    if(strcmp(key_column_type.c_str(),"exon") == 0)
-        (*(*alist)[key2]->names)[gname]=1;
 
     if(line_copy)
 		free(line_copy);
@@ -257,6 +254,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
                     aht.chrm = annot_coord->chrm;
                     aht.start = annot_coord->start;
                     aht.end = annot_coord->end;
+                    aht.strand = annot_coord->strand;
                     aht.key = &annot_key.first;
                     //TODO replace this with a static buffer of counts arrays, pre-allocated
                     //and a free list
@@ -276,10 +274,11 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
             //check heap here if the lowest is non-overlapping (by end coordinate) with the current disjoint exon
             int chrm_cmp = strcmp(h->heap.a[0].chrm,chrm);
             while(chrm_cmp != 0 || ( chrm_cmp == 0 && h->heap.a[0].end < start)) {
-                //fprintf(stderr,"popping heap\n");
                 //pop top of the heap and print
                 annot_heap_t aht = h->heap.a[0];
-                fprintf(fout,"%s",aht.key->c_str());
+                //0-based length calc
+                long annot_len = aht.end - aht.start;
+                fprintf(fout,"%s\t%lu\t%lu\t%lu\t%s",aht.chrm,aht.start,aht.end,annot_len,aht.strand);
                 for(int z = 0; z < NUM_SAMPLES; z++)
                     fprintf(fout,"\t%lu",aht.counts[z]);
                 fprintf(fout,"\n");
@@ -393,16 +392,15 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
 	while(bytes_read != -1) {
         //annotated sums get calculated in this function
 	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h, fout, ifout, dec_start_coord, skip_intron_check, &disjoint_exon_seen);
-        //assert(err == 0);
-        //if(err != 0)
-        //    fprintf(stderr,"ERR\t%s",line);
 		bytes_read = getline(&line, &length, fin);
     }
     fclose(ifout);
     for(int i = 0; i < h.heap.n; i++) {
         //heap min property doesn't matter here, just want to get what's left
         annot_heap_t aht = h.heap.a[i];
-        fprintf(fout,"%s",aht.key->c_str());
+        //0-based length calc
+        long annot_len = aht.end - aht.start;
+        fprintf(fout,"%s\t%lu\t%lu\t%lu\t%s",aht.chrm,aht.start,aht.end,annot_len,aht.strand);
         for(int z = 0; z < NUM_SAMPLES; z++)
             fprintf(fout,"\t%lu",aht.counts[z]);
         fprintf(fout,"\n");
