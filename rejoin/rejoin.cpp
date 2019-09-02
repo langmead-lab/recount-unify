@@ -20,6 +20,7 @@ typedef std::vector<std::string> strlist;
 typedef std::vector<char*> charlist;
 typedef hash_map<std::string, int> strmap;
 typedef hash_map<std::string, uint64_t*> countmap;
+typedef hash_map<std::string, strmap*> strmap2;
 
 std::string OUTPUT_PREFIX = "exon";
 
@@ -78,13 +79,14 @@ static int NUM_SAMPLES=0;
 
 bool DUP_CHECK=true;
 bool SKIP_MISSING_EXONS=false;
+bool SKIP_PRINTING_GENE_NAMES = false;
 
 //track disjoint exon "keys" (chrm,start,end,name,score,strand) to array indexes
 //for actual genes/exons from annotation
 //list of actual annotations (annotation_t structs) for gene/exons
 typedef hash_map<std::string, annotation_t*> annotation_t_map_t;
 typedef hash_map<std::string, strmap*> annotation_map_t;
-static const int process_region_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, uint64_t** counts, int last_col, std::string key_column_type) {
+static const int process_region_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, uint64_t** counts, int last_col, std::string key_column_type, strmap2* glist) {
 	char* line_copy = strdup(line);
 	char* tok = strtok(line_copy, delim);
 	int i = 0;
@@ -137,8 +139,7 @@ static const int process_region_line(char* line, const char* delim, annotation_m
 	}
     //make 2nd key (original annotated exon/gene/other)
     char* key2_ = new char[1024];
-    if(strcmp(key_column_type.c_str(),"exon") == 0)
-        sprintf(key2_,"%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[5]);
+    sprintf(key2_,"%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[5]);
     std::string key2(key2_);
    
     //establish map between disjoint exon key and
@@ -152,6 +153,8 @@ static const int process_region_line(char* line, const char* delim, annotation_m
     //now store the original annotated entity
     bool free_key2 = true;
     auto it = alist->find(key2);
+    if(!SKIP_PRINTING_GENE_NAMES && glist->find(key2) == glist->end())
+        (*glist)[key2] = new strmap[1];
     if(it == alist->end()) {
         annotation_t* coords = new annotation_t[1];
         coords->chrm = strdup((*key_fields)[0]);
@@ -159,6 +162,8 @@ static const int process_region_line(char* line, const char* delim, annotation_m
         coords->end = atol((*key_fields)[2]);
         coords->strand = strdup((*key_fields)[5]);
         (*alist)[key2] = coords;
+        if(!SKIP_PRINTING_GENE_NAMES)
+            (*(*glist)[key2])[std::string(strdup(gname))] = 1;
         free_key2 = false;
     }
     else {
@@ -177,7 +182,7 @@ static const int process_region_line(char* line, const char* delim, annotation_m
 }
 
 typedef std::vector<uint64_t*> intlist;
-static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list, hs* h, FILE* fout, FILE* ifout, bool dec_start_coord, bool skip_intron_check, strmap* disjoint_exons_seen) {
+static const int process_counts_line(char* line, const char* delim, annotation_map_t* amap, char*** key_fields, annotation_t_map_t* alist, intlist* counts_list, hs* h, FILE* fout, FILE* ifout, bool dec_start_coord, bool skip_intron_check, strmap* disjoint_exons_seen, strmap2* glist) {
 	char* line_copy = strdup(line);
 	char* tok = strtok(line_copy, delim);
     char* key = new char[1024];
@@ -278,6 +283,17 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
                 annot_heap_t aht = h->heap.a[0];
                 //0-based length calc
                 long annot_len = aht.end - aht.start;
+                if(!SKIP_PRINTING_GENE_NAMES) {
+                    bool start = true;
+                    for(auto const& kv: *((*glist)[*aht.key])) {
+                        if(!start)
+                            fprintf(fout,";");
+                        start = false;
+                        fprintf(fout,"%s",kv.first.c_str());
+                    }
+                    fprintf(fout,"\t");
+                }
+
                 fprintf(fout,"%s\t%lu\t%lu\t%lu\t%s",aht.chrm,aht.start,aht.end,annot_len,aht.strand);
                 for(int z = 0; z < NUM_SAMPLES; z++)
                     fprintf(fout,"\t%lu",aht.counts[z]);
@@ -318,7 +334,7 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
     return ret;
 }
     
-static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t_map_t* alist, uint64_t*** counts, std::string key_column_type) {
+static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t_map_t* alist, uint64_t*** counts, std::string key_column_type, strmap2* glist) {
     //temporarily holds the distinct fields used for the matching key
     char** key_fields = new char*[KEY_FIELD_COL_END+1];
     for(int i=0;i<=KEY_FIELD_COL_END;i++)
@@ -330,7 +346,7 @@ static const int read_annotation(FILE* fin, annotation_map_t* amap, annotation_t
 	int err = 0;
     int counts_idx = 0;
 	while(bytes_read != -1) {
-	    err = process_region_line(strdup(line), "\t", amap, &key_fields, alist, &((*counts)[counts_idx++]), STRAND_COL, key_column_type);
+	    err = process_region_line(strdup(line), "\t", amap, &key_fields, alist, &((*counts)[counts_idx++]), STRAND_COL, key_column_type, glist);
         assert(err==0);
 		bytes_read = getline(&line, &length, fin);
     }
@@ -361,7 +377,8 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     FILE* afp = fopen(annotation_map_file.c_str(), "r");
     annotation_map_t disjoint2annotation; 
     annotation_t_map_t annot2counts;
-    int err = read_annotation(afp, &disjoint2annotation, &annot2counts, &counts, key_column_type);
+    strmap2 glist;
+    int err = read_annotation(afp, &disjoint2annotation, &annot2counts, &counts, key_column_type, &glist);
     fclose(afp);
    
     //now walk through file of disjoint exon sums 
@@ -391,7 +408,7 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
     FILE* ifout = fopen(ifoutname,"w");
 	while(bytes_read != -1) {
         //annotated sums get calculated in this function
-	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h, fout, ifout, dec_start_coord, skip_intron_check, &disjoint_exon_seen);
+	    err = process_counts_line(strdup(line), "\t", &disjoint2annotation, &key_fields, &annot2counts, counts_list, &h, fout, ifout, dec_start_coord, skip_intron_check, &disjoint_exon_seen, &glist);
 		bytes_read = getline(&line, &length, fin);
     }
     fclose(ifout);
@@ -400,6 +417,16 @@ void go(std::string annotation_map_file, std::string disjoint_exon_sum_file, std
         annot_heap_t aht = h.heap.a[i];
         //0-based length calc
         long annot_len = aht.end - aht.start;
+        if(!SKIP_PRINTING_GENE_NAMES) {
+            bool start = true;
+            for(auto const& kv: *(glist[*aht.key])) {
+                if(!start)
+                    fprintf(fout,";");
+                start = false;
+                fprintf(fout,"%s",kv.first.c_str());
+            }
+            fprintf(fout,"\t");
+        }
         fprintf(fout,"%s\t%lu\t%lu\t%lu\t%s",aht.chrm,aht.start,aht.end,annot_len,aht.strand);
         for(int z = 0; z < NUM_SAMPLES; z++)
             fprintf(fout,"\t%lu",aht.counts[z]);
@@ -438,6 +465,7 @@ int main(int argc, char* argv[]) {
             case 'n': skip_dup_check = true; break;
             case 'e': skip_missing_exons = true; break;
 			case 'p': OUTPUT_PREFIX = optarg; break;
+            case 'g': SKIP_PRINTING_GENE_NAMES = true; break;
 		}
 	}
 	if(num_samples <= 0) {
