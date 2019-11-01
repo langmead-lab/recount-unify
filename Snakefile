@@ -8,7 +8,11 @@ import glob
 #e.g. (for CCLE, replace UUID with SRR accession if SRA/GTEx):
 #ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
 
-FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], 'all.logs.tar.gz'),os.path.join(config['staging'], 'all.gene_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.exon_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'qc.stats.tsv')]
+#FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], 'all.logs.tar.gz'),os.path.join(config['staging'], 'all.gene_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.exon_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'qc.stats.tsv')]
+FILES=['all.gene_counts.rejoined.tsv','all.intron_counts.rejoined.tsv.gz','all.exon_counts.rejoined.tsv','qc.stats.tsv']
+#FILES=['all.exon_bw_count.pasted.gz','all.exon_counts.rejoined.tsv.gz']
+#FILES=['all.exon_bw_count.pasted.gz']
+#FILES=['all.sjs.merged.annotated.tsv.gz']
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
@@ -54,7 +58,7 @@ rule tar_logs:
 	input:
 		config['input']
 	output:
-		os.path.join(config['staging'], 'all.logs.tar.gz')
+		'all.logs.tar.gz'
 	shell:
 		"find -L {input} -name '*.log' > all_logs && tar -zcvf {output} -T all_logs > /dev/null && rm all_logs"
 
@@ -151,7 +155,7 @@ rule paste_sums_final:
 	input:
 		config['staging'] + '/{type}.exon_bw_count.groups.pasted.files.list'
 	output:
-		os.path.join(config['staging'], '{type}.exon_bw_count.pasted.gz')
+		'{type}.exon_bw_count.pasted.gz'
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['paste'],
@@ -164,10 +168,10 @@ rule paste_sums_final:
 ###Rejoin of exon/gene coverage into original annotation rows
 rule rejoin_genes:
 	input:
-		os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz')
+		'all.exon_bw_count.pasted.gz'
 	output:
-		os.path.join(config['staging'], 'all.gene_counts.rejoined.tsv.gz'),
-		os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz')
+		'all.gene_counts.rejoined.tsv',
+		'all.intron_counts.rejoined.tsv.gz'
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['rejoin'],
@@ -176,16 +180,16 @@ rule rejoin_genes:
 	shell:
 		"""
 		{params.script_path} -a {params.gene_mapping_file} -d <(zcat {input}) -s {params.num_samples} -p gene -h  
-		cat gene.counts | gzip > {output[0]}
+		mv gene.counts {output[0]}
 		cat gene.intron_counts | gzip > {output[1]}
 		rm -f gene.counts gene.intron_counts
 		"""
 
 rule rejoin_exons:
 	input:
-		os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz')
+		'all.exon_bw_count.pasted.gz'
 	output:
-		os.path.join(config['staging'], 'all.exon_counts.rejoined.tsv.gz')
+		'all.exon_counts.rejoined.tsv'
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['rejoin'],
@@ -194,7 +198,7 @@ rule rejoin_exons:
 	shell:
 		"""
 		{params.script_path} -a {params.exon_mapping_file} -d <(zcat {input}) -s {params.num_samples} -p exon -h 
-		cat exon.counts | gzip > {output[0]}
+		mv exon.counts {output[0]}
 		rm -f exon.counts exon.intron_counts
 		"""
 
@@ -294,7 +298,7 @@ rule annotate_all_sjs:
 	input:
 		config['staging'] + '/all.sjs.merged.tsv.gz'
 	output:
-		os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz')
+		'all.sjs.merged.annotated.tsv.gz'
 	params:
 		annot_sjs=config['annotated_sjs'],
 		script_path=SCRIPTS['annotate'],
@@ -307,10 +311,10 @@ rule annotate_all_sjs:
 
 rule sum_intron_counts:
 	input:
-		os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'),
-		os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz')
+		'all.exon_bw_count.pasted.gz',
+		'all.intron_counts.rejoined.tsv.gz'
 	output:
-		os.path.join(config['staging'], 'intron_counts_summed.tsv')
+		'intron_counts_summed.tsv'
 	params:
 		script_path=SCRIPTS['sum_counts']
 	shell:
@@ -325,9 +329,9 @@ rule sum_intron_counts:
 rule QC:
 	input:
 		config['recount_pump_output'],
-		os.path.join(config['staging'], 'intron_counts_summed.tsv')
+		'intron_counts_summed.tsv'
 	output:
-		os.path.join(config['staging'], 'qc.stats.tsv')
+		'qc.stats.tsv'
 	params:
 		script_path=SCRIPTS['QC'],
 		sample_ids=config['sample_ids_file']
