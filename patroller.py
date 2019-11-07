@@ -131,6 +131,9 @@ def find_done_runs(args, loworders, studies_done, seen, attempts_tracker, finish
             m = fpath_patt2.search(f)
             study_col = -4
             loworder_col = -5
+            if m is None:
+                sys.stderr.write("BAD_PATH\t%s\tdoes not conform to (.+)_att0.done patterns\n" % (f))
+                continue
         #e.g. geuv_sc/42/ERP001942/92/proj1_input193_attempt0/att0
         fdir = m.group(1)
         #e.g. geuv_sc/42/ERP001942/92/proj1_input193
