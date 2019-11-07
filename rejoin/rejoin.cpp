@@ -475,7 +475,7 @@ int main(int argc, char* argv[]) {
     bool skip_intron_check = false;
     bool skip_dup_check = false;
     bool skip_missing_exons = false;
-	while((o  = getopt(argc, argv, "a:d:s:k:hcinep:")) != -1) {
+	while((o  = getopt(argc, argv, "a:d:s:k:hcinegp:")) != -1) {
 		switch(o) 
 		{
 			case 'a': annotation_map_file = optarg; break;
