@@ -33,6 +33,8 @@ def store_cpickle_file(filepath, ds, compress=False):
         return True
     return False
 
+STAR_twice = False
+
 FILE_FIELD_SEP = '.'
 #FILE_PREFIX_SEP = '_'
 FILE_PREFIX_SEP = '!'
@@ -113,7 +115,13 @@ def process_line(line, pattern, suffix, qc):
                     return matched
             if suffix == STAR_SUFFIX:
                 label = label.replace(' ','_')
-            key = "%s.%s" % (names[suffix],label)
+                key = "%s.%s" % (names[suffix],label)
+                if key in qc[sample]:
+                    global STAR_twice
+                    STAR_twice = True
+                    key = key + "2"
+            else:
+                key = "%s.%s" % (names[suffix],label)
             qc[sample][key] = value
             keys.add(key)
         else:
@@ -274,6 +282,8 @@ keys.update([x[0] for x in ratio_cols])
 optional_ratio_cols = ['gene_fc_count_all.assigned','gene_fc_count_unique.assigned','exon_fc_count_all.assigned','exon_fc_count_unique.assigned']
 
 keys.add('star.All_mapped_reads')
+if STAR_twice:
+    keys.add('star.All_mapped_reads2')
 if intron_sums_len > 0:
     keys.add('intron_sum_%')
     keys.add('intron_sum')
@@ -297,6 +307,9 @@ for sample in qc:
             values[k] = '0'
     values['star.All_mapped_reads'] = str(int(values['star.Uniquely_mapped_reads_number']) + \
                                         int(values['star.Number_of_reads_mapped_to_multiple_loci']))
+    if STAR_twice:
+        values['star.All_mapped_reads2'] = str(int(values['star.Uniquely_mapped_reads_number2']) + \
+                                            int(values['star.Number_of_reads_mapped_to_multiple_loci2']))
 
     #do %'s of idxstats
     denom_ = values['idxstats.all_mapped_reads']
