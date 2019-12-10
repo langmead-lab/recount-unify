@@ -24,5 +24,5 @@ mv ${destination_dir}/attempts.moved.${date} ${destination_dir}/attempts.moved.c
 
 #now remove redundant attempts
 fgrep "/" ${destination_dir}/attempts.moved.complete > ${destination_dir}/completed_attempt_dirs
-python ${script_dir}/filter_one_file_by_another.py -f ${destination_dir}/completed_attempt_dirs -t ${destination_dir}/all_attempt_dirs -p -w -c 0 -n > ${destination_dir}/all_attempt_dirs.to_delete
+python2 ${script_dir}/filter_one_file_by_another.py -f ${destination_dir}/completed_attempt_dirs -t ${destination_dir}/all_attempt_dirs -p -w -c 0 -n > ${destination_dir}/all_attempt_dirs.to_delete
 #cat ${destination_dir}/all_attempt_dirs.to_delete | perl -ne 'chomp; `rm -rf $_`;'
