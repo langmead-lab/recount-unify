@@ -8,18 +8,22 @@ import glob
 #e.g. (for CCLE, replace UUID with SRR accession if SRA/GTEx):
 #ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
 
-#FILES=[os.path.join(config['staging'], 'all.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'unique.exon_bw_count.pasted.gz'), os.path.join(config['staging'], 'all.sjs.merged.annotated.tsv.gz'), os.path.join(config['staging'], 'all.logs.tar.gz'),os.path.join(config['staging'], 'all.gene_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.intron_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'all.exon_counts.rejoined.tsv.gz'),os.path.join(config['staging'], 'qc.stats.tsv')]
-FILES=['all.gene_counts.rejoined.tsv','all.intron_counts.rejoined.tsv.gz','all.exon_counts.rejoined.tsv','qc.stats.tsv']
+FILES=['all.exon_bw_count.pasted.gz', 'unique.exon_bw_count.pasted.gz', 'all.sjs.merged.annotated.tsv.gz', 'all.logs.tar.gz', 'all.gene_counts.rejoined.tsv', 'all.intron_counts.rejoined.tsv.gz', 'all.exon_counts.rejoined.tsv', 'intron_counts_summed.tsv'] #'qc.stats.tsv']
+#FILES=['all.gene_counts.rejoined.tsv','all.intron_counts.rejoined.tsv.gz','all.exon_counts.rejoined.tsv','qc.stats.tsv']
 #FILES=['all.exon_bw_count.pasted.gz','all.exon_counts.rejoined.tsv.gz']
 #FILES=['all.exon_bw_count.pasted.gz']
 #FILES=['all.sjs.merged.annotated.tsv.gz']
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
-SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'rejoin':os.path.join(workflow.basedir, 'merge', 'rejoin'),'sum_counts':os.path.join(workflow.basedir, 'merge', 'sum_counts'),'QC':"python3 %s" % os.path.join(workflow.basedir, 'log_qc', 'parse_logs_for_qc.py')}
+SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'rejoin':os.path.join(workflow.basedir, 'rejoin', 'rejoin'),'sum_counts':os.path.join(workflow.basedir, 'merge', 'sum_counts'),'QC':"python3 %s" % os.path.join(workflow.basedir, 'log_qc', 'parse_logs_for_qc.py'), 'perbase':os.path.join(workflow.basedir, 'merge', 'perbase')}
 
 if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'num_samples' not in config:
 	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and/or 'exon_rejoin_mapping' and/or 'num_samples' for the rejoining part of the pipeline!\n")
+	sys.exit(-1)	
+
+if 'ref_sizes' not in config or 'ref_fasta' not in config:
+	sys.stderr.write("need to pass values for 'ref_sizes' and/or 'ref_fasta' the jx motif extraction part of the pipeline!\n")
 	sys.exit(-1)	
 
 if 'existing_sj_db' not in config:
@@ -287,16 +291,32 @@ rule merge_all_sjs:
 	input: 
 		config['staging'] + '/sj.groups.merged.files.list'
 	output:
-		config['staging'] + '/all.sjs.merged.tsv.gz'
+		config['staging'] + '/all.sjs.merged.tsv'
 	params:
 		script_path=SCRIPTS['merge'],
 		existing_sj_db=config['existing_sj_db']
 	shell:
-		"pypy {params.script_path} --list-file {input} --gzip --append-samples --existing-sj-db \"{params.existing_sj_db}\" | gzip > {output}"
+		"pypy {params.script_path} --list-file {input} --gzip --append-samples --existing-sj-db \"{params.existing_sj_db}\" > {output}"
+
+rule extract_motifs_for_sjs:
+	input:
+		config['staging'] + '/all.sjs.merged.tsv',
+		config['ref_sizes'],
+		config['ref_fasta']
+	output:
+		config['staging'] + '/all.sjs.merged.motifs.tsv'
+	params:
+		script_path=SCRIPTS['perbase'],
+	shell:
+		"""
+                cat {input[0]} | {params.script_path} -c {input[1]} -g {input[2]} -f {input[1]} > {output}.temp 2>{output}.errrs
+		paste <(cut -f 1-4 {output}.temp) <(cut -f 7 {output}.temp | tr '[:lower:]' '[:upper:]') <(cut -f 6 {output}.temp) > {output}
+		"""
+#| perl -ne '$f=$_; @f=split(/\t/,$_); $f[4]=uc($f[4]); print "".join("\t",@f)."\n";' > {output}
 
 rule annotate_all_sjs:
 	input:
-		config['staging'] + '/all.sjs.merged.tsv.gz'
+		config['staging'] + '/all.sjs.merged.motifs.tsv'
 	output:
 		'all.sjs.merged.annotated.tsv.gz'
 	params:
@@ -304,7 +324,7 @@ rule annotate_all_sjs:
 		script_path=SCRIPTS['annotate'],
 		compilation_id=config['compilation_id']
 	shell:
-		"zcat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --compilation-id {params.compilation_id} | gzip > {output}"
+		"cat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --compilation-id {params.compilation_id} | gzip > {output}"
 
 
 
