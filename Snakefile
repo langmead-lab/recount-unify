@@ -43,6 +43,9 @@ rule all:
 	input:
 		expand("{file}", file=FILES)
 
+#this *HAS* to be outside of and before Snakemake, since
+#the wildcard groupings can't be inferred w/o it being run first
+#otherwise the rule dependency graph will skip critical steps (e.g. find_sums)
 #rule find_done:
 #	input:
 #		config['recount_pump_output']
@@ -50,10 +53,11 @@ rule all:
 #		config['input']
 #	params:
 #		input_dir=config['input'],
-#		script_path=SCRIPTS['find_done']
-#	shell:
+#		script_path=SCRIPTS['find_done'],
+#		study=config['study']
+##	shell:
 #		"""
-#		{params.script_path} {input} {params.input_dir}
+#		{params.script_path} {input} {params.input_dir} {params.study}
 #		""" 
 
 
@@ -344,18 +348,19 @@ rule sum_intron_counts:
 		set -eo pipefail
 		zcat {input[1]} | {params.script_path} >> {output} 2> {output}.err
 		"""
-#		paste <(head -1 {output}.temp | tr \\\\t \\\\n) <(tail -n1 {output}.temp | tr \\\\t \\\\n) > {output}
 
-rule QC:
-	input:
-		config['recount_pump_output'],
-		'intron_counts_summed.tsv'
-	output:
-		'qc.stats.tsv'
-	params:
-		script_path=SCRIPTS['QC'],
-		sample_ids=config['sample_ids_file']
-	shell:
-		"""
-		{params.script_path} --incoming-dir {input[0]} --sample-mapping {params.sample_ids} --intron-sums {input[1]} > {output} 2> {output}.err
-		"""
+#while this can be run within snakemake
+#it's more modular to keep it outside
+#rule QC:
+#	input:
+#		config['recount_pump_output'],
+#		'intron_counts_summed.tsv'
+#	output:
+#		'qc.stats.tsv'
+#	params:
+#		script_path=SCRIPTS['QC'],
+#		sample_ids=config['sample_ids_file']
+#	shell:
+#		"""
+#		{params.script_path} --incoming-dir {input[0]} --sample-mapping {params.sample_ids} --intron-sums {input[1]} > {output} 2> {output}.err
+#		"""
