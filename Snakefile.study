@@ -29,9 +29,7 @@ wildcard_constraints:
 
 
 #def get_study_final_files(wildcards):
-#FILES=["%s.exon_bw_count.%s.pasted" % (t, f.split('/')[-1]) for t in ['all','unique'] for f in glob.glob(config['input']+'/??/*')]
-FILES=["%s.exon_bw_count.%s.pasted" % (t, f.split('/')[-1]) for t in ['all'] for f in glob.glob(config['input']+'/??/*')]
-	#return [config['input']+"/%s.exon_bw_count.%s.pasted" % (t, f.split('/')[-1]) for t in ('all') for f in glob.glob(config['input']+'/??/*')]
+FILES=["%s.exon_bw_count.%s.pasted.tsv.gz" % (t, f.split('/')[-1]) for t in ['all','unique'] for f in glob.glob(config['input']+'/??/*')]
 
 rule all:
 	input:
@@ -119,7 +117,7 @@ rule paste_sums_per_study:
 	input:
 		config['staging'] + '/{type}.exon_bw_count.{study}.pasted.files.list'
 	output:
-		os.path.join('{type}.exon_bw_count.{study}.pasted')
+		os.path.join('{type}.exon_bw_count.{study}.pasted.tsv.gz')
 	params:
 		study=lambda wildcards: wildcards.study,
 		staging=config['staging'],
