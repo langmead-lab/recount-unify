@@ -1,0 +1,130 @@
+#start
+import sys
+import os
+import glob
+
+main_script_path=os.path.join(workflow.basedir,'scripts')
+
+SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'rejoin':os.path.join(workflow.basedir, 'rejoin', 'rejoin'),'sum_counts':os.path.join(workflow.basedir, 'merge', 'sum_counts'),'QC':"python3 %s" % os.path.join(workflow.basedir, 'log_qc', 'parse_logs_for_qc.py'), 'perbase':os.path.join(workflow.basedir, 'merge', 'perbase')}
+
+if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'num_samples' not in config:
+	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and/or 'exon_rejoin_mapping' and/or 'num_samples' for the rejoining part of the pipeline!\n")
+	sys.exit(-1)	
+
+if 'ref_sizes' not in config or 'ref_fasta' not in config:
+	sys.stderr.write("need to pass values for 'ref_sizes' and/or 'ref_fasta' the jx motif extraction part of the pipeline!\n")
+	sys.exit(-1)	
+
+if 'existing_sj_db' not in config:
+	config['existing_sj_db']=""
+if 'existing_sums' not in config:
+	config['existing_sums']=""
+
+if 'compilation_id' not in config:
+	config['compilation_id']=0
+
+wildcard_constraints:
+	run_group_num="[0-9a-zA-Z]{2}",
+	type="(all)|(unique)"
+
+
+#def get_study_final_files(wildcards):
+#FILES=["%s.exon_bw_count.%s.pasted" % (t, f.split('/')[-1]) for t in ['all','unique'] for f in glob.glob(config['input']+'/??/*')]
+FILES=["%s.exon_bw_count.%s.pasted" % (t, f.split('/')[-1]) for t in ['all'] for f in glob.glob(config['input']+'/??/*')]
+	#return [config['input']+"/%s.exon_bw_count.%s.pasted" % (t, f.split('/')[-1]) for t in ('all') for f in glob.glob(config['input']+'/??/*')]
+
+rule all:
+	input:
+		expand("{file}", file=FILES)
+
+#this *HAS* to be outside of and before Snakemake, since
+#the wildcard groupings can't be inferred w/o it being run first
+#otherwise the rule dependency graph will skip critical steps (e.g. find_sums)
+#rule find_done:
+#	input:
+#		config['recount_pump_output']
+#	output:
+#		config['input']
+#	params:
+#		input_dir=config['input'],
+#		script_path=SCRIPTS['find_done'],
+#		study=config['study']
+##	shell:
+#		"""
+#		{params.script_path} {input} {params.input_dir} {params.study}
+#		""" 
+
+
+###exon SUM pasting rules
+rule find_sums:
+	input: 
+		config['input'],
+		config['sample_ids_file']
+	output:
+		config['staging'] + '/{type}.exon_bw_count.groups.manifest'
+	params:
+		staging=config['staging'],
+		script_path=SCRIPTS['find'],
+		type=lambda wildcards: wildcards.type
+	shell:
+		"{params.script_path} {input[0]} {input[1]} {params.staging} {params.type}.exon_bw_count .zst per_study"
+
+rule decompress_sums:
+	input:
+		config['staging'] + '/{type}.exon_bw_count.groups.manifest'
+	output:
+		config['staging'] + '/{type}.exon_bw_count.{study}.{run_group_num}.decompressed'
+	params:
+		study=lambda wildcards: wildcards.study,
+		run_group_num=lambda wildcards: wildcards.run_group_num,
+		staging=config['staging'],
+		script_path=SCRIPTS['decompress'],
+		type=lambda wildcards: wildcards.type
+	shell:
+		"{params.script_path} {params.staging}/{params.type}.exon_bw_count.{params.study}.{params.run_group_num}.manifest {output}"
+
+
+#do a rule instantiation per *run* low-order name grouping to do hierarchical pastes
+rule paste_sums_per_group:
+	input:
+		config['staging'] + '/{type}.exon_bw_count.{study}.{run_group_num}.decompressed'
+	output:
+		config['staging'] + '/{type}.exon_bw_count.{study}.{run_group_num}.pasted'
+	params:
+		study=lambda wildcards: wildcards.study,
+		run_group_num=lambda wildcards: wildcards.run_group_num,
+		staging=config['staging'],
+		script_path=SCRIPTS['paste'],
+		type=lambda wildcards: wildcards.type
+	shell:
+		"{params.script_path} {params.staging}/{params.type}.exon_bw_count.{params.study}.{params.run_group_num}.manifest {output}"
+
+def get_pasted_sum_files(wildcards):
+	study = wildcards.study
+	return [config['staging']+"/%s.exon_bw_count.%s.%s.pasted" % (wildcards.type, study, f.split('/')[-1]) for f in glob.glob(config['input']+'/??/%s/??' % (study))]
+
+rule collect_pasted_sums:
+	input:
+		get_pasted_sum_files
+	output:
+		config['staging'] + '/{type}.exon_bw_count.{study}.pasted.files.list'
+	params:
+		study=lambda wildcards: wildcards.study,
+		staging=config['staging'],
+		type=lambda wildcards: wildcards.type
+	shell:
+		"ls {params.staging}/{params.type}.exon_bw_count.{params.study}.??.pasted > {output}"
+
+rule paste_sums_per_study:
+	input:
+		config['staging'] + '/{type}.exon_bw_count.{study}.pasted.files.list'
+	output:
+		os.path.join('{type}.exon_bw_count.{study}.pasted')
+	params:
+		study=lambda wildcards: wildcards.study,
+		staging=config['staging'],
+		script_path=SCRIPTS['paste'],
+		existing_sums=config['existing_sums'],
+		type=lambda wildcards: wildcards.type
+	shell:
+		"{params.script_path} {input} {output} dont_get_ids {params.existing_sums}"
