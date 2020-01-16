@@ -3,9 +3,11 @@ import sys
 import os
 import glob
 
+shell.executable("/usr/bin/bash")
+
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
-SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'rejoin':os.path.join(workflow.basedir, 'rejoin', 'rejoin'),'sum_counts':os.path.join(workflow.basedir, 'merge', 'sum_counts'),'QC':"python3 %s" % os.path.join(workflow.basedir, 'log_qc', 'parse_logs_for_qc.py'), 'perbase':os.path.join(workflow.basedir, 'merge', 'perbase')}
+SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'rejoin':os.path.join(workflow.basedir, 'rejoin', 'rejoin'),'sum_counts':os.path.join(workflow.basedir, 'merge', 'sum_counts'),'QC':"python3 %s" % os.path.join(workflow.basedir, 'log_qc', 'parse_logs_for_qc.py'), 'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'rejoin_sh':os.path.join(main_script_path,'rejoin_genes.sh')}
 
 if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'num_samples' not in config:
 	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and/or 'exon_rejoin_mapping' and/or 'num_samples' for the rejoining part of the pipeline!\n")
@@ -27,9 +29,9 @@ wildcard_constraints:
 	run_group_num="[0-9a-zA-Z]{2}",
 	type="(all)|(unique)"
 
-
 #def get_study_final_files(wildcards):
 FILES=["%s.exon_bw_count.%s.pasted.tsv.gz" % (t, f.split('/')[-1]) for t in ['all','unique'] for f in glob.glob(config['input']+'/??/*')]
+FILES.extend(["%s.gene_counts.rejoined.%s.tsv.gz" % (t, f.split('/')[-1]) for t in ['all','unique'] for f in glob.glob(config['input']+'/??/*')])
 
 rule all:
 	input:
@@ -95,7 +97,7 @@ rule paste_sums_per_group:
 		script_path=SCRIPTS['paste'],
 		type=lambda wildcards: wildcards.type
 	shell:
-		"{params.script_path} {params.staging}/{params.type}.exon_bw_count.{params.study}.{params.run_group_num}.manifest {output}"
+		"acc_header=1 {params.script_path} {params.staging}/{params.type}.exon_bw_count.{params.study}.{params.run_group_num}.manifest {output}"
 
 def get_pasted_sum_files(wildcards):
 	study = wildcards.study
@@ -126,3 +128,36 @@ rule paste_sums_per_study:
 		type=lambda wildcards: wildcards.type
 	shell:
 		"{params.script_path} {input} {output} dont_get_ids {params.existing_sums}"
+
+###Rejoin of exon/gene coverage into original annotation rows
+rule rejoin_genes:
+	input:
+		'{type}.exon_bw_count.{study}.pasted.tsv.gz'
+	output:
+		'{type}.gene_counts.rejoined.{study}.tsv.gz'
+	params:
+		staging=config['staging'],
+		script_path=SCRIPTS['rejoin'],
+		script_path2=SCRIPTS['rejoin_sh'],
+		gene_mapping_file=config['gene_rejoin_mapping'],
+		num_samples=config['num_samples']
+	shell:
+		"""
+		/bin/bash -x {params.script_path2} {input} {output} {params.gene_mapping_file} {params.script_path} gene
+		"""
+
+rule rejoin_exons:
+	input:
+		'{type}.exon_bw_count.{study}.pasted.tsv.gz'
+	output:
+		'{type}.exon_counts.rejoined.{study}.tsv.gz'
+	params:
+		staging=config['staging'],
+		script_path=SCRIPTS['rejoin'],
+		script_path2=SCRIPTS['rejoin_sh'],
+		exon_mapping_file=config['exon_rejoin_mapping'],
+		num_samples=config['num_samples']
+	shell:
+		"""
+		/bin/bash -x {params.script_path2} {input} {output} {params.exon_mapping_file} {params.script_path} exon
+		"""
