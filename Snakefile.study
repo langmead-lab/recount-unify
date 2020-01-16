@@ -29,9 +29,10 @@ wildcard_constraints:
 	run_group_num="[0-9a-zA-Z]{2}",
 	type="(all)|(unique)"
 
-#def get_study_final_files(wildcards):
+#setup the final set of target files
 FILES=["%s.exon_bw_count.%s.pasted.tsv.gz" % (t, f.split('/')[-1]) for t in ['all','unique'] for f in glob.glob(config['input']+'/??/*')]
 FILES.extend(["%s.gene_counts.rejoined.%s.tsv.gz" % (t, f.split('/')[-1]) for t in ['all','unique'] for f in glob.glob(config['input']+'/??/*')])
+FILES.extend(["%s.exon_counts.rejoined.%s.tsv.gz" % (t, f.split('/')[-1]) for t in ['all','unique'] for f in glob.glob(config['input']+'/??/*')])
 
 rule all:
 	input:
