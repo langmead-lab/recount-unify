@@ -1,5 +1,5 @@
 #!/bin/bash
-set -o pipefail -o nounset -o errexit 
+set -o pipefail -o errexit 
 
 
 DELIM='!';
