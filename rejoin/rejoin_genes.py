@@ -10,11 +10,21 @@ mapf = sys.argv[1]
 annot_type = sys.argv[2]
 counts_headerF = sys.argv[3]
 annot_source = sys.argv[4]
+id_mappingF = sys.argv[5]
 annot_sources = set(annot_source.split(','))
 
 counts_header = ""
 with open(counts_headerF,"r") as fin:
     counts_header = fin.read().rstrip()
+
+id_mapping = {}
+with open(id_mappingF,"r") as fin:
+    for line in fin:
+        (study, run, rail_id) = line.rstrip().split('\t')
+        id_mapping[rail_id] = run
+
+#get accessions (or barcodes) as counts header rather than rail_ids
+counts_header = '\t'.join([id_mapping[rid] for rid in counts_header.split('\t')])
 
 annot_fhs = {}
 annot_map = {}
