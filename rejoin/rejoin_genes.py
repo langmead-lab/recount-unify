@@ -11,11 +11,18 @@ annot_type = sys.argv[2]
 counts_headerF = sys.argv[3]
 annot_source = sys.argv[4]
 id_mappingF = sys.argv[5]
+#e.g. G026, write out a different header for Snaptron which 
+#uses the rail_ids instead of the sample accessions/barcodes
+snaptron_annot_src = sys.argv[6]
 annot_sources = set(annot_source.split(','))
 
 counts_header = ""
 with open(counts_headerF,"r") as fin:
     counts_header = fin.read().rstrip()
+
+#get accessions (or barcodes) as counts header rather than rail_ids
+with open(snaptron_annot_src+"."+annot_type+".sums.snaptron_header.tsv","w") as fout:
+    fout.write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
 
 id_mapping = {}
 with open(id_mappingF,"r") as fin:
@@ -23,7 +30,6 @@ with open(id_mappingF,"r") as fin:
         (study, run, rail_id) = line.rstrip().split('\t')
         id_mapping[rail_id] = run
 
-#get accessions (or barcodes) as counts header rather than rail_ids
 counts_header = '\t'.join([id_mapping[rid] for rid in counts_header.split('\t')])
 
 annot_fhs = {}
@@ -48,7 +54,7 @@ with open(mapf,"r") as fin:
         gene_id = '.'.join(gsplit)
         if annot_src not in annot_fhs:
             annot_fhs[annot_src] = open(annot_src+"."+annot_type+".sums.tsv","w")
-            annot_fhs[annot_src].write("gene_id\ttotal_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
+            annot_fhs[annot_src].write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
 
         key = "\t".join([chrm, gstart, gend, strand])
         if key not in annot_map:
@@ -63,7 +69,8 @@ for line in sys.stdin:
     gstart = str(int(gstart)+1)
     counts = "\t".join(fields[6:])
     #output is: Gene   bp_length       chromosome      start   end count1 count2 count3....
-    outstr = "\t".join([str((int(gend) - int(gstart)) + 1), chrm, gstart, gend])+"\t"+counts+"\n"
+    #outstr = "\t".join([str((int(gend) - int(gstart)) + 1), chrm, gstart, gend])+"\t"+counts+"\n"
+    outstr = "\t".join([glength, chrm, gstart, gend])+"\t"+counts+"\n"
     key = "\t".join([chrm, gstart, gend, strand])
     for (gene_id, annot_src) in annot_map[key]:
         annot_fhs[annot_src].write(gene_id + "\t" + outstr)
