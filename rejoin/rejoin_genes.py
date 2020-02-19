@@ -14,6 +14,10 @@ id_mappingF = sys.argv[5]
 #e.g. G026, write out a different header for Snaptron which 
 #uses the rail_ids instead of the sample accessions/barcodes
 snaptron_annot_src = sys.argv[6]
+study = None
+if len(sys.argv) >= 8:
+    study = sys.argv[7]
+
 annot_sources = set(annot_source.split(','))
 
 counts_header = ""
@@ -21,16 +25,26 @@ with open(counts_headerF,"r") as fin:
     counts_header = fin.read().rstrip()
 
 #get accessions (or barcodes) as counts header rather than rail_ids
-with open(snaptron_annot_src+"."+annot_type+".sums.snaptron_header.tsv","w") as fout:
-    fout.write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
+if study is not None:
+    with open(snaptron_annot_src+"."+annot_type+".sums.snaptron_header.%s.tsv" % study,"w") as fout:
+        fout.write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
+else:
+    with open(snaptron_annot_src+"."+annot_type+".sums.snaptron_header.tsv","w") as fout:
+        fout.write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
 
 id_mapping = {}
 with open(id_mappingF,"r") as fin:
     for line in fin:
-        (study, run, rail_id) = line.rstrip().split('\t')
+        (study_, run, rail_id) = line.rstrip().split('\t')
         id_mapping[rail_id] = run
 
-counts_header = '\t'.join([id_mapping[rid] for rid in counts_header.split('\t')])
+counts_header_fields = counts_header.split('\t')
+#may be using accessions/original IDs already
+try: 
+    int(counts_header_fields[0])
+    counts_header = '\t'.join([id_mapping[rid] for rid in counts_header_fields])
+except ValueError:
+    pass
 
 annot_fhs = {}
 annot_map = {}
@@ -53,7 +67,10 @@ with open(mapf,"r") as fin:
             continue
         gene_id = '.'.join(gsplit)
         if annot_src not in annot_fhs:
-            annot_fhs[annot_src] = open(annot_src+"."+annot_type+".sums.tsv","w")
+            if study is not None:
+                annot_fhs[annot_src] = open(annot_src+"."+annot_type+".sums.%s.tsv" % study,"w")
+            else:
+                annot_fhs[annot_src] = open(annot_src+"."+annot_type+".sums.tsv","w")
             annot_fhs[annot_src].write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
 
         key = "\t".join([chrm, gstart, gend, strand])
