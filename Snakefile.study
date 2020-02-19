@@ -165,16 +165,13 @@ rule rejoin_exons:
 def get_gene_annotations(wildcards):
 	return ['%s/%s.gene.sums.%s.tsv.gz' % (STUDYDIR, annotation, wildcards.study) for annotation in annotations]
 
-gene_annotations_generic=['%s/%s.gene.sums.{study}.tsv.gz' % (STUDYDIR, annotation) for annotation in annotations]
+gene_annotations_uncompressed=['%s/%s.gene.sums.{study}.tsv' % (STUDYDIR, annotation) for annotation in annotations]
 rule rejoin_genes_final:
 	input:
 		os.path.join(STUDYDIR, 'all.gene_counts.rejoined.{study}.tsv.gz'),
 		os.path.join(STUDYDIR, 'all.exon_bw_count.pasted.{study}.tsv.gz')
 	output:
-		gene_annotations_generic
-		#get_gene_annotations
-		#gene_annotations
-	threads: 28
+		gene_annotations_uncompressed
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['rejoin_genes'],
@@ -182,9 +179,7 @@ rule rejoin_genes_final:
 		gene_mapping_final_file=config['gene_mapping_final'],
 		#G026,G029,R109,ERCC,SIRV,F006
 		annotation_list=config['annotation_list'],
-		annotation_list2=' '.join(config['annotation_list'].split(',')[:-1]),
-		#F006
-		last_of_annotation_list2=config['annotation_list'].split(',')[-1],
+		annotation_list_space_delimited=' '.join(config['annotation_list'].split(',')),
 		id_mapping=config['sample_ids_file'],
 		#G026
 		main_annotation=main_annotation,
@@ -196,11 +191,24 @@ rule rejoin_genes_final:
 		zcat {input[1]} | head -1 | cut -f 7- > all.exon_bw_count.pasted.gz.{params.study}.samples_header
 		set -o pipefail
 		zcat {input[0]} | tail -n+2 | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.{params.study}.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation} {params.study}
-		
-		for t in {params.annotation_list2}; do
+		for t in {params.annotation_list_space_delimited}; do
 			mv ${{t}}.gene.sums.{params.study}.tsv {params.studydir}/
-			pigz --fast -p 4 {params.studydir}/${{t}}.gene.sums.{params.study}.tsv &
 		done
-		mv {params.last_of_annotation_list2}.gene.sums.{params.study}.tsv {params.studydir}/
-		pigz --fast -p 8 {params.studydir}/{params.last_of_annotation_list2}.gene.sums.{params.study}.tsv 
+		"""
+
+#gene_annotations_compressed=['%s/%s.gene.sums.{study}.tsv.gz' % (STUDYDIR, annotation) for annotation in annotations]
+
+rule compress_final_rejoined_genes:
+	input:
+		'%s/{annotation}.gene.sums.{study}.tsv' % (STUDYDIR)
+	output:
+		'%s/{annotation}.gene.sums.{study}.tsv.gz' % (STUDYDIR)
+	threads: 8
+	params:
+		study=lambda wildcards: wildcards.study,
+		studydir=STUDYDIR,
+		annotation=lambda wildcards: wildcards.annotation
+	shell:
+		"""
+		pigz --fast -p {threads} {params.studydir}/{params.annotation}.gene.sums.{params.study}.tsv
 		"""
