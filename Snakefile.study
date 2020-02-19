@@ -38,9 +38,6 @@ if 'annotation_list' not in config:
 studies = [f.split('/')[-1] for f in glob.glob(config['input']+'/??/*')]
 
 #setup the final set of target files
-#FILES=["%s.exon_bw_count.%s.pasted.tsv.gz" % (t, f.split('/')[-1]) for t in ['all','unique'] for f in studies]
-#FILES.extend(["%s.gene_counts.rejoined.%s.tsv.gz" % (t, f.split('/')[-1]) for t in ['all','unique'] for f in studies])
-#FILES.extend(["%s.exon_counts.rejoined.%s.tsv.gz" % (t, f.split('/')[-1]) for t in ['all','unique'] for f in studies])
 FILES=["%s/all.exon_bw_count.pasted.%s.tsv.gz" % (STUDYDIR, s) for s in studies]
 FILES.extend(["%s/all.gene_counts.rejoined.%s.tsv.gz" % (STUDYDIR, s) for s in studies])
 FILES.extend(["%s/all.exon_counts.rejoined.%s.tsv.gz" % (STUDYDIR, s) for s in studies])
@@ -136,6 +133,7 @@ rule rejoin_genes:
 		os.path.join(STUDYDIR, 'all.exon_bw_count.pasted.{study}.tsv.gz')
 	output:
 		os.path.join(STUDYDIR, 'all.gene_counts.rejoined.{study}.tsv.gz')
+	threads: 8
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['rejoin'],
@@ -144,7 +142,7 @@ rule rejoin_genes:
 		num_samples=config['num_samples']
 	shell:
 		"""
-		/bin/bash -x {params.script_path2} {input} {output} {params.gene_mapping_file} {params.script_path} gene
+		/bin/bash -x {params.script_path2} {input} {output} {params.gene_mapping_file} {params.script_path} gene {threads}
 		"""
 
 rule rejoin_exons:
@@ -152,6 +150,7 @@ rule rejoin_exons:
 		os.path.join(STUDYDIR, 'all.exon_bw_count.pasted.{study}.tsv.gz')
 	output:
 		os.path.join(STUDYDIR, 'all.exon_counts.rejoined.{study}.tsv.gz')
+	threads: 8
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['rejoin'],
@@ -160,7 +159,7 @@ rule rejoin_exons:
 		num_samples=config['num_samples']
 	shell:
 		"""
-		/bin/bash -x {params.script_path2} {input} {output} {params.exon_mapping_file} {params.script_path} exon
+		/bin/bash -x {params.script_path2} {input} {output} {params.exon_mapping_file} {params.script_path} exon {threads}
 		"""
 
 def get_gene_annotations(wildcards):
@@ -175,6 +174,7 @@ rule rejoin_genes_final:
 		gene_annotations_generic
 		#get_gene_annotations
 		#gene_annotations
+	threads: 28
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['rejoin_genes'],
@@ -188,15 +188,19 @@ rule rejoin_genes_final:
 		id_mapping=config['sample_ids_file'],
 		#G026
 		main_annotation=main_annotation,
-		study=lambda wildcards: wildcards.study
+		study=lambda wildcards: wildcards.study,
+		studydir=STUDYDIR
 	shell:
 		"""
 		set +o pipefail
-		zcat {input[1]} | head -1 | cut -f 7- > all.exon_bw_count.pasted.gz.samples_header
+		zcat {input[1]} | head -1 | cut -f 7- > all.exon_bw_count.pasted.gz.{params.study}.samples_header
 		set -o pipefail
-		cat {input[0]} | tail -n+2 | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation} {params.study}
+		zcat {input[0]} | tail -n+2 | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.{params.study}.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation} {params.study}
+		
 		for t in {params.annotation_list2}; do
-			gzip ${{t}}.gene.sums.{params.study}.tsv &
+			mv ${{t}}.gene.sums.{params.study}.tsv {params.studydir}/
+			pigz --fast -p 4 {params.studydir}/${{t}}.gene.sums.{params.study}.tsv &
 		done
-		gzip {params.last_of_annotation_list2}.gene.sums.{params.study}.tsv 
+		mv {params.last_of_annotation_list2}.gene.sums.{params.study}.tsv {params.studydir}/
+		pigz --fast -p 8 {params.studydir}/{params.last_of_annotation_list2}.gene.sums.{params.study}.tsv 
 		"""
