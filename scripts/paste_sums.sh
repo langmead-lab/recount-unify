@@ -5,6 +5,11 @@ manifest=$1
 output=$2
 dont_get_ids=$3
 existing_sums=$4
+#[optional] number of threads to use when pigz'ing output, default 4
+threads=$5
+if [[ -z $threads ]]; then
+	threads=1
+fi
 
 if [ -n "$dont_get_ids" ]; then
 #if set, we're doing a final paste of all previously pasted (or copied) sample groups so no need to handle sample IDs
@@ -24,5 +29,5 @@ fi
 
 if [ -n "$existing_sums" ]; then
     mv ${output} ${output}.pre_existing
-    paste <(zcat ${existing_sums}) ${output}.pre_existing | gzip > ${output}
+    paste <(pigz --stdout -d ${existing_sums}) ${output}.pre_existing | pigz --fast -p $threads > ${output}
 fi

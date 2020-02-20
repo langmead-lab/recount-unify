@@ -8,11 +8,8 @@ import glob
 #e.g. (for CCLE, replace UUID with SRR accession if SRA/GTEx):
 #ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
 
-FILES=['all.exon_bw_count.pasted.gz', 'unique.exon_bw_count.pasted.gz', 'all.sjs.merged.annotated.tsv.gz', 'all.logs.tar.gz', 'all.gene_counts.rejoined.tsv', 'all.intron_counts.rejoined.tsv.gz', 'all.exon_counts.rejoined.tsv', 'intron_counts_summed.tsv','qc.stats.tsv']
-#FILES=['all.gene_counts.rejoined.tsv','all.intron_counts.rejoined.tsv.gz','all.exon_counts.rejoined.tsv','qc.stats.tsv']
-#FILES=['all.exon_bw_count.pasted.gz','all.exon_counts.rejoined.tsv.gz']
-#FILES=['all.exon_bw_count.pasted.gz']
-#FILES=['all.sjs.merged.annotated.tsv.gz']
+FILES=['all.exon_bw_count.pasted.gz', 'unique.exon_bw_count.pasted.gz', 'all.sjs.merged.annotated.tsv.gz', 'all.logs.tar.gz', 'all.gene_counts.rejoined.tsv', 'all.intron_counts.rejoined.tsv.gz', 'all.exon_counts.rejoined.tsv', 'intron_counts_summed.tsv']
+#FILES=['all.exon_bw_count.pasted.gz', 'unique.exon_bw_count.pasted.gz', 'all.sjs.merged.annotated.tsv.gz', 'all.logs.tar.gz', 'all.gene_counts.rejoined.tsv', 'all.intron_counts.rejoined.tsv.gz', 'all.exon_counts.rejoined.tsv', 'intron_counts_summed.tsv','qc.stats.tsv']
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
@@ -200,6 +197,7 @@ rule rejoin_genes:
 	output:
 		'all.gene_counts.rejoined.tsv',
 		'all.intron_counts.rejoined.tsv.gz'
+	threads: 8
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['rejoin'],
@@ -207,18 +205,19 @@ rule rejoin_genes:
 		num_samples=config['num_samples']
 	shell:
 		"""
-		{params.script_path} -a {params.gene_mapping_file} -d <(zcat {input}) -s {params.num_samples} -p gene -h  
+		{params.script_path} -a {params.gene_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p gene -h  
 		mv gene.counts {output[0]}
-		cat gene.intron_counts | gzip > {output[1]}
+		cat gene.intron_counts | pigz --fast -p {threads} > {output[1]}
 		rm -f gene.counts gene.intron_counts
 		"""
 
+gene_annotations_uncompressed=['%s.gene.sums.tsv' % (annotation) for annotation in config['annotation_list'].split(',')]
 rule rejoin_genes_final:
 	input:
 		'all.gene_counts.rejoined.tsv',
 		'all.exon_bw_count.pasted.gz'
 	output:
-		gene_annotations
+		gene_annotations_uncompressed
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['rejoin_genes'],
@@ -226,22 +225,28 @@ rule rejoin_genes_final:
 		gene_mapping_final_file=config['gene_mapping_final'],
 		#G026,G029,R109,ERCC,SIRV,F006
 		annotation_list=config['annotation_list'],
-		annotation_list2=' '.join(config['annotation_list'].split(',')[:-1]),
-        #F006
-        last_of_annotation_list2=config['annotation_list'].split(',')[-1],
 		id_mapping=config['sample_ids_file'],
-        #G026
+        	#G026
 		main_annotation=main_annotation
 	shell:
 		"""
 		set +o pipefail
-		zcat {input[1]} | head -1 | cut -f 7- > all.exon_bw_count.pasted.gz.samples_header
+		pigz --stdout -p 1 -d {input[1]} | head -1 | cut -f 7- > all.exon_bw_count.pasted.gz.samples_header
 		set -o pipefail
 		cat {input[0]} | tail -n+2 | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation}
-		for t in {params.annotation_list2}; do
-			gzip ${{t}}.gene.sums.tsv &
-		done
-		gzip {params.last_of_annotation_list2}.gene.sums.tsv 
+		"""
+
+rule compress_final_rejoined_genes:
+	input:
+		'{annotation}.gene.sums.tsv'
+	output:
+		'{annotation}.gene.sums.tsv.gz'
+	threads: 8
+	params:
+		annotation=lambda wildcards: wildcards.annotation
+	shell:
+		"""
+		pigz --fast -p {threads} {params.annotation}.gene.sums.tsv
 		"""
 
 rule rejoin_exons:
@@ -257,7 +262,7 @@ rule rejoin_exons:
 	shell:
 		"""
 		set +o pipefail
-		{params.script_path} -a {params.exon_mapping_file} -d <(zcat {input}) -s {params.num_samples} -p exon -h 
+		{params.script_path} -a {params.exon_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p exon -h 
 		mv exon.counts {output[0]}
 		rm -f exon.counts exon.intron_counts
 		"""
@@ -295,12 +300,13 @@ rule merge_sjs:
 		config['staging'] + '/sj.{study_group_num}.{run_group_num}.manifest.filtered'
 	output:
 		config['staging'] + '/sj.{study_group_num}.{run_group_num}.merged.tsv.gz'
+	threads: 8
 	params:
 		staging=config['staging'],
 		filtered_manifest=lambda wildcards, input: '.'.join(input[0].split('.')[:-1]),
 		script_path=SCRIPTS['merge']
 	shell:
-		"pypy {params.script_path} --list-file {params.filtered_manifest} --gzip | sort -k1,1 -k2,2n -k3,3n | gzip > {output}"
+		"pypy {params.script_path} --list-file {params.filtered_manifest} --gzip | sort -k1,1 -k2,2n -k3,3n | pigz --fast -p {threads} > {output}"
 
 #gets  study + run loworder groupings, e.g. unified/sj.01.42.manifest.sj_sample_files.merged.tsv.gz
 #where "42" is the loworder digits for the run, e.g. SRR8733242 in SRP005401
@@ -324,11 +330,12 @@ rule merge_study_group_sjs:
 		config['staging'] + '/sj.{study_group_num}.groups.merged.files.list'
 	output:
 		config['staging'] + '/all.{study_group_num}.sjs.merged.tsv.gz'
+	threads: 8
 	params:
 		script_path=SCRIPTS['merge'],
 		existing_sj_db=config['existing_sj_db']
 	shell:
-		"pypy {params.script_path} --list-file {input} --gzip --append-samples | gzip > {output}"
+		"pypy {params.script_path} --list-file {input} --gzip --append-samples | pigz --fast -p {threads} > {output}"
 
 def get_sj_study_merged_files(wildcards):
 	return [config['staging']+"/all.%s.sjs.merged.tsv.gz" % (f.split('/')[-1]) for f in glob.glob(config['input']+'/??')]
@@ -375,14 +382,13 @@ rule annotate_all_sjs:
 		config['staging'] + '/all.sjs.merged.motifs.tsv'
 	output:
 		'all.sjs.merged.annotated.tsv.gz'
+	threads: 8
 	params:
 		annot_sjs=config['annotated_sjs'],
 		script_path=SCRIPTS['annotate'],
 		compilation_id=config['compilation_id']
 	shell:
-		"cat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --compilation-id {params.compilation_id} | gzip > {output}"
-
-
+		"cat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --compilation-id {params.compilation_id} | pigz --fast -p {threads} > {output}"
 
 
 rule sum_intron_counts:
@@ -396,9 +402,9 @@ rule sum_intron_counts:
 	shell:
 		"""
 		set +eo pipefail
-		zcat {input[0]} | cut -f 6- | head -1 > {output}
+		pigz --stdout -p 1 -d {input[0]} | cut -f 6- | head -1 > {output}
 		set -eo pipefail
-		zcat {input[1]} | {params.script_path} >> {output} 2> {output}.err
+		pigz --stdout -p 1 -d {input[1]} | {params.script_path} >> {output} 2> {output}.err
 		"""
 
 #while this can be run within snakemake
