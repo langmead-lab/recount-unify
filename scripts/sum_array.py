@@ -1,6 +1,6 @@
 import sys
 sums=[]
-sum_len = len(sums)
+sum_len=0
 count=0
 #expected timings columns in input
 #total_runtime   align   align_unmapped  all     bamcount        bamcount_unmapped       download        exon_fc_count_all       exon_fc_count_unique      extract_jx      fastq_check     gene_fc_count_all       gene_fc_count_unique    make_manifest   remove_fastqs   remove_unmapped_fastqs    salmon  sort
