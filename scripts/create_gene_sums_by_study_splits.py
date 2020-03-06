@@ -25,4 +25,7 @@ fin.close()
 
 for study in study_cuts.keys():
 	if len(study_cuts[study]) > 0:
-		sys.stdout.write("zcat %s | cut -f 1-5,%s | pigz --fast -p1 > %s/%s.%s.gz\n" % (sumsF, (','.join([str(run_pos) for run_pos in study_cuts[study]])), outdir, annotation, study))
+		#only cut out the sample counts, we can always add in the gid,chr,bplengthstart,end separately, saves space
+		sys.stdout.write("zcat %s | cut -f %s | pigz --fast -p1 > %s/%s.%s.gz\n" % (sumsF, (','.join([str(run_pos) for run_pos in study_cuts[study]])), outdir, annotation, study))
+	else:
+		sys.stderr.write("%s\tno_runs\n" % study)
