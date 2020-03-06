@@ -3,6 +3,7 @@
 #output: produces the gene level sums for each original annotation in separate files
 
 import sys
+import re
 
 #mapping file between gene extend coords and gene name/annotation source
 mapf = sys.argv[1]
@@ -46,42 +47,58 @@ try:
 except ValueError:
     pass
 
-annot_fhs = {}
+annotation_fhs = {}
 annot_map = {}
+
+additional_annots_patt = re.compile(r'^((SIRV)|(ERCC))')
+def determine_annotation_source(gname, annot_fhs=None):
+    gsplit = gname.split('.')
+    annot_src = None
+    num_splits = len(gsplit)
+    found_idx = -1
+    for i,potential_src in enumerate(gsplit):
+        if potential_src in annot_sources:
+            annot_src = potential_src
+            del gsplit[i]
+            break
+    if annot_src is None:
+        m = additional_annots_patt.search(gname)
+        if m is not None:
+            annot_src = m.group(1)
+    gene_id = '.'.join(gsplit)
+    if annot_src is not None and annot_fhs is not None and annot_src not in annot_fhs:
+        if study is not None:
+            annot_fhs[annot_src] = open(annot_src+"."+annot_type+".sums.%s.tsv" % study,"w")
+        else:
+            annot_fhs[annot_src] = open(annot_src+"."+annot_type+".sums.tsv","w")
+        annot_fhs[annot_src].write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
+    return (gene_id, annot_src)
+
 
 with open(mapf,"r") as fin:
     for line in fin:
         line = line.rstrip()
         (chrm, gstart, gend, gname, typenum, strand)  = line.split('\t')
         gstart = str(int(gstart)+1)
-        gsplit = gname.split('.')
-        annot_src = None
-        num_splits = len(gsplit)
-        found_idx = -1
-        for i,potential_src in enumerate(gsplit):
-            if potential_src in annot_sources:
-                annot_src = potential_src
-                del gsplit[i] 
-                break
+        
+        #need to determine the source annotation (e.g. G026)
+        (gene_id, annot_src) = determine_annotation_source(gname, annotation_fhs)
         if annot_src is None:
             continue
-        gene_id = '.'.join(gsplit)
-        if annot_src not in annot_fhs:
-            if study is not None:
-                annot_fhs[annot_src] = open(annot_src+"."+annot_type+".sums.%s.tsv" % study,"w")
-            else:
-                annot_fhs[annot_src] = open(annot_src+"."+annot_type+".sums.tsv","w")
-            annot_fhs[annot_src].write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
 
         key = "\t".join([chrm, gstart, gend, strand])
         if key not in annot_map:
-            annot_map[key] = []
-        annot_map[key].append([gene_id, annot_src])
+            annot_map[key] = {}
+        if gene_id not in annot_map[key]:
+            annot_map[key][gene_id] = []
+        annot_map[key][gene_id].append(annot_src)
 
+#avoid writing duplicates
+seen = set()
 for line in sys.stdin:
     line = line.rstrip()
     fields = line.split('\t')
-    (gene_name, chrm, gstart, gend, glength, strand)  = fields[:6]
+    (gnames, chrm, gstart, gend, glength, strand) = fields[:6]
     #account for 0-based start coordinate
     gstart = str(int(gstart)+1)
     counts = "\t".join(fields[6:])
@@ -89,8 +106,17 @@ for line in sys.stdin:
     #outstr = "\t".join([str((int(gend) - int(gstart)) + 1), chrm, gstart, gend])+"\t"+counts+"\n"
     outstr = "\t".join([glength, chrm, gstart, gend])+"\t"+counts+"\n"
     key = "\t".join([chrm, gstart, gend, strand])
-    for (gene_id, annot_src) in annot_map[key]:
-        annot_fhs[annot_src].write(gene_id + "\t" + outstr)
+    
+    #now figure out the mapping to all the of the genes and annotations
+    for gname in gnames.split(';'): 
+        (gene_id, annot_src) = determine_annotation_source(gname)
+        if annot_src is None:
+            continue
+        for annot_src in annot_map[key][gene_id]:
+            key2 = gene_id + "_" + annot_src
+            if key2 not in seen:
+                annotation_fhs[annot_src].write(gene_id + "\t" + outstr)
+                seen.add(key2)
 
-for fh in annot_fhs.values():
+for fh in annotation_fhs.values():
     fh.close()
