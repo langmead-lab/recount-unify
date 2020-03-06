@@ -8,8 +8,10 @@ import glob
 #e.g. (for CCLE, replace UUID with SRR accession if SRA/GTEx):
 #ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
 
-FILES=['all.exon_bw_count.pasted.gz', 'unique.exon_bw_count.pasted.gz', 'all.sjs.merged.annotated.tsv.gz', 'all.logs.tar.gz', 'all.gene_counts.rejoined.tsv', 'all.intron_counts.rejoined.tsv.gz', 'all.exon_counts.rejoined.tsv', 'intron_counts_summed.tsv']
-#FILES=['all.exon_bw_count.pasted.gz', 'unique.exon_bw_count.pasted.gz', 'all.sjs.merged.annotated.tsv.gz', 'all.logs.tar.gz', 'all.gene_counts.rejoined.tsv', 'all.intron_counts.rejoined.tsv.gz', 'all.exon_counts.rejoined.tsv', 'intron_counts_summed.tsv','qc.stats.tsv']
+#just rejoin and after for sums
+#FILES=['all.gene_counts.rejoined.tsv.gz', 'all.intron_counts.rejoined.tsv.gz', 'all.exon_counts.rejoined.tsv.gz', 'intron_counts_summed.tsv']
+#main production version
+FILES=['all.exon_bw_count.pasted.gz', 'unique.exon_bw_count.pasted.gz', 'all.sjs.merged.annotated.tsv.gz', 'all.logs.tar.gz', 'all.gene_counts.rejoined.tsv.gz', 'all.intron_counts.rejoined.tsv.gz', 'all.exon_counts.rejoined.tsv.gz', 'intron_counts_summed.tsv']
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
@@ -195,7 +197,7 @@ rule rejoin_genes:
 	input:
 		'all.exon_bw_count.pasted.gz'
 	output:
-		'all.gene_counts.rejoined.tsv',
+		'all.gene_counts.rejoined.tsv.gz',
 		'all.intron_counts.rejoined.tsv.gz'
 	threads: 8
 	params:
@@ -206,7 +208,7 @@ rule rejoin_genes:
 	shell:
 		"""
 		{params.script_path} -a {params.gene_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p gene -h  
-		mv gene.counts {output[0]}
+	        cat gene.counts | pigz --fast -p {threads} > {output[0]}
 		cat gene.intron_counts | pigz --fast -p {threads} > {output[1]}
 		rm -f gene.counts gene.intron_counts
 		"""
@@ -214,7 +216,7 @@ rule rejoin_genes:
 gene_annotations_uncompressed=['%s.gene.sums.tsv' % (annotation) for annotation in config['annotation_list'].split(',')]
 rule rejoin_genes_final:
 	input:
-		'all.gene_counts.rejoined.tsv',
+		'all.gene_counts.rejoined.tsv.gz',
 		'all.exon_bw_count.pasted.gz'
 	output:
 		gene_annotations_uncompressed
@@ -233,7 +235,7 @@ rule rejoin_genes_final:
 		set +o pipefail
 		pigz --stdout -p 1 -d {input[1]} | head -1 | cut -f 7- > all.exon_bw_count.pasted.gz.samples_header
 		set -o pipefail
-		cat {input[0]} | tail -n+2 | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation}
+		pigz --stdout -p 1 -d {input[0]} | tail -n+2 | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation}
 		"""
 
 rule compress_final_rejoined_genes:
@@ -253,7 +255,8 @@ rule rejoin_exons:
 	input:
 		'all.exon_bw_count.pasted.gz'
 	output:
-		'all.exon_counts.rejoined.tsv'
+		'all.exon_counts.rejoined.tsv.gz'
+	threads: 8
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['rejoin'],
@@ -263,7 +266,7 @@ rule rejoin_exons:
 		"""
 		set +o pipefail
 		{params.script_path} -a {params.exon_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p exon -h 
-		mv exon.counts {output[0]}
+	        cat exon.counts | pigz --fast -p {threads} > {output[0]}
 		rm -f exon.counts exon.intron_counts
 		"""
 
