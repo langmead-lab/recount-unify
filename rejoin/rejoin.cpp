@@ -146,7 +146,8 @@ static const int process_region_line(char* line, const char* delim, annotation_m
 	}
     //make 2nd key (original annotated exon/gene/other)
     char* key2_ = new char[1024];
-    sprintf(key2_,"%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[5]);
+    //sprintf(key2_,"%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[5]);
+    sprintf(key2_,"%s\t%s\t%s\t%s\t%s\t%s",(*key_fields)[0],(*key_fields)[1],(*key_fields)[2],(*key_fields)[3],(*key_fields)[4],(*key_fields)[5]);
     std::string key2(key2_);
    
     //establish map between disjoint exon key and
@@ -232,7 +233,8 @@ static const int process_counts_line(char* line, const char* delim, annotation_m
             start = atol((*key_fields)[1]);
             if(dec_start_coord)
                 start--;
-            sprintf(key,"%s\t%lu\t%s\t.\t0\t%s",(*key_fields)[0],start,(*key_fields)[2],(*key_fields)[5]);
+            //sprintf(key,"%s\t%lu\t%s\t.\t0\t%s",(*key_fields)[0],start,(*key_fields)[2],(*key_fields)[5]);
+            sprintf(key,"%s\t%lu\t%s\t%s\t%s\t%s",(*key_fields)[0],start,(*key_fields)[2],(*key_fields)[3],(*key_fields)[4],(*key_fields)[5]);
             //check for duplicates
             if(DUP_CHECK) {
                 if(disjoint_exons_seen->find(key) != disjoint_exons_seen->end()) {
