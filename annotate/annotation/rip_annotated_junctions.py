@@ -50,11 +50,63 @@ import gzip
 import sys
 import re
 
-hg38_file2source = {"hg19/gencode.v19.annotation.gtf.gz":"gC19","hg19/refGene.txt.gz":"rG19","hg19/acembly.txt.gz":"aC19","hg19/ccdsGene.txt.gz":"cG19","hg19/vegaGene.txt.gz":"vG19","hg19/knownGene.txt.gz":"kG19","hg19/mgcGenes.txt.gz":"mG19","hg19/lincRNAsTranscripts.txt.gz":"lR19","hg19/sibGene.txt.gz":"sG19","hg38/refGene.txt.gz":"rG38","hg38/ccdsGene.txt.gz":"cG38","hg38/gencode.v29.annotation.gtf.gz":"gC38","hg38/knownGene.txt.gz":"kG38","hg38/mgcGenes.txt.gz":"mG38","hg38/lincRNAsTranscripts.txt.gz":"lR38","hg38/sibGene.txt.gz":"sG38","hg38/chess2.1_assembly.gtf.gz":"cH38"} #,"hg38/knownAlt.txt.gz":"kA38","hg19/knownAlt.txt.gz":"kA19"}
+hg_file2source = {"hg19/gencode.v19.annotation.gtf.gz":"gC19","hg19/refGene.txt.gz":"rG19","hg19/acembly.txt.gz":"aC19","hg19/ccdsGene.txt.gz":"cG19","hg19/vegaGene.txt.gz":"vG19","hg19/knownGene.txt.gz":"kG19","hg19/mgcGenes.txt.gz":"mG19","hg19/lincRNAsTranscripts.txt.gz":"lR19","hg19/sibGene.txt.gz":"sG19","hg38/refGene.txt.gz":"rG38","hg38/ccdsGene.txt.gz":"cG38","hg38/knownGene.txt.gz":"kG38","hg38/mgcGenes.txt.gz":"mG38","hg38/lincRNAsTranscripts.txt.gz":"lR38","hg38/sibGene.txt.gz":"sG38","hg38/chess2.2_assembly.gtf.gz":"cH38","hg38/gencode.v24.annotation.gtf.gz":"gC24","hg38/gencode.v25.annotation.gtf.gz":"gC25","hg38/gencode.v26.annotation.gtf.gz":"gC26","hg38/gencode.v33.annotation.gtf.gz":"gC33","hg38/gencode.v29.annotation.gtf.gz":"gC29"} #,"hg38/knownAlt.txt.gz":"kA38","hg19/knownAlt.txt.gz":"kA19"}
 
-m38_file2source = {"m38/knownGene.txt.gz":"kG38","m38/refGene.txt.gz":"rG38","m38/gencode.vM19.basic.annotation.gtf.gz":"gC19","m38/gencode.vM9.basic.annotation.gtf.gz":"gC09"}
+m38_file2source = {"m38/knownGene.txt.gz":"kG38","m38/refGene.txt.gz":"rG38","m38/gencode.vM23.basic.annotation.gtf.gz":"gC23","m38/gencode.vM9.basic.annotation.gtf.gz":"gC09"}
 
-file2sources = {'hg38':hg38_file2source, 'm38':m38_file2source}
+file2sources = {'hg38':hg_file2source, 'hg19':hg_file2source, 'm38':m38_file2source}
+
+def liftover(args, annotated_junctions_from, annotated_junctions_to):
+    #can handle either direction for human, but not mouse
+    if args.org == 'hg38' or args.org == 'hg19':
+        temp_from = os.path.join(extract_destination, 'from.bed')
+        temp_to = os.path.join(extract_destination, 'to.bed')
+        with open(temp_from, 'w') as from_stream:
+            for i, junction in enumerate(annotated_junctions_from):
+                # Handle incorrect junctions
+                #print >>hg19_stream, '{}\t{}\t{}\tdummy_{}\t1\t{}'.format(
+                print >>from_stream, '{}\t{}\t{}\t{}\t1\t{}'.format(
+                        junction[0], junction[1], junction[2], junction[4], junction[3]
+                    )
+        liftover_process = subprocess.check_call(' '.join([
+                                                args.liftover,
+                                                temp_from,
+                                                args.chain,
+                                                temp_to,
+                                                args.unmapped
+                                            ]),
+                                            shell=True,
+                                            executable='/bin/bash'
+                                        )
+        # Add all new junctions to to set
+        before_liftover = len([junction for junction
+                                in annotated_junctions_to
+                                if junction[0] in refs])
+        print >>sys.stderr, ('Below, if an RNAME is not in the chromosomal '
+                             'assembly, it\'s ignored.')
+        with open(temp_to) as to_stream:
+            for line in to_stream:
+                chrom, start, end, name, score, strand = line.strip().split(
+                                                                        '\t'
+                                                                    )[:6]
+                if chrom in refs:
+                    annotated_junctions_to.add(
+                        (chrom, int(start), int(end), strand, name)
+                    )
+                else:
+                    print >>sys.stderr, '({}, {}, {}, {}) not recorded.'.format(
+                                                chrom, start, end, name
+                                            )
+        after_liftover = len([junction for junction
+                                in annotated_junctions_to
+                                if junction[0] in refs])
+        print >>sys.stderr, ('{} annotations contributed {} junctions, and '
+                             'liftover of hg19 annotations contributed an '
+                             'additional {} junctions.').format(args.org,
+                                    before_liftover,
+                                    after_liftover - before_liftover
+                                )
+
 
 if __name__ == '__main__':
     # Print file's docstring if -h is invoked
@@ -67,7 +119,7 @@ if __name__ == '__main__':
                   'downloads/hisat-2.0.0-beta-Linux_x86_64.zip to get this')
         )
     parser.add_argument('--annotations', type=str, required=True,
-            help=('annotations archive; this should be '
+            help=('annotations archive; this could be '
                   'jan_24_2016_annotations.tar.gz')
         )
     parser.add_argument('--liftover', type=str, required=False,
@@ -75,17 +127,17 @@ if __name__ == '__main__':
                   'https://genome-store.ucsc.edu/products/')
         )
     parser.add_argument('--chain', type=str, required=False,
-            help=('path to unzipped liftover chain; this should be '
+            help=('path to unzipped liftover chain; this could be '
                   'hg38ToHg19.over.chain')
         )
     parser.add_argument('--unmapped', type=str, required=False,
             help='BED in which unmapped junctions should be stored'
         )
     parser.add_argument('--org', type=str, required=True,
-            help='Organism reference version (hg38, m38)'
+            help='Organism reference version (hg38, hg19, m38)'
         )
     parser.add_argument('--org-sizes', type=str, required=True,
-            help='Organism reference version (hg38, m38) chromosome sizes file'
+            help='Organism reference version (hg38, hg19, m38) chromosome sizes file'
         )
     args = parser.parse_args()
     file2source = file2sources[args.org]    
@@ -193,59 +245,16 @@ if __name__ == '__main__':
                 label,
                 len(unique_junctions)
             )
-
-    # Convert from hg19 to hg38 (only for human)
+    #now do liftover---either direction depending on what's passed in via args.org
+    annotated_junctions = annotated_junctions_hg38
     if args.org == 'hg38':
-        temp_hg19 = os.path.join(extract_destination, 'hg19.bed')
-        temp_hg38 = os.path.join(extract_destination, 'hg38.bed')
-        with open(temp_hg19, 'w') as hg19_stream:
-            for i, junction in enumerate(annotated_junctions_hg19):
-                # Handle incorrect junctions
-                #print >>hg19_stream, '{}\t{}\t{}\tdummy_{}\t1\t{}'.format(
-                print >>hg19_stream, '{}\t{}\t{}\t{}\t1\t{}'.format(
-                        junction[0], junction[1], junction[2], junction[4], junction[3]
-                    )
-        liftover_process = subprocess.check_call(' '.join([
-                                                args.liftover,
-                                                temp_hg19,
-                                                args.chain,
-                                                temp_hg38,
-                                                args.unmapped
-                                            ]),
-                                            shell=True,
-                                            executable='/bin/bash'
-                                        )
-        # Add all new junctions to hg38 set
-        before_liftover = len([junction for junction
-                                in annotated_junctions_hg38
-                                if junction[0] in refs])
-        print >>sys.stderr, ('Below, if an RNAME is not in the chromosomal '
-                             'assembly, it\'s ignored.')
-        with open(temp_hg38) as hg38_stream:
-            for line in hg38_stream:
-                chrom, start, end, name, score, strand = line.strip().split(
-                                                                        '\t'
-                                                                    )[:6]
-                if chrom in refs:
-                    annotated_junctions_hg38.add(
-                        (chrom, int(start), int(end), strand, name)
-                    )
-                else:
-                    print >>sys.stderr, '({}, {}, {}, {}) not recorded.'.format(
-                                                chrom, start, end, name
-                                            )
-        after_liftover = len([junction for junction
-                                in annotated_junctions_hg38
-                                if junction[0] in refs])
-        print >>sys.stderr, ('hg38 annotations contributed {} junctions, and '
-                             'liftover of hg19 annotations contributed an '
-                             'additional {} junctions.').format(
-                                    before_liftover,
-                                    after_liftover - before_liftover
-                                )
+        liftover(args, annotated_junctions_hg19, annotated_junctions_hg38)
+    elif args.org == 'hg19':
+        liftover(args, annotated_junctions_hg38, annotated_junctions_hg19)
+        annotated_junctions = annotated_junctions_hg19
     junc2datasource = {}
     junc2transcript = {}
-    for junction in annotated_junctions_hg38:
+    for junction in annotated_junctions:
         if junction[0] in refs:
             (source, transcript) = re.split(':::',junction[4])
             if junction[:4] not in junc2datasource:
@@ -255,7 +264,7 @@ if __name__ == '__main__':
                 junc2transcript[junction[:4]]=set()
             junc2transcript[junction[:4]].add(junction[4])
     seen = set()
-    for junction in annotated_junctions_hg38:
+    for junction in annotated_junctions:
         if junction[0] in refs and junction[:4] not in seen:
             sources = ",".join(sorted(junc2datasource[junction[:4]]))
             transcripts = ",".join(sorted(junc2transcript[junction[:4]]))
