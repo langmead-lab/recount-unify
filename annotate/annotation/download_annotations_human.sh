@@ -18,18 +18,24 @@ cd human
 
 mkdir -p anno/hg38
 cd anno/hg38
+#includes the same as intropolis but with some additions (e.g. CHESS, extra gencodes)
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/knownGene.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ccdsGene.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/mgcGenes.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/lincRNAsTranscripts.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/sibGene.txt.gz
+wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_24/gencode.v24.annotation.gtf.gz
+wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_25/gencode.v25.annotation.gtf.gz
+wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_26/gencode.v26.annotation.gtf.gz
 wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_29/gencode.v29.annotation.gtf.gz
+wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_33/gencode.v33.annotation.gtf.gz
 #Chess comes in GFF which needs to be slightly modified to be a GTF which extract_splice_sites.py can read
-curl "http://ccb.jhu.edu/chess/data/chess2.1_assembly.gff.gz" | zcat | perl -ne 'chomp; $f=$_; @f=split(/\t/,$f); if($f=~/^#/ || $f[2] ne "exon") { print "$f\n"; next; } $f[8]=~/Parent=((CHS\.\d+)(\.\d+)?)/; $transcript_id=$1; $gene_id=$2; $f[8]="gene_id \"$gene_id\"; transcript_id \"$transcript_id\";"; print "".join("\t",@f)."\n";' | gzip > chess2.1_assembly.gtf.gz
+curl "http://ccb.jhu.edu/chess/data/chess2.2_assembly.gff.gz" | zcat | perl -ne 'chomp; $f=$_; @f=split(/\t/,$f); if($f=~/^#/ || $f[2] ne "exon") { print "$f\n"; next; } $f[8]=~/Parent=((CHS\.\d+)(\.\d+)?)/; $transcript_id=$1; $gene_id=$2; $f[8]="gene_id \"$gene_id\"; transcript_id \"$transcript_id\";"; print "".join("\t",@f)."\n";' | gzip > chess2.2_assembly.gtf.gz
 cd ../../
 mkdir -p anno/hg19
 cd anno/hg19
+#exact same list as intropolis
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/knownGene.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/refGene.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/ccdsGene.txt.gz
