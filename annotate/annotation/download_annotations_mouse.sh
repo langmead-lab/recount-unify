@@ -17,7 +17,7 @@ cd anno/m38
 wget http://hgdownload.soe.ucsc.edu/goldenPath/mm10/database/knownGene.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/mm10/database/refGene.txt.gz
 wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M9/gencode.vM9.basic.annotation.gtf.gz
-wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M19/gencode.vM19.basic.annotation.gtf.gz
+wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M23/gencode.vM23.basic.annotation.gtf.gz
 cd ../../
 tar -cvzf ${annotations_file} anno
 
