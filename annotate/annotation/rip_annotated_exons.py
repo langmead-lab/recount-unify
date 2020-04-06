@@ -86,17 +86,11 @@ def liftover(args, annotated_junctions_from, annotated_junctions_to):
                              'assembly, it\'s ignored.')
         with open(temp_to) as to_stream:
             for line in to_stream:
-                chrom, start, end, name, score, strand = line.strip().split(
-                                                                        '\t'
-                                                                    )[:6]
+                chrom, start, end, name, score, strand = line.strip().split('\t')[:6]
                 if chrom in refs:
-                    annotated_junctions_to.add(
-                        (chrom, int(start), int(end), strand, name)
-                    )
+                    annotated_junctions_to.add((chrom, int(start), int(end), strand, name))
                 else:
-                    print >>sys.stderr, '({}, {}, {}, {}) not recorded.'.format(
-                                                chrom, start, end, name
-                                            )
+                    print >>sys.stderr, '({}, {}, {}, {}) not recorded.'.format(chrom, start, end, name)
         after_liftover = len([junction for junction
                                 in annotated_junctions_to
                                 if junction[0] in refs])
@@ -114,9 +108,7 @@ if __name__ == '__main__':
                 formatter_class=argparse.RawDescriptionHelpFormatter)
     # Add command-line arguments
     parser.add_argument('--extract-script-dir', type=str, required=True,
-            help=('path to directory containing contents of HISAT2; we '
-                  'unpacked ftp://ftp.ccb.jhu.edu/pub/infphilo/hisat2/'
-                  'downloads/hisat-2.0.0-beta-Linux_x86_64.zip to get this')
+            help=('path to extract_exons.py script')
         )
     parser.add_argument('--annotations', type=str, required=True,
             help=('annotations archive; this could be '
@@ -141,12 +133,13 @@ if __name__ == '__main__':
         )
     args = parser.parse_args()
     file2source = file2sources[args.org]    
-    extract_destination = tempfile.mkdtemp()
-    atexit.register(shutil.rmtree, extract_destination)
+    #extract_destination = tempfile.mkdtemp()
+    extract_destination = './tmp'
+    #atexit.register(shutil.rmtree, extract_destination)
     with tarfile.open(args.annotations, 'r:gz') as tar:
         tar.extractall(path=extract_destination)
     extract_splice_sites_path = os.path.join(args.extract_script_dir,
-                                                'extract_splice_sites.py')
+                                                'extract_exons.py')
     containing_dir = os.path.dirname(os.path.realpath(__file__))
     #with open(os.path.join(containing_dir, 'hg38.sizes')) as hg38_stream:
     with open(args.org_sizes) as hg38_stream:
@@ -160,8 +153,6 @@ if __name__ == '__main__':
             os.path.join(extract_destination, 'anno', '*', '*')
             ):
         sys.stderr.write("about to extract jx from %s\n" % (junction_file))
-        #label = (('hg19/' if 'hg19' in junction_file else 'hg38/')
-        #                + os.path.basename(junction_file))
         m = ref_patt.search(junction_file)
         if m is None:
             sys.stderr.write("junction file with unknown reference label %s, terminating\n" % junction_file)
@@ -174,21 +165,22 @@ if __name__ == '__main__':
         else:
             annotated_junctions = annotated_junctions_hg19
         if 'gencode' in junction_file or 'chess' in junction_file:
-            #extract_splice_sites_path prints 0-based, exon coords around junctions
-            #hence the +2 for the start here
-            extract_process = subprocess.Popen(' '.join([
-                                            sys.executable,
-                                            extract_splice_sites_path,
-                                            '<(gzip -cd %s)'
-                                               % junction_file
-                                        ]),
+            extraction_cmd = ' '.join([sys.executable,extract_splice_sites_path,'<(gzip -cd %s) > %s.extracted' % (junction_file,junction_file)])
+            sys.stderr.write("%s\n" % (extraction_cmd))
+            extract_process = subprocess.Popen(extraction_cmd,
                                         shell=True,
                                         executable='/bin/bash',
-                                        stdout=subprocess.PIPE
-                                    )
-            for line in extract_process.stdout:
+                                        stdout=subprocess.PIPE)
+            exit_code = extract_process.wait()
+            if exit_code != 0:
+                raise RuntimeError(
+                    'extract_splice_sites.py had nonzero exit code {}.'.format(exit_code))
+            #expect the exon coordinates to be 1-based
+            #for line in extract_process.stdout:
+            fin = open("%s.extracted" % (junction_file), "r")
+            for line in fin:
                 tokens = line.strip().split('\t')
-                tokens[1] = int(tokens[1]) + 2
+                tokens[1] = int(tokens[1])
                 tokens[2] = int(tokens[2])
                 if tokens[2] < tokens[1]:
                     print >>sys.stderr, (
@@ -202,14 +194,8 @@ if __name__ == '__main__':
                 junction_to_add = tuple(tokens)
                 annotated_junctions.add(junction_to_add)
                 unique_junctions.add(junction_to_add)
-            extract_process.stdout.close()
-            exit_code = extract_process.wait()
-            if exit_code != 0:
-                raise RuntimeError(
-                    'extract_splice_sites.py had nonzero exit code {}.'.format(
-                                                                    exit_code
-                                                                )
-                )
+            #extract_process.stdout.close()
+            fin.close()
         else:
             transcript_id_col = 1
             offset = 1
@@ -222,10 +208,11 @@ if __name__ == '__main__':
                 exons = [(int(start), int(end)) for start, end in
                                 zip(tokens[8+offset].split(','),
                                     tokens[9+offset].split(','))[:-1]]
+                #offset to 1-based
                 junctions_to_add = [
-                        (tokens[1+offset], exons[i-1][1] + 1, exons[i][0],
+                        (tokens[1+offset], exons[i][0] + 1, exons[i][1],
                          tokens[2+offset], "%s:::%s" % (datasource_code, tokens[transcript_id_col]))
-                        for i in xrange(1, len(exons))
+                        for i in xrange(0, len(exons))
                     ]
                 final_junctions_to_add = []
                 for junction in junctions_to_add:
@@ -247,6 +234,7 @@ if __name__ == '__main__':
             )
     #now do liftover---either direction depending on what's passed in via args.org
     annotated_junctions = annotated_junctions_hg38
+    #assume liftover will handle 1-based fine
     if args.org == 'hg38':
         liftover(args, annotated_junctions_hg19, annotated_junctions_hg38)
     elif args.org == 'hg19':
