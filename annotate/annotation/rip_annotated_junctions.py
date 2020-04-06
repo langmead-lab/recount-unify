@@ -139,16 +139,19 @@ if __name__ == '__main__':
     parser.add_argument('--org-sizes', type=str, required=True,
             help='Organism reference version (hg38, hg19, m38) chromosome sizes file'
         )
+    parser.add_argument('--temp', type=str, default='./tmp',
+            help='temporary directory, [./tmp]'
+        )
     args = parser.parse_args()
     file2source = file2sources[args.org]    
-    extract_destination = tempfile.mkdtemp()
-    atexit.register(shutil.rmtree, extract_destination)
+    #extract_destination = tempfile.mkdtemp()
+    extract_destination = args.temp
+    #atexit.register(shutil.rmtree, extract_destination)
     with tarfile.open(args.annotations, 'r:gz') as tar:
         tar.extractall(path=extract_destination)
     extract_splice_sites_path = os.path.join(args.extract_script_dir,
                                                 'extract_splice_sites.py')
     containing_dir = os.path.dirname(os.path.realpath(__file__))
-    #with open(os.path.join(containing_dir, 'hg38.sizes')) as hg38_stream:
     with open(args.org_sizes) as hg38_stream:
         refs = set(
                 [tokens.strip().split('\t')[0] for tokens in hg38_stream]
@@ -160,8 +163,6 @@ if __name__ == '__main__':
             os.path.join(extract_destination, 'anno', '*', '*')
             ):
         sys.stderr.write("about to extract jx from %s\n" % (junction_file))
-        #label = (('hg19/' if 'hg19' in junction_file else 'hg38/')
-        #                + os.path.basename(junction_file))
         m = ref_patt.search(junction_file)
         if m is None:
             sys.stderr.write("junction file with unknown reference label %s, terminating\n" % junction_file)
@@ -179,14 +180,23 @@ if __name__ == '__main__':
             extract_process = subprocess.Popen(' '.join([
                                             sys.executable,
                                             extract_splice_sites_path,
-                                            '<(gzip -cd %s)'
-                                               % junction_file
+                                            '<(gzip -cd %s) > %s.extracted'
+                                               % (junction_file,junction_file)
                                         ]),
                                         shell=True,
                                         executable='/bin/bash',
                                         stdout=subprocess.PIPE
                                     )
-            for line in extract_process.stdout:
+            exit_code = extract_process.wait()
+            if exit_code != 0:
+                raise RuntimeError(
+                    'extract_splice_sites.py had nonzero exit code {}.'.format(
+                                                                    exit_code
+                                                                )
+                )
+            #for line in extract_process.stdout:
+            fin = open("%s.extracted" % (junction_file), "r")
+            for line in fin:
                 tokens = line.strip().split('\t')
                 tokens[1] = int(tokens[1]) + 2
                 tokens[2] = int(tokens[2])
@@ -202,14 +212,8 @@ if __name__ == '__main__':
                 junction_to_add = tuple(tokens)
                 annotated_junctions.add(junction_to_add)
                 unique_junctions.add(junction_to_add)
-            extract_process.stdout.close()
-            exit_code = extract_process.wait()
-            if exit_code != 0:
-                raise RuntimeError(
-                    'extract_splice_sites.py had nonzero exit code {}.'.format(
-                                                                    exit_code
-                                                                )
-                )
+            #extract_process.stdout.close()
+            fin.close()
         else:
             transcript_id_col = 1
             offset = 1
