@@ -23,10 +23,27 @@ def get_record(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fhs
     fields = []
     filedone = False
     if filebuf[i][0] == '' and fh is not None:
+        #even if the file is EOF'd this will just return a ['']
         fields = filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
         #skip header
         if fields[0] == 'chrom':
             fields = filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
+        #skip any bad lines (can happen from STAR/Monorail's output)
+        #in this case, we try to salvage what lines from the file we can
+        #TODO: this is a hack for now, 
+        #need to re-think this in light of the rest of the checks for empty lines
+        flen = len(fields)
+        bad_line = True
+        while(flen > 1 and bad_line):
+            try:
+                if flen <= END_COL: raise ValueError
+                int(fields[START_COL])
+                int(fields[END_COL])
+                bad_line = False
+            except ValueError as ve:
+                #just read next line
+                fields = filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
+                flen = len(fields)
         if filebuf[i][0] == '': fhs[i] = None
     elif filebuf[i][0] != '':
         fields = filebuf[i]
@@ -35,6 +52,7 @@ def get_record(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fhs
         if not args.append_samples:
             fields.append(files[i][FILE_SAMPLE_ID_COL])
         heapq.heappush(heap, (fields[CHRM_COL], int(fields[START_COL]), int(fields[END_COL]), (fields, next_fhs)))
+            
         #since we pushed one on the heap we can read another
         if fh is not None:
             filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
