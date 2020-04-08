@@ -15,6 +15,33 @@ SAMPLES_COL=8
 #separate file columns
 FILE_SAMPLE_ID_COL=1
 
+def read_next_line(filebuf, i, fh, last_col, fhs):
+    #even if the file is EOF'd this will just return a ['']
+    fields = filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
+    #skip header
+    if fields[0] == 'chrom':
+        fields = filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
+    #skip any bad lines (can happen from STAR/Monorail's output)
+    #in this case, we try to salvage what lines from the file we can
+    #TODO: this is a hack for now, 
+    #need to re-think this in light of the rest of the checks for empty lines
+    flen = len(fields)
+    bad_line = True
+    while(flen > 1 and bad_line):
+        try:
+            if flen <= END_COL: raise ValueError
+            int(fields[START_COL])
+            int(fields[END_COL])
+            bad_line = False
+        except ValueError as ve:
+            #just read next line
+            fields = filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
+            flen = len(fields)
+    #check to see if we've exhausted the file
+    if filebuf[i][0] == '': fhs[i] = None
+    return fields
+
+
 #get the next line, either from the file buffer or a read a new line from the next filehandle
 #if there is no more, than that file is done and we'll read another from the heap higher up the stack
 def get_record(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fhs):
@@ -23,28 +50,7 @@ def get_record(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fhs
     fields = []
     filedone = False
     if filebuf[i][0] == '' and fh is not None:
-        #even if the file is EOF'd this will just return a ['']
-        fields = filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
-        #skip header
-        if fields[0] == 'chrom':
-            fields = filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
-        #skip any bad lines (can happen from STAR/Monorail's output)
-        #in this case, we try to salvage what lines from the file we can
-        #TODO: this is a hack for now, 
-        #need to re-think this in light of the rest of the checks for empty lines
-        flen = len(fields)
-        bad_line = True
-        while(flen > 1 and bad_line):
-            try:
-                if flen <= END_COL: raise ValueError
-                int(fields[START_COL])
-                int(fields[END_COL])
-                bad_line = False
-            except ValueError as ve:
-                #just read next line
-                fields = filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
-                flen = len(fields)
-        if filebuf[i][0] == '': fhs[i] = None
+        fields = read_next_line(filebuf, i, fh, last_col, fhs)
     elif filebuf[i][0] != '':
         fields = filebuf[i]
     if len(fields) > 0 and fields[0] != '':
@@ -55,9 +61,7 @@ def get_record(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fhs
             
         #since we pushed one on the heap we can read another
         if fh is not None:
-            filebuf[i] = fh.readline().rstrip().split('\t')[:last_col]
-            #check to see if we've exhausted the file
-            if filebuf[i][0] == '': fhs[i] = None
+            filebuf[i] = read_next_line(filebuf, i, fh, last_col, fhs)
     return current_chrm
 
 #either read all of the filehandles (first time) or just the next_fhs
