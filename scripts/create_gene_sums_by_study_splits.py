@@ -26,6 +26,6 @@ fin.close()
 for study in study_cuts.keys():
 	if len(study_cuts[study]) > 0:
 		#only cut out the sample counts, we can always add in the gid,chr,bplengthstart,end separately, saves space
-		sys.stdout.write("pigz --stdout -p 1 -d %s | cut -f %s | pigz --fast -p1 > %s/%s.%s.gz\n" % (sumsF, (','.join([str(run_pos) for run_pos in study_cuts[study]])), outdir, annotation, study))
+		sys.stdout.write("pigz --stdout -p 2 -d %s | cut -f %s | pigz --fast -p1 > %s/%s.%s.gz\n" % (sumsF, (','.join([str(run_pos) for run_pos in study_cuts[study]])), outdir, annotation, study))
 	else:
 		sys.stderr.write("%s\tno_runs\n" % study)
