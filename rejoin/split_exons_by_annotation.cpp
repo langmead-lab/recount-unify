@@ -36,17 +36,21 @@ int main(int argc, char** argv)
     //"G026,G029,R109,ERCC,SIRV"
 	std::string annotations;
     std::string exon_row_bitmask_file;
+    std::string out_prefix;
+    bool header = false;
     uint32_t num_rows = 0;
-	while((o  = getopt(argc, argv, "a:b:n:")) != -1) {
+	while((o  = getopt(argc, argv, "a:b:n:p:h")) != -1) {
 		switch(o) 
 		{
 			case 'a': annotations = optarg; break;
 			case 'b': exon_row_bitmask_file = optarg; break;
+			case 'p': out_prefix = optarg; break;
 			case 'n': num_rows = atol(optarg); break;
+			case 'h': header = true; break;
         }
     }
-	if(annotations.length() == 0 || exon_row_bitmask_file.length() == 0 || num_rows == 0) {
-		std::cerr << "You must pass both: 1) -a \"annotations\" (e.g. G026,G029,R109,ERCC,SIRV) 2) -b exon_sums_row_bitmasks_file and 3) -n <int> the number of rows in the exon sums file\n";
+	if(annotations.length() == 0 || exon_row_bitmask_file.length() == 0 || num_rows == 0 || out_prefix.length() == 0) {
+		std::cerr << "You must pass both: 1) -a \"annotations\" (e.g. G026,G029,R109,ERCC,SIRV) 2) -b exon_sums_row_bitmasks_file and 3) -n <int> the number of rows in the exon sums file 4) -p <prefix> string prefix to be used in the output files (e.g. ERP001942)\n";
 		exit(-1);
 	}
     char delim = ',';
@@ -74,7 +78,7 @@ int main(int argc, char** argv)
     char* fname = new char[100];
     for(j = 0; j < num_annotations; j++)
     {
-        sprintf(fname, "%s.exon_sums.tsv", aprefixes[j].c_str());
+        sprintf(fname, "%s.%s.tsv", aprefixes[j].c_str(), out_prefix.c_str());
         fps[j] = fopen(fname,"w");
     }
     length = -1;
@@ -83,6 +87,8 @@ int main(int argc, char** argv)
     char* line = new char[EST_NUM_COLS*sizeof(uint32_t)];
     length = EST_NUM_COLS*sizeof(uint32_t);
     bytes_read = getline(&line, &length, stdin);
+    if(header)
+        bytes_read = getline(&line, &length, stdin);
 	while(bytes_read != -1)
     {
         for(j=0; j < num_annotations; j++)
