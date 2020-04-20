@@ -48,6 +48,6 @@ for line in sys.stdin:
     for abit in seen:
         mask[abit] = "1"
     mask_str = ''.join(mask)
-    if "1" not in mask_str:
-        continue
+    #dont skip writing out full 0 masks, we need to exactly match the existing exon sums file's
+    #number of rows and they'll be filtered out later
     sys.stdout.write("%s\t%s" % (mask_str, line))
