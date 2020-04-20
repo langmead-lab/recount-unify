@@ -1,6 +1,6 @@
 import sys
 
-#',' delimited list of annotation suffixes
+#first load ',' delimited list of annotation suffixes
 #e.g. "G026,G029,R109,ERCC,SIRV" 
 annotations = sys.argv[2]
 annotations = annotations.split(',')
@@ -8,18 +8,30 @@ num_annotations = len(annotations)
 amap = {a:i for (i,a) in enumerate(annotations)}
 
 e2amap = {}
-#first, load exonID2annotation mapping
+#second, load exonID2annotation mapping
 with open(sys.argv[1],"r") as fin:
     for line in fin:
         #sys.stdout.write(line)
         fields = line.rstrip().split('\t')
-        eid = fields[0]
-        annotations = fields[1].split(',')
-        annot_len = 0
-        for annot in annotations:
-            if eid not in e2amap:
-                e2amap[eid] = set()
-            e2amap[eid].add(amap[annot])
+        eid = fields[0].split('|')[0]
+        annotation = None
+        first_4 = fields[1][:4]
+        #special casing for the spike-ins
+        if first_4 == 'ERCC' or first_4 == 'SIRV':
+            annotation = first_4
+        else:
+            annot_suffixes = fields[1].split('.')
+            i = len(annot_suffixes) - 1
+            while i >= 0:
+                if annot_suffixes[i] in amap:
+                    break
+                i -= 1
+            if i < 0:
+                continue
+            annotation = annot_suffixes[i]
+        if eid not in e2amap:
+            e2amap[eid] = set()
+        e2amap[eid].add(amap[annotation])
 
 #for each row, add the int IDs of the annotation as a bitmask
 for line in sys.stdin:
@@ -35,4 +47,7 @@ for line in sys.stdin:
             break
     for abit in seen:
         mask[abit] = "1"
-    sys.stdout.write("%s\t%s" % (''.join(mask), line))
+    mask_str = ''.join(mask)
+    if "1" not in mask_str:
+        continue
+    sys.stdout.write("%s\t%s" % (mask_str, line))
