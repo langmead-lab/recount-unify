@@ -1,12 +1,18 @@
 import sys
 import gzip
+from datetime import datetime
 
+date_split = str(datetime.today())
+
+compilation = 'sra'
+feat_type = 'gene_sums'
 
 idsF = sys.argv[1]
 sumsF = sys.argv[2]
 #SIRV
 annotation = sys.argv[3]
-outdir='supers/gene_sums_per_study/' + annotation
+#outdir='supers/gene_sums_per_study/' + annotation
+outdir=annotation
 
 run2study = {}
 with open(idsF,"r") as fin:
@@ -26,6 +32,6 @@ fin.close()
 for study in study_cuts.keys():
 	if len(study_cuts[study]) > 0:
 		#only cut out the sample counts, we can always add in the gid,chr,bplengthstart,end separately, saves space
-		sys.stdout.write("pigz --stdout -p 2 -d %s | cut -f %s | pigz --fast -p1 > %s/%s.%s.gz\n" % (sumsF, (','.join([str(run_pos) for run_pos in study_cuts[study]])), outdir, annotation, study))
+		sys.stdout.write("cat <(echo '##annotation=%s') <(echo '##date.generated=%s') <(pigz --stdout -p2 -d %s | cut -f 1,%s) | pigz --fast -p3 > %s/%s.%s.%s.%s.gz\n" % (annotation, date_split, sumsF, (','.join([str(run_pos) for run_pos in study_cuts[study]])), outdir, compilation, feat_type, study, annotation))
 	else:
 		sys.stderr.write("%s\tno_runs\n" % study)
