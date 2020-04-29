@@ -9,7 +9,6 @@ import glob
 #ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
 
 #just rejoin and after for sums
-#FILES=['all.gene_counts.rejoined.tsv.gz', 'all.intron_counts.rejoined.tsv.gz', 'all.exon_counts.rejoined.tsv.gz', 'intron_counts_summed.tsv']
 #main production version
 FILES=['all.exon_bw_count.pasted.gz', 'unique.exon_bw_count.pasted.gz', 'all.sjs.merged.annotated.tsv.gz', 'all.logs.tar.gz', 'all.gene_counts.rejoined.tsv.gz', 'all.intron_counts.rejoined.tsv.gz', 'all.exon_counts.rejoined.tsv.gz', 'intron_counts_summed.tsv']
 
@@ -22,8 +21,8 @@ SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.pat
 #exon_rejoin_mapping=G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed
 #gene_mapping_final=G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed
 #sample_ids_file=ids.tsv
-if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'gene_mapping_final' not in config or 'sample_ids_file' not in config or 'num_samples' not in config:
-	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and/or 'exon_rejoin_mapping' and/or 'gene_mapping_final' and/or 'sample_ids_file' and/or 'num_samples' for the rejoining part of the pipeline!\n")
+if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'sample_ids_file' not in config or 'num_samples' not in config:
+	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and/or 'exon_rejoin_mapping' and/or 'sample_ids_file' and/or 'num_samples' for the rejoining part of the pipeline!\n")
 	sys.exit(-1)	
 
 #ref_sizes=hg38.recount_pump.fa.new_sizes
@@ -40,15 +39,23 @@ if 'existing_sj_db' not in config:
 if 'existing_sums' not in config:
 	config['existing_sums']=""
 
+gene_annotations = ["DONT_USE"]
+gene_annotations_uncompressed = ["DONT_USE"]
+main_annotation = None
 #e.g. G026,G029,R109,ERCC,SIRV,F006
-if 'annotation_list' not in config:
-	sys.stderr.write("need to pass value(s) for 'annotation_list' (e.g. 'G026,G029,R109,ERCC,SIRV,F006') for final gene sums!\n")
-	sys.exit(-1)
+if 'annotation_list' in config:
+	gene_annotations_uncompressed=['%s.gene.sums.tsv' % (annotation) for annotation in config['annotation_list'].split(',')]
+	if 'gene_mapping_final' not in config:
+		sys.stderr.write("need to pass values for 'gene_mapping_final' for the final (gene) part of rejoining pipeline!\n")
+		sys.exit(-1)
+	gene_annotations=['%s.gene.sums.tsv.gz' % (annotation) for annotation in config['annotation_list'].split(',')]
+	FILES.extend(gene_annotations)
+	#typically G026
+	main_annotation=config['annotation_list'].split(',')[0]
+else:
+	config['gene_mapping_final'] = None
+	config['annotation_list'] = None
 
-gene_annotations=['%s.gene.sums.tsv.gz' % (annotation) for annotation in config['annotation_list'].split(',')]
-FILES.extend(gene_annotations)
-#typically G026
-main_annotation=config['annotation_list'].split(',')[0]
 
 if 'compilation_id' not in config:
 	config['compilation_id']=0
@@ -213,7 +220,6 @@ rule rejoin_genes:
 		rm -f gene.counts gene.intron_counts
 		"""
 
-gene_annotations_uncompressed=['%s.gene.sums.tsv' % (annotation) for annotation in config['annotation_list'].split(',')]
 rule rejoin_genes_final:
 	input:
 		'all.gene_counts.rejoined.tsv.gz',
