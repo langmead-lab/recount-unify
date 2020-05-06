@@ -242,6 +242,8 @@ rule rejoin_genes_final:
 		pigz --stdout -p 1 -d {input[1]} | head -1 | cut -f 7- > all.exon_bw_count.pasted.gz.samples_header
 		set -o pipefail
 		pigz --stdout -p 1 -d {input[0]} | tail -n+2 | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation}
+		set +o pipefail
+		paste <(echo "gene_id	chromosome	start	end	bp_length	strand") <(cut -f 6- {params.main_annotation}.gene.sums.tsv) > all.exon_counts.rejoined.tsv.gz.accession_header
 		"""
 
 rule compress_final_rejoined_genes:
@@ -254,7 +256,7 @@ rule compress_final_rejoined_genes:
 		annotation=lambda wildcards: wildcards.annotation
 	shell:
 		"""
-		pigz --fast -p {threads} {params.annotation}.gene.sums.tsv
+		cat {params.annotation}.gene.sums.tsv | pigz --fast -p {threads} > {params.annotation}.gene.sums.tsv.gz
 		"""
 
 rule rejoin_exons:
@@ -271,8 +273,9 @@ rule rejoin_exons:
 	shell:
 		"""
 		set +o pipefail
-		{params.script_path} -a {params.exon_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p exon -h 
-	        cat exon.counts | pigz --fast -p {threads} > {output[0]}
+		{params.script_path} -a {params.exon_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p exon -h
+		cut -f 1-6 exon.counts > {output[0]}.coords
+		cat exon.counts | pigz --fast -p {threads} > {output[0]}
 		rm -f exon.counts exon.intron_counts
 		"""
 
