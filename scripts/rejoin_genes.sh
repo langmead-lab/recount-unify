@@ -19,8 +19,8 @@ fi
 #rejoin binary needs exact number of runs/samples
 NUM_SAMPLES=`zcat ${input} | head -1 | cut -f 7- | tr \\\\t \\\\n | wc -l`
 #actual call to rejoin binary, most of the time intensive stuff happens here
-${rejoin_path} -a ${mapping} -d <(zcat ${input}) -s $NUM_SAMPLES -p $t -p ${output} -h
+${rejoin_path} -a ${mapping} -d <(pigz --stdout -p2 -d ${input}) -s $NUM_SAMPLES -p $t -h
 #stream header in along with sums and compress
-cat <(echo -n "gene	chromosome	start	end	length	strand	") <(zcat ${input} | head -1 | cut -f 7-) ${output}.counts | pigz --fast -p $threads > ${output}
+cat <(paste <(echo -n "gene	chromosome	start	end	bp_length	strand	") <(pigz --stdout -p2 -d ${input} | head -1 | cut -f 7-)) ${t}.counts | pigz --fast -p $threads > ${output}
 #dont need intermediate files
-rm -f ${output}.counts ${output}.intron_counts
+#rm -f ${output}.counts ${output}.intron_counts

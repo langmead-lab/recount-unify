@@ -1,13 +1,19 @@
 import sys
 import gzip
+from datetime import datetime
 
-#exon version, no individual annotation splits (all kept together for efficiency)
+date_split = str(datetime.today())
+
+#annotation='M023'
+
+#exon version, no individual annotation splits (all kept together for efficiency for now)
 #also, header is separate from sums file
 
 idsF = sys.argv[1]
 sumsF = sys.argv[2]
 headerF = sys.argv[3]
-outdir='supers/exon_sums_per_study/'
+#outdir='supers/exon_sums_per_study/'
+outdir = sys.argv[4]
 
 run2study = {}
 with open(idsF,"r") as fin:
@@ -26,6 +32,8 @@ for study in study_cuts.keys():
     if len(study_cuts[study]) > 0:
         #only cut out the sample counts, we can always add in the gid,chr,bplengthstart,end separately, saves space
         cut_fields = (','.join([str(run_pos) for run_pos in study_cuts[study]]))
-        sys.stdout.write("cat <(cut -f %s %s) <(pigz --stdout -p 2 -d %s | cut -f %s) | pigz --fast -p1 > %s/%s.gz\n" % (cut_fields, headerF, sumsF, cut_fields, outdir, study))
+        #sys.stdout.write("cat <(echo '##annotation=%s') <(echo '##date.generated=%s') <(cut -f %s %s) <(pigz --stdout -p 2 -d %s | cut -f %s) | pigz --fast -p3 > %s/%s.gz\n" % (annotation, date_split, cut_fields, headerF, sumsF, cut_fields, outdir, study))
+        #since we're not doing the annotation split here don't include the extra headers yet
+        sys.stdout.write("cat <(cut -f 1,%s %s) <(pigz --stdout -p 2 -d %s | cut -f 1,%s) | pigz --fast -p1 > %s/study_splits.%s.gz\n" % (cut_fields, headerF, sumsF, cut_fields, outdir, study))
     else:
         sys.stderr.write("%s\tno_runs\n" % study)
