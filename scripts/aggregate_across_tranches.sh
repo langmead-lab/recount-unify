@@ -32,9 +32,9 @@ mkdir -p $outdir
 #run exons splits into per-study files (split jobs file is already created in the per-tranche Snakefile run)
 for i in {0..${max_tranche_num}}; do
     mkdir -p ${outdir}/tranche${i}
-    tdir=${tranche_prefix}${max_tranche_num}
+    tdir=${tranche_prefix}${i}
     pushd $tdir
-    pypy ${dir}/create_exon_sums_by_study_splits.py ids.tsv all.exon_counts.rejoined.tsv.gz all.exon_counts.rejoined.tsv.gz.accession_header ${outdir}/tranche${i} > exon_sums.splits.${i}.jobs
+    pypy ../${dir}/create_exon_sums_by_study_splits.py ids.tsv all.exon_counts.rejoined.tsv.gz all.exon_counts.rejoined.tsv.gz.accession_header ${outdir}/tranche${i} > exon_sums.splits.${i}.jobs
     /usr/bin/time -v parallel -j ${num_procs} < exon_sums.splits.${i}.jobs > exon_sums.splits.${i}.jobs.run 2>&1
     popd
 done
