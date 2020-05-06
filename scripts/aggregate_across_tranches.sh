@@ -46,7 +46,7 @@ cat ${rejoined_exon_coords} | pypy ${dir}/../rejoin/map_exon_sum_rows_to_annotat
 
 bitmask_coords_file=${bitmasks_file}.coords
 #make 1-based, not BED
-cut -f 3-5 ${bitmasks_file}.tsv | perl -ne 'chomp; ($c,$s,$e)=split(/\t/,$_); $s++; print "$c\t$s\t$e\n";' > ${bitmask_coords_file}.tsv
+cut -f 3-5 ${bitmasks_file}.tsv | perl -ne 'chomp; ($c,$s,$e)=split(/\t/,$_); $s++; print "$c|$s|$e\n";' > ${bitmask_coords_file}
 
 #create per-annotation split jobs;
 echo -n "" > exon_sums.per_annotation.splits.jobs
@@ -56,8 +56,8 @@ for sfile in `ls ${outdir}/tranche?/*.*.gz`; do
     #for purely organizational reasons, we make subdirs from the 2 lowest-ordER characters of the study accession
     mkdir -p exon_splits_done/$lo
     final_outdir=exon_splits_done/$lo
-#/bin/bash -x split_out_exons.sh G026,G029,R109,ERCC,SIRV all.exon_counts.rejoined.tsv.gz.coords.bitmasks2 1709834 ERP001942 examples_done/ERP001942.gz examples_done/ all.exon_counts.rejoined.tsv.gz.coords.bitmasks2_1base_coords > ERP001942.final_annotation_split.run 2>&1
-    echo "/usr/bin/time -v /bin/bash -x ${dir}/../rejoin/split_out_exons.sh \"${annotations}\" ${bitmasks_file}.tsv $num_exon_rows $study $sfile $final_outdir ${bitmask_coords_file}.tsv > $final_outdir/${study}.annot_split.run 2>&1" >> exon_sums.per_annotation.splits.jobs
+    #/bin/bash -x split_out_exons.sh G026,G029,R109,ERCC,SIRV all.exon_counts.rejoined.tsv.gz.coords.bitmasks2 1709834 ERP001942 examples_done/ERP001942.gz examples_done/ all.exon_counts.rejoined.tsv.gz.coords.bitmasks2_1base_coords > ERP001942.final_annotation_split.run 2>&1
+    echo "/usr/bin/time -v /bin/bash -x ${dir}/../rejoin/split_out_exons.sh \"${annotations}\" ${bitmasks_file}.tsv $num_exon_rows $study $sfile $final_outdir ${bitmask_coords_file} > $final_outdir/${study}.annot_split.run 2>&1" >> exon_sums.per_annotation.splits.jobs
 done 
 
 /usr/bin/time -v parallel -j ${num_procs} < exon_sums.per_annotation.splits.jobs > exon_sums.per_annotation.splits.jobs.run 2>&1

@@ -13,7 +13,7 @@
 //getline will resize as needed
 uint32_t EST_NUM_COLS = 50000;
 
-//max number of bytes for a region spec., e.g. chr1\t1\t10
+//max number of bytes for a region spec., e.g. chr1|1|10
 int SIZE_OF_COORDINATES = 45;
 
 //multiple sources for this kind of tokenization, one which was useful was:
