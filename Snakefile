@@ -243,7 +243,7 @@ rule rejoin_genes_final:
 		set -o pipefail
 		pigz --stdout -p 1 -d {input[0]} | tail -n+2 | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation}
 		set +o pipefail
-		paste <(echo "gene_id	chromosome	start	end	bp_length	strand") <(cut -f 6- {params.main_annotation}.gene.sums.tsv) > all.exon_counts.rejoined.tsv.gz.accession_header
+		paste <(echo "gene_id	chromosome	start	end	bp_length	strand") <(head -1 {params.main_annotation}.gene.sums.tsv | cut -f 6-) > all.exon_counts.rejoined.tsv.gz.accession_header
 		"""
 
 rule compress_final_rejoined_genes:
