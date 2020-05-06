@@ -32,8 +32,11 @@ for line in sys.stdin:
     #gid = gid.replace('.%s' % (annot),'',1)
     key = '_'.join([gid,chrm,start,end])
     if key not in coord_map:
-        sys.stderr.write("NOT_USED_IN_MONORAIL_gene_id, skipping %s" % (line))
-        continue
+        #some refseq genes have their chromosome as a suffix
+        key = '_'.join([gid+'.%s'%(chrm),chrm,start,end])
+        if key not in coord_map:
+            sys.stderr.write("NOT_USED_IN_MONORAIL_gene_id, skipping %s" % (line))
+            continue
     fields[5] = coord_map[key][1]
     #output a key we can sort later on to match the exact order of the sums file
     sys.stdout.write(str(coord_map[key][0])+'\t'+'\t'.join(fields)+'\n') 
