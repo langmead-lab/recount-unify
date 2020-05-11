@@ -1,20 +1,32 @@
 import sys
 import re
 
-coord_map = {}
-with open(sys.argv[1],"r") as fin:
-    for (idx,line) in enumerate(fin):
-        (gid, bp_length, chrm, start, end) = line.rstrip().split('\t')
-        #coord_map['_'.join([gid,chrm,start,end])] = [bp_length, chrm, start, end]
-        coord_map['_'.join([gid,chrm,start,end])] = [idx,bp_length]
-
 #exon or gene
 feat_type = sys.argv[2]
 #4 char. abbrev for annotation, e.g. R109 for refseq hg38
 annot = sys.argv[3]
 
+delim = '\t'
+if feat_type == 'exon':
+    delim = '|'
+
+coord_map = {}
+with open(sys.argv[1],"r") as fin:
+    for (idx,line) in enumerate(fin):
+        if line[0] == '#' or 'chromosome' in line:
+            continue
+        fields = line.rstrip().split(delim)
+        if feat_type == 'gene':
+            (gid, bp_length, chrm, start, end) = fields
+            coord_map['_'.join([gid,chrm,start,end])] = [idx,bp_length]
+            continue
+        (chrm, start, end) = fields
+        bp_length = str((int(end) - int(start)) + 1)
+        coord_map['_'.join([chrm,start,end])] = [idx,bp_length]
+
+
 #GL000008.2^ICurated Genomic^Iexon^I124376^I125329^I.^I-^I.^Itranscript_id "gene14440.R109"; gene_id "gene14440.R109"; gene_name "SNX18P15"; Dbxref "GeneID:100419019,HGNC:HGNC:39623"; Name "SNX18P15"; description "sorting nexin 18 pseudogene 15"; gbkey "Gene"; gene_biotype "pseudogene"; pseudo "true";
-patt = re.compile(r'gene_id\s+"([^"]+)"')
+gpatt = re.compile(r'gene_id\s+"([^"]+)"')
 for line in sys.stdin:
     if line[0] == '#':
         sys.stdout.write(line) 
@@ -24,19 +36,20 @@ for line in sys.stdin:
         continue
     (chrm, start, end) = (fields[0], fields[3], fields[4])
     fields[8] = fields[8].replace('.%s' % (annot),'')
-    m = patt.search(fields[8])
-    if m is None:
-        sys.stderr.write("MISSING_gene_id, skipping %s" % (line))
-        continue
-    gid = m.group(1)
-    #gid = gid.replace('.%s' % (annot),'',1)
-    key = '_'.join([gid,chrm,start,end])
-    if key not in coord_map:
-        #some refseq genes have their chromosome as a suffix
-        key = '_'.join([gid+'.%s'%(chrm),chrm,start,end])
-        if key not in coord_map:
-            sys.stderr.write("NOT_USED_IN_MONORAIL_gene_id, skipping %s" % (line))
+    key = '_'.join([chrm,start,end])
+    if feat_type == 'gene':
+        m = gpatt.search(fields[8])
+        if m is None:
+            sys.stderr.write("MISSING_%s_id, skipping %s" % (feat_type, line))
             continue
+        gid = m.group(1)
+        key = '_'.join([gid,chrm,start,end])
+        #some refseq genes have their chromosome as a suffix
+        if key not in coord_map:
+            key = '_'.join([gid+'.%s'%(chrm),chrm,start,end])
+    if key not in coord_map:
+        sys.stderr.write("NOT_USED_IN_MONORAIL_%s, skipping %s" % (feat_type, line))
+        continue
     fields[5] = coord_map[key][1]
     #output a key we can sort later on to match the exact order of the sums file
     sys.stdout.write(str(coord_map[key][0])+'\t'+'\t'.join(fields)+'\n') 
