@@ -22,6 +22,14 @@ num_procs=$6
 #e.g. G026
 main_annotation=`echo "$annotations" | cut -d',' -f 1`
 
+annotations_w_spaces=`echo "$annotations" | sed 's/,/ /g'`
+
+mkdir -p gene_split_commands
+#create gene splits
+for i in $(seq 0 ${max_tranche_num}); do for f in $annotations_w_spaces ; do pypy ${dir}/create_gene_sums_by_study_splits.py ${tranche_prefix}${i}/ids.tsv ${tranche_prefix}${i}/${f}.gene.sums.tsv.gz $f > gene_split_commands/gene_sums.splits.${i}.${f} ; done ; done
+
+#/usr/bin/time -v parallel -j ${num_procs} < exon_sums.per_annotation.splits.jobs > exon_sums.per_annotation.splits.jobs.run 2>&1
+
 #e.g. 1709834 for SRAv3Human
 num_exon_rows=`cat $rejoined_exon_coords | wc -l`
 
@@ -30,14 +38,14 @@ outdir=`pwd`/${tranche_prefix}.exon_splits_per_study
 mkdir -p $outdir
         
 #run exons splits into per-study files (split jobs file is already created in the per-tranche Snakefile run)
-for i in {0..${max_tranche_num}}; do
-    mkdir -p ${outdir}/tranche${i}
-    tdir=${tranche_prefix}${i}
-    pushd $tdir
-    pypy ../${dir}/create_exon_sums_by_study_splits.py ids.tsv all.exon_counts.rejoined.tsv.gz all.exon_counts.rejoined.tsv.gz.accession_header ${outdir}/tranche${i} > exon_sums.splits.${i}.jobs
-    /usr/bin/time -v parallel -j ${num_procs} < exon_sums.splits.${i}.jobs > exon_sums.splits.${i}.jobs.run 2>&1
-    popd
-done
+#for i in $(seq 0 ${max_tranche_num}); do
+#    mkdir -p ${outdir}/tranche${i}
+#    tdir=${tranche_prefix}${i}
+#    pushd $tdir
+#    pypy ../${dir}/create_exon_sums_by_study_splits.py ids.tsv all.exon_counts.rejoined.tsv.gz all.exon_counts.rejoined.tsv.gz.accession_header ${outdir}/tranche${i} > exon_sums.splits.${i}.jobs
+#    /usr/bin/time -v parallel -j ${num_procs} < exon_sums.splits.${i}.jobs > exon_sums.splits.${i}.jobs.run 2>&1
+#    popd
+#done
     
 bitmasks_file=exon_counts.bitmasks
  
@@ -60,4 +68,4 @@ for sfile in `ls ${outdir}/tranche?/*.*.gz`; do
     echo "/usr/bin/time -v /bin/bash -x ${dir}/../rejoin/split_out_exons.sh \"${annotations}\" ${bitmasks_file}.tsv $num_exon_rows $study $sfile $final_outdir ${bitmask_coords_file} > $final_outdir/${study}.annot_split.run 2>&1" >> exon_sums.per_annotation.splits.jobs
 done 
 
-/usr/bin/time -v parallel -j ${num_procs} < exon_sums.per_annotation.splits.jobs > exon_sums.per_annotation.splits.jobs.run 2>&1
+#/usr/bin/time -v parallel -j ${num_procs} < exon_sums.per_annotation.splits.jobs > exon_sums.per_annotation.splits.jobs.run 2>&1
