@@ -54,7 +54,7 @@ cat ${rejoined_exon_coords} | pypy ${dir}/../rejoin/map_exon_sum_rows_to_annotat
 
 bitmask_coords_file=${bitmasks_file}.coords
 #make 1-based, not BED
-cut -f 3-5 ${bitmasks_file}.tsv | perl -ne 'chomp; ($c,$s,$e)=split(/\t/,$_); $s++; print "$c|$s|$e\n";' > ${bitmask_coords_file}
+cut -f 3-5,7 ${bitmasks_file}.tsv | perl -ne 'chomp; ($c,$s,$e,$o)=split(/\t/,$_); $s++; print "$c|$s|$e|$o\n";' > ${bitmask_coords_file}
 
 #create per-annotation split jobs;
 echo -n "" > exon_sums.per_annotation.splits.jobs
