@@ -43,7 +43,8 @@ int main(int argc, char** argv)
     std::string out_prefix;
     bool header = false;
     uint32_t num_rows = 0;
-	while((o  = getopt(argc, argv, "a:b:n:p:c:h")) != -1) {
+    int num_digits_per_annotation = 3;
+	while((o  = getopt(argc, argv, "a:b:n:p:c:d:h")) != -1) {
 		switch(o) 
 		{
 			case 'a': annotations = optarg; break;
@@ -51,6 +52,7 @@ int main(int argc, char** argv)
 			case 'c': exon_row_coords_file = optarg; break;
 			case 'p': out_prefix = optarg; break;
 			case 'n': num_rows = atol(optarg); break;
+			case 'd': num_digits_per_annotation = atoi(optarg); break;
 			case 'h': header = true; break;
         }
     }
@@ -66,16 +68,17 @@ int main(int argc, char** argv)
     //std::unique_ptr<char[]> bitmasks(new char[num_rows]);
     
     //***read in bitmasks
-    char* bitmasks = new char[num_rows*num_annotations];
+    char* bitmasks = new char[num_rows*num_annotations*num_digits_per_annotation];
     FILE* fin = fopen(exon_row_bitmask_file.c_str(),"r");
      
 	size_t length = -1;
     char* buf = bitmasks;
     uint32_t i = 0;
     ssize_t bytes_read = getline(&buf, &length, fin);
+    int offset = num_annotations*num_digits_per_annotation;
 	while(bytes_read != -1)
     {
-        i += num_annotations;
+        i += offset;
         buf = &(bitmasks[i]);
         bytes_read = getline(&buf, &length, fin);
     }
@@ -131,23 +134,29 @@ int main(int argc, char** argv)
         bytes_read = getline(&line, &length, stdin);
     
     //***now do actual line splitting
+    int fp_idx = 0;
     int val = 0;
     int z = 0;
+    char* cval = new char[num_digits_per_annotation+1];
+    cval[num_digits_per_annotation] = '\0';
+    //temp buf for tokenizing each mask
 	while(bytes_read != -1)
     {
-        for(j=0; j < num_annotations; j++)
+        fp_idx = 0;
+        for(j=0; j < offset; j+=num_digits_per_annotation)
         {
-            //check for ASCII "0"
-            val = bitmasks[i+j] - 48;
+            memcpy(cval, &(bitmasks[i+j]), num_digits_per_annotation);
+            val = atoi(cval);
             if(val != 0)
             {
                 //print the same line "val" number of times
                 //this is due to duplicate exons in annotations shared by different genes
                 for(z = 0; z < val; z++)
-                    fprintf(fps[j], "%s\t%s", exon_row_coords_ptrs[exon_row_coords_ptrs_idx], line);
+                    fprintf(fps[fp_idx], "%s\t%s", exon_row_coords_ptrs[exon_row_coords_ptrs_idx], line);
             }
+            fp_idx++;
         } 
-        i += num_annotations;
+        i += offset;
         exon_row_coords_ptrs_idx++;
         bytes_read = getline(&line, &length, stdin);
     }
