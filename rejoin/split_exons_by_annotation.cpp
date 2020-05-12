@@ -55,7 +55,7 @@ int main(int argc, char** argv)
         }
     }
 	if(annotations.length() == 0 || exon_row_bitmask_file.length() == 0 || exon_row_coords_file.length() == 0 || num_rows == 0 || out_prefix.length() == 0) {
-		std::cerr << "You must pass both: 1) -a \"annotations\" (e.g. G026,G029,R109,ERCC,SIRV) 2) -b exon_sums_row_bitmasks_file 3) exon_sums_row_coords_file and 4) -n <int> the number of rows in the exon sums file 4) -p <prefix> string prefix to be used in the output files (e.g. ERP001942)\n";
+		std::cerr << "You must pass both: 1) -a \"annotations\" (e.g. G026,G029,R109,F006,ERCC,SIRV) 2) -b exon_sums_row_bitmasks_file 3) -c exon_sums_row_coords_file and 4) -n <int> the number of rows in the exon sums file 4) -p <prefix> string prefix to be used in the output files (e.g. ERP001942)\n";
 		exit(-1);
 	}
     char delim = ',';
