@@ -82,7 +82,9 @@ int main(int argc, char** argv)
     fclose(fin);
     fprintf(stdout,"num annotations %d\n",num_annotations);
     
-    //***read in exon row coordinates
+    //***read in exon row coordinates (recount_exon_id)
+    //expects a single tab delimited field 
+    //where the field may be internally delimited by something else (e.g. "|")
     fin = fopen(exon_row_coords_file.c_str(),"r");
     char** exon_row_coords_ptrs = new char*[num_rows];
     char* exon_row_coords = new char[num_rows*SIZE_OF_COORDINATES];
@@ -129,13 +131,21 @@ int main(int argc, char** argv)
         bytes_read = getline(&line, &length, stdin);
     
     //***now do actual line splitting
+    int val = 0;
+    int z = 0;
 	while(bytes_read != -1)
     {
         for(j=0; j < num_annotations; j++)
         {
             //check for ASCII "0"
-            if(bitmasks[i+j] != 48)
-               fprintf(fps[j], "%s\t%s", exon_row_coords_ptrs[exon_row_coords_ptrs_idx], line);
+            val = bitmasks[i+j] - 48;
+            if(val != 0)
+            {
+                //print the same line "val" number of times
+                //this is due to duplicate exons in annotations shared by different genes
+                for(z = 0; z < val; z++)
+                    fprintf(fps[j], "%s\t%s", exon_row_coords_ptrs[exon_row_coords_ptrs_idx], line);
+            }
         } 
         i += num_annotations;
         exon_row_coords_ptrs_idx++;
