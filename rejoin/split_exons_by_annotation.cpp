@@ -107,7 +107,7 @@ int main(int argc, char** argv)
         bytes_read = getline(&buf, &length, fin);
     }
     fclose(fin); 
-    fprintf(stdout,"num coordinate bytes read %d, num ptrs %d\n",exon_row_coords_idx, exon_row_coords_ptrs_idx);
+    fprintf(stdout,"num coordinate bytes read %lu, num ptrs %d\n",exon_row_coords_idx, exon_row_coords_ptrs_idx);
 
     //***open output files to write rows into
     int j = 0;
