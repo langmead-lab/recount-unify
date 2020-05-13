@@ -8,6 +8,12 @@ annotations = annotations.split(',')
 num_annotations = len(annotations)
 amap = {a:i for (i,a) in enumerate(annotations)}
 
+#for masks, each annotation gets this number of digits
+#this is so we can avoid having a delimiter in the masks string
+num_digits_per_annotation = 3
+if len(sys.argv) > 3:
+    num_digits_per_annotation = int(sys.argv[3])
+
 e2amap = {}
 #second load exons2gene.annotation mapping
 #e.g. G029.G026.R109.F006.20190220.gtf.exons2genes
@@ -51,7 +57,7 @@ for line in sys.stdin:
     fields = line.rstrip().split('\t')
     eids = fields[0].split(';')
     seen = Counter()
-    mask = ["0"]*num_annotations
+    mask = [0]*num_annotations
     #offset start by 1 so we're 1 base
     fields[2] = str(int(fields[2])+1)
     #chrm|start|end|strand
@@ -65,8 +71,9 @@ for line in sys.stdin:
             break
     #now setup position count vector for this exon
     for apos in seen:
-        mask[apos] = str(seen[apos])
-    mask_str = ''.join(mask)
+        mask[apos] = seen[apos]
+    #print exactly num_annotations * num_digits_per_annotation number of digits for the mask
+    mask_str = ''.join(['{0:0{1}.0f}'.format(m, num_digits_per_annotation) for m in mask])
     #dont skip writing out full 0 masks, we need to exactly match the existing exon sums file's
     #number of rows and they'll be filtered out later
     sys.stdout.write("%s\t%s" % (mask_str, line))
