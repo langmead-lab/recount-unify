@@ -1,7 +1,7 @@
 # recount-unify
-Next step after recount-pump in the monorail pipeline
+Next step after recount-pump in the Monorail pipeline
 
-This step summarizes the gene, exon, and junction level counts which are produced by the Monorail pipeline on a per-sequencing run basis.
+This step summarizes the gene, exon, and junction level counts which are produced by the `recount-pump` workflow on a per-sequencing run basis.
 
 Gene and exon level counts are produced as full matrices per annotation, per study (if running on an SRA tranche of multiple studies and with multiple annotations, e.g. GencodeV26 & RefSeq). 
 
@@ -12,7 +12,7 @@ Junctions are produced currently as per the Snaptron format, i.e. multiple studi
 * Snakemake is needed for running unifying workflow
 * python3 is used to run the main Snakemake workflow (though python2 will probably work)
 * pypy is needed for certain steps within the workflow (jx merging and annotating)
-* zstd is needed for decompressing Monorail outputs
+* zstd is needed for decompressing `recount-pump` outputs
 * pigz is needed for compressing final outputs
 
 While the Snakemake file does most of the heavy lifting, there are a number of separate steps which are still outside the Snakemake workflow.
@@ -40,7 +40,7 @@ for recount3 human & mouse projects.
 
 ## Prep
 
-This step assumes that all checking/filtering of Monorail output has already been done previously.
+This step assumes that all checking/filtering of `recount-pump` output has already been done previously.
 
 First, you need to setup the unifier working subdirectory (of the unifier github checkout):
 
@@ -51,9 +51,9 @@ python ../sample_ids/assign_compilation_ids.py --accessions-file project1.tsv --
 
 Where `<compilation_code>` needs to checked against the list of existing recount3/Snaptron2 compilations so it doesn't collide.
 
-Then, you need to create symlinks from the output of Monorail (assumes the same filesystem):
+Then, you need to create symlinks from the output of `recount-pump` (assumes the same filesystem):
 
-```/bin/bash -x ../scripts/find_done.sh /path/to/project_monorail_output links project_monorail_file_prefix```
+```/bin/bash -x ../scripts/find_done.sh /path/to/project_recount-pump_output links project_recount-pump_file_prefix```
 
 An example for an human SRA tranche (5) on the IDIES systems:
 
@@ -64,7 +64,7 @@ An example for an human SRA tranche (5) on the IDIES systems:
 An semi-generic example of the unifier command for a human SRA tranche:
 
 ```
-snakemake -j <#_threads> --stats ./stats.json --snakefile ../Snakefile -p --config input=links staging=unified sample_ids_file=project1.ids.tsv annotated_sjs=/path/to/annotated_junctions.tsv.gz existing_sums=/path/to/exons.bed.w_header.gz compilation_id=<compilation_id> gene_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed exon_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed num_samples=<#_samples> ref_sizes=/path/to/hg38.recount_pump.fa.new_sizes ref_fasta=/path/to/hg38.recount_pump.fa recount_pump_output=/path/to/project_monorail_output gene_mapping_final=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed annotation_list=G026,G029,R109,ERCC,SIRV,F006
+snakemake -j <#_threads> --stats ./stats.json --snakefile ../Snakefile -p --config input=links staging=unified sample_ids_file=project1.ids.tsv annotated_sjs=/path/to/annotated_junctions.tsv.gz existing_sums=/path/to/exons.bed.w_header.gz compilation_id=<compilation_id> gene_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed exon_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed num_samples=<#_samples> ref_sizes=/path/to/hg38.recount_pump.fa.new_sizes ref_fasta=/path/to/hg38.recount_pump.fa recount_pump_output=/path/to/project_recount-pump_output gene_mapping_final=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed annotation_list=G026,G029,R109,ERCC,SIRV,F006
 ```
 
 `links` is the directory created in the prep step above which contains the symlinks to to all of recount-pump's ourput files.
