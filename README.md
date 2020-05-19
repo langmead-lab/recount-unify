@@ -1,7 +1,59 @@
 # recount-unify
-next step after recount-pump in the monorail pipeline
+Next step after recount-pump in the monorail pipeline
 
-## To run the patroller script:
+This step summarizes the gene, exon, and junction level counts which are produced by the Monorail pipeline on a per-sequencing run basis.
+
+Gene and exon level counts are produced as full matrices per annotation, per study (if running on an SRA tranche of multiple studies and with multiple annotations, e.g. GencodeV26 & RefSeq). 
+
+Junctions are produced currently as per the Snaptron format, i.e. multiple studies are kept in the same Snaptron compilation if doing SRA, also the annotations used to mark junctions as annotated (or novel) is a separate, and typically larger set, than the annotations used in the gene/exon counts.
+
+## Dependencies
+
+* Snakemake is needed for running unifying workflow
+* python3 is used to run the main Snakemake workflow (though python2 will probably work)
+* pypy is needed for certain steps within the workflow (jx merging and annotating)
+* zstd is needed for decompressing Monorail outputs
+* pigz is needed for compressing final outputs
+
+While the Snakemake file does most of the heavy lifting, there are a number of separate steps which are still outside the Snakemake workflow.
+
+## Prep
+
+This step assumes that all checking/filtering of Monorail output has already been done previously.
+
+First, you need to setup the unifier working subdirectory (of the unifier github checkout):
+
+```mkdir project1
+cd project1
+python ../sample_ids/assign_compilation_ids.py --accessions-file project1.tsv --compilation-code <compilation_code> > project1.ids.tsv
+```
+
+Where `<compilation_code>` needs to checked against the list of existing recount3/Snaptron2 compilations so it doesn't collide.
+
+Then, you need to create symlinks from the output of Monorail (assumes the same filesystem):
+
+```/bin/bash -x ../scripts/find_done.sh /path/to/project_monorail_output links project_monorail_file_prefix```
+
+An example for an human SRA tranche (5) on the IDIES systems:
+
+```/bin/bash -x ../scripts/find_done.sh /scratch/ceph/langmead/sra_human_v3_5 links sra_human_v3```
+
+## Running the Unifier Workflow
+
+An example of the unifier command for human SRA tranche 1 on IDIES:
+
+```
+snakemake -j <#_threads> --stats ./stats.json --snakefile ../Snakefile -p --config input=links staging=unified sample_ids_file=project1.ids.tsv annotated_sjs=/path/to/annotated_junctions.tsv.gz existing_sums=/path/to/exons.bed.w_header.gz compilation_id=<compilation_id> gene_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed exon_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed num_samples=<#_samples> ref_sizes=/path/to/hg38.recount_pump.fa.new_sizes ref_fasta=/path/to/hg38.recount_pump.fa recount_pump_output=/path/to/project_monorail_output gene_mapping_final=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed annotation_list=G026,G029,R109,ERCC,SIRV,F006
+```
+
+## QC summary
+
+This is typically run after the unifier has been run on the project/tranche (if you want it to include the intron sums) in the unifier working subdirectory of the project/tranche:
+
+```python3 ../log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping ids.tsv --intron-sums intron_counts_summed.tsv > qc.tsv 2> qc.err```
+
+
+## [DEPRECATED] To run the patroller script:
 `python3 ./patroller.py --num-sm-proc #_procs --snakefile ./Snakefile --annotated-sj-file /path/to/annotated_junctions.tsv.gz --sample-ID-file /path/to/samples.tsv --incoming-dir /path/to/recount_pump_output --staging-dir /path/to/dir_to_hardlink_into --output-dir /path/to/dir_to_store_final_unified_output --existing-exon-sums-file /path/to/exons.bed.gz --project <project_name> --debug`
 
 where:
