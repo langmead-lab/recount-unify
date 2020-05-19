@@ -17,21 +17,26 @@ Junctions are produced currently as per the Snaptron format, i.e. multiple studi
 
 While the Snakemake file does most of the heavy lifting, there are a number of separate steps which are still outside the Snakemake workflow.
 
-The following files/information are needed to run the unifier, beyond the output of your `recount-pump` run:
+The following files/information are needed to run the unifier, but our specific to your project:
 
 * a tab-delimited file of the project study(s) and sample/run ids used in the `recount-pump` run (e.g. `project1.ids.tsv` below)
-* a list of annotated junctions (e.g. `annotated_junctions.tsv.gz`)
-* the list of annotated exon intervals used in the `recount-pump` run (e.g. `exons.bed.w_header.gz`)
-  this file has to be be exactly the same order as the exon sums that's produced by `bamcount` as part of `recount-pump`
 * compilation ID for your project that doesn't collide with existing recount3/Snaptron2 compilations IDs (`compilation_id`)
+* number of samples/runs in the project (`#_samples` below, should be exactly the set of runs/samples which successfully ran through `recount-pump`)
+
+The following are more generic files used across projects sharing the same reference genome (e.g. `hg38`) and set of annotations, e.g. `G026,G029,R109,ERCC,SIRV,F006`:
+
+* a list of annotated junctions (e.g. `annotated_junctions.tsv.gz`)
 * disjoint exon-to-gene mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed`)
 * disjoint exon-to-annotated exon file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed`)
-* number of samples/runs in the project (should be exactly the set of runs/samples which successfully ran through `recount-pump`)
-* genome reference chromosome sizes file (e.g. `hg38.recount_pump.fa.new_sizes`)
-* genome reference chromosome FASTA file (e.g. `hg38.recount_pump.fa`), needs to be exactly the same as what's used in `recount-pump`
 * final gene disjoint-to-annotation mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed`)
 * set of annotation short names used (e.g. `G026,G029,R109,ERCC,SIRV,F006`)
+* genome reference chromosome sizes file (e.g. `hg38.recount_pump.fa.new_sizes`)
+* genome reference chromosome FASTA file (e.g. `hg38.recount_pump.fa`), needs to be exactly the same as what's used in `recount-pump`
+* the list of annotated exon intervals used in the `recount-pump` run (e.g. `exons.bed.w_header.gz`)
+  this file has to be be exactly the same order as the exon sums that's produced by `bamcount` as part of `recount-pump`
 
+These files can all be downloaded from https://github.com/langmead-lab/monorail-run-data
+for recount3 human & mouse projects.
 
 ## Prep
 
@@ -58,8 +63,9 @@ An example for an human SRA tranche (5) on the IDIES systems:
 
 An example of the unifier command for human SRA tranche 1 on IDIES:
 
-
+```
 snakemake -j <#_threads> --stats ./stats.json --snakefile ../Snakefile -p --config input=links staging=unified sample_ids_file=project1.ids.tsv annotated_sjs=/path/to/annotated_junctions.tsv.gz existing_sums=/path/to/exons.bed.w_header.gz compilation_id=<compilation_id> gene_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed exon_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed num_samples=<#_samples> ref_sizes=/path/to/hg38.recount_pump.fa.new_sizes ref_fasta=/path/to/hg38.recount_pump.fa recount_pump_output=/path/to/project_monorail_output gene_mapping_final=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed annotation_list=G026,G029,R109,ERCC,SIRV,F006
+```
 
 
 ## QC summary
