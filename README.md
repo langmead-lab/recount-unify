@@ -25,18 +25,20 @@ The following files/information are needed to run the unifier, but are specific 
 
 The following are more generic files used across projects sharing the same reference genome (e.g. `hg38`) and set of annotations, e.g. `G026,G029,R109,ERCC,SIRV,F006`:
 
-* a list of annotated junctions (e.g. `annotated_junctions.tsv.gz`)
+* set of annotation short names used (e.g. `G026,G029,R109,ERCC,SIRV,F006`)
 * disjoint exon-to-gene mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed`)
 * disjoint exon-to-annotated exon mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed`)
 * final gene disjoint-to-annotation mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed`)
-* set of annotation short names used (e.g. `G026,G029,R109,ERCC,SIRV,F006`)
-* genome reference chromosome sizes file (e.g. `hg38.recount_pump.fa.new_sizes`)
-* genome reference chromosome FASTA file (e.g. `hg38.recount_pump.fa`), needs to be exactly the same as what's used in `recount-pump`
+* a list of annotated junctions (e.g. `annotated_junctions.tsv.gz`)
 * the list of annotated exon intervals used in the `recount-pump` run (e.g. `exons.bed.w_header.gz`)
   this file has to be be exactly the same order as the exon sums that's produced by `bamcount` as part of `recount-pump`
+* genome reference chromosome sizes file (e.g. `hg38.recount_pump.fa.sizes.tsv`)
 
 These files can all be downloaded from https://github.com/langmead-lab/monorail-run-data
 for recount3 human & mouse projects.
+
+And finally, also needed is the genome reference chromosome FASTA file (e.g. `hg38.recount_pump.fa`), which needs to be exactly the same as what's used in `recount-pump`, available from https://recount-ref.s3.amazonaws.com/hg38/fasta.tar.gz
+The chromosome names need to exactly match what's in genome reference chromosome sizes file above, or this file should be regenerated based on the FASTA file.
 
 ## Prep
 
