@@ -17,9 +17,9 @@ Junctions are produced currently as per the Snaptron format, i.e. multiple studi
 
 While the Snakemake file does most of the heavy lifting, there are a number of separate steps which are still outside the Snakemake workflow.
 
-The following files/information are needed to run the unifier, but our specific to your project:
+The following files/information are needed to run the unifier, but are specific to your project:
 
-* a tab-delimited file of the project study(s) and sample/run ids used in the `recount-pump` run (e.g. `project1.ids.tsv` below)
+* a tab-delimited file of the project study(s) and sample/run ids used in the `recount-pump` run (e.g. `project1.tsv` below)
 * compilation ID for your project that doesn't collide with existing recount3/Snaptron2 compilations IDs (`compilation_id`)
 * number of samples/runs in the project (`#_samples` below, should be exactly the set of runs/samples which successfully ran through `recount-pump`)
 
@@ -27,7 +27,7 @@ The following are more generic files used across projects sharing the same refer
 
 * a list of annotated junctions (e.g. `annotated_junctions.tsv.gz`)
 * disjoint exon-to-gene mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed`)
-* disjoint exon-to-annotated exon file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed`)
+* disjoint exon-to-annotated exon mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed`)
 * final gene disjoint-to-annotation mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed`)
 * set of annotation short names used (e.g. `G026,G029,R109,ERCC,SIRV,F006`)
 * genome reference chromosome sizes file (e.g. `hg38.recount_pump.fa.new_sizes`)
@@ -57,15 +57,19 @@ Then, you need to create symlinks from the output of Monorail (assumes the same 
 
 An example for an human SRA tranche (5) on the IDIES systems:
 
-```/bin/bash -x ../scripts/find_done.sh /scratch/ceph/langmead/sra_human_v3_5 links sra_human_v3```
+```/bin/bash -x ../scripts/find_done.sh /full/path/to/langmead/sra_human_v3_5 links sra_human_v3```
 
 ## Running the Unifier Workflow
 
-An example of the unifier command for human SRA tranche 1 on IDIES:
+An semi-generic example of the unifier command for a human SRA tranche:
 
 ```
 snakemake -j <#_threads> --stats ./stats.json --snakefile ../Snakefile -p --config input=links staging=unified sample_ids_file=project1.ids.tsv annotated_sjs=/path/to/annotated_junctions.tsv.gz existing_sums=/path/to/exons.bed.w_header.gz compilation_id=<compilation_id> gene_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed exon_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed num_samples=<#_samples> ref_sizes=/path/to/hg38.recount_pump.fa.new_sizes ref_fasta=/path/to/hg38.recount_pump.fa recount_pump_output=/path/to/project_monorail_output gene_mapping_final=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed annotation_list=G026,G029,R109,ERCC,SIRV,F006
 ```
+
+`links` is the directory created in the prep step above which contains the symlinks to to all of recount-pump's ourput files.
+
+`unified` is a directory which will be created by the Snakemake workflow which contains intermediate files, once a run's final files have been produced and checked this directory can be removed.
 
 
 ## QC summary
