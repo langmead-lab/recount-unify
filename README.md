@@ -9,11 +9,11 @@ Junctions are produced currently as per the Snaptron format, i.e. multiple studi
 
 ## Dependencies
 
-* Snakemake is needed for running unifying workflow
-* python3 is used to run the main Snakemake workflow (though python2 will probably work)
-* pypy is needed for certain steps within the workflow (jx merging and annotating)
-* zstd is needed for decompressing `recount-pump` outputs
-* pigz is needed for compressing final outputs
+* `Snakemake` is needed for running unifying workflow
+* `python3` is used to run the main Snakemake workflow (though `python2` will probably work)
+* `pypy` is needed for certain steps within the workflow (jx merging and annotating)
+* `zstd` is needed for decompressing `recount-pump` outputs
+* `pigz` is needed for compressing final outputs
 
 While the Snakemake file does most of the heavy lifting, there are a number of separate steps which are still outside the Snakemake workflow.
 
