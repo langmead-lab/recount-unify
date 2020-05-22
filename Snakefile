@@ -215,7 +215,7 @@ rule rejoin_genes:
 	shell:
 		"""
 		{params.script_path} -a {params.gene_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p gene -h  
-	        cat gene.counts | pigz --fast -p {threads} > {output[0]}
+		cat gene.counts | pigz --fast -p {threads} > {output[0]}
 		cat gene.intron_counts | pigz --fast -p {threads} > {output[1]}
 		rm -f gene.counts gene.intron_counts
 		"""
@@ -241,7 +241,7 @@ rule rejoin_genes_final:
 		set +o pipefail
 		pigz --stdout -p 1 -d {input[1]} | head -1 | cut -f 7- > all.exon_bw_count.pasted.gz.samples_header
 		set -o pipefail
-		pigz --stdout -p 1 -d {input[0]} | tail -n+2 | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation}
+		pigz --stdout -p 1 -d {input[0]} | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation}
 		set +o pipefail
 		paste <(echo "gene_id	chromosome	start	end	bp_length	strand") <(head -1 {params.main_annotation}.gene.sums.tsv | cut -f 6-) > all.exon_counts.rejoined.tsv.gz.accession_header
 		"""
