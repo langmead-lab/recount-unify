@@ -74,14 +74,15 @@ def determine_annotation_source(gname, annot_fhs=None):
         annot_fhs[annot_src].write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
     return (gene_id, annot_src)
 
+#check if we're doing mouse
+mouse = snaptron_annot_src[0] == 'M'
 
 with open(mapf,"r") as fin:
-    for line in fin:
+    for (idx, line) in enumerate(fin):
         line = line.rstrip()
         (chrm, gstart, gend, gname, typenum, strand)  = line.split('\t')
         gstart = str(int(gstart)+1)
-        
-        #need to determine the source annotation (e.g. G026)
+
         (gene_id, annot_src) = determine_annotation_source(gname, annotation_fhs)
         if annot_src is None:
             continue
@@ -108,10 +109,18 @@ for line in sys.stdin:
     key = "\t".join([chrm, gstart, gend, strand])
     
     #now figure out the mapping to all the of the genes and annotations
-    for gname in gnames.split(';'): 
-        (gene_id, annot_src) = determine_annotation_source(gname)
-        if annot_src is None:
-            continue
+    genes_and_annotations = []
+    #mouse has only one real annoation (M023 for now) 
+    if mouse and gnames[-4:] != 'SIRV' and gnames[-4:] != 'ERCC':
+        for gname in gnames.split(';'):
+            genes_and_annotations.append([gname, snaptron_annot_src])
+    else:
+        for gname in gnames.split(';'): 
+            (gene_id, annot_src) = determine_annotation_source(gname)
+            if annot_src is None:
+                continue
+            genes_and_annotations.append([gene_id, annot_src])
+    for (gene_id, annot_src) in genes_and_annotations:
         for annot_src in annot_map[key][gene_id]:
             key2 = gene_id + "_" + annot_src
             if key2 not in seen:
