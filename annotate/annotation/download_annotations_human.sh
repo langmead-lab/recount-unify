@@ -25,11 +25,15 @@ wget http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ccdsGene.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/mgcGenes.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/lincRNAsTranscripts.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/sibGene.txt.gz
-wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_24/gencode.v24.annotation.gtf.gz
-wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_25/gencode.v25.annotation.gtf.gz
-wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_26/gencode.v26.annotation.gtf.gz
-wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_29/gencode.v29.annotation.gtf.gz
-wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_33/gencode.v33.annotation.gtf.gz
+#wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_24/gencode.v24.annotation.gtf.gz
+#wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_25/gencode.v25.annotation.gtf.gz
+#wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_26/gencode.v26.annotation.gtf.gz
+#wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_29/gencode.v29.annotation.gtf.gz
+#wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_33/gencode.v33.annotation.gtf.gz
+for i in {20..33}; do
+    curl "ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_${i}/gencode.v${i}.annotation.gtf.gz" > gencode.v${i}.annotation.gtf.gz
+    sleep 60
+done
 #Chess comes in GFF which needs to be slightly modified to be a GTF which extract_splice_sites.py can read
 curl "http://ccb.jhu.edu/chess/data/chess2.2_assembly.gff.gz" | zcat | perl -ne 'chomp; $f=$_; @f=split(/\t/,$f); if($f=~/^#/ || $f[2] ne "exon") { print "$f\n"; next; } $f[8]=~/Parent=((CHS\.\d+)(\.\d+)?)/; $transcript_id=$1; $gene_id=$2; $f[8]="gene_id \"$gene_id\"; transcript_id \"$transcript_id\";"; print "".join("\t",@f)."\n";' | gzip > chess2.2_assembly.gtf.gz
 cd ../../
@@ -42,9 +46,16 @@ wget http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/ccdsGene.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/mgcGenes.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/lincRNAsTranscripts.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/sibGene.txt.gz
-wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gtf.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/acembly.txt.gz
 wget http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/vegaGene.txt.gz
+#wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gtf.gz
+curl "ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_3c/gencode.v3c.annotation.GRCh37.gtf.gz" > gencode.v3.annotation.gtf.gz
+sleep 60
+curl "ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_4/gencode.v4.annotation.GRCh37.gtf.gz" > gencode.v4.annotation.gtf.gz
+for i in {5..19}; do
+    sleep 60
+    curl "ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_${i}/gencode.v${i}.annotation.gtf.gz" > gencode.v${i}.annotation.gtf.gz
+done
 cd ../../
 
 tar -cvzf ${annotations_file} anno

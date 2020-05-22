@@ -52,8 +52,16 @@ import re
 
 #latest gencode rel num
 CURRENT_MOUSE_REL_NUM=24
+CURRENT_HUMAN_REL_NUM=33
 
 hg_file2source = {"hg19/gencode.v19.annotation.gtf.gz":"gC19","hg19/refGene.txt.gz":"rG19","hg19/acembly.txt.gz":"aC19","hg19/ccdsGene.txt.gz":"cG19","hg19/vegaGene.txt.gz":"vG19","hg19/knownGene.txt.gz":"kG19","hg19/mgcGenes.txt.gz":"mG19","hg19/lincRNAsTranscripts.txt.gz":"lR19","hg19/sibGene.txt.gz":"sG19","hg38/refGene.txt.gz":"rG38","hg38/ccdsGene.txt.gz":"cG38","hg38/knownGene.txt.gz":"kG38","hg38/mgcGenes.txt.gz":"mG38","hg38/lincRNAsTranscripts.txt.gz":"lR38","hg38/sibGene.txt.gz":"sG38","hg38/chess2.2_assembly.gtf.gz":"cH38","hg38/gencode.v24.annotation.gtf.gz":"gC24","hg38/gencode.v25.annotation.gtf.gz":"gC25","hg38/gencode.v26.annotation.gtf.gz":"gC26","hg38/gencode.v33.annotation.gtf.gz":"gC33","hg38/gencode.v29.annotation.gtf.gz":"gC29"} #,"hg38/knownAlt.txt.gz":"kA38","hg19/knownAlt.txt.gz":"kA19"}
+
+for i in range(3,20):
+    hg_file2source["hg19/gencode.v%d.annotation.gtf.gz" % (i)] = "gC%02.0f" % (i)
+
+for i in range(20,CURRENT_HUMAN_REL_NUM+1):
+    hg_file2source["hg38/gencode.v%d.annotation.gtf.gz" % (i)] = "gC%02.0f" % (i)
+
 
 mg_file2source = {"m37/ccdsGene.txt.gz":"cG37","m37/refGene.txt.gz":"rG37","m37/mgcGenes.txt.gz":"mG37","m37/knownGene.txt.gz":"kG37","m37/vegaGene.txt.gz":"vG37","m37/acembly.txt.gz":"aC37","m38/GSE72311_lncrna.gtf.gz":"lR38","m38/mgcGenes.txt.gz":"mG38","m38/ccdsGene.txt.gz":"cG38","m38/knownGene.txt.gz":"kG38","m38/refGene.txt.gz":"rG38","m37/gencode.vM1.annotation.gtf.gz":"gC01","m37/fantom4_all_mrna.gtf.gz":"fM38","m37/fantom4_all_est.gtf.gz":"fE38"}
 for i in range(2,CURRENT_MOUSE_REL_NUM+1):
