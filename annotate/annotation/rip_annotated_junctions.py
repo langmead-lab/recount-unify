@@ -78,8 +78,9 @@ def liftover(args, annotated_junctions_from, annotated_junctions_to):
         with open(temp_from, 'w') as from_stream:
             for i, junction in enumerate(annotated_junctions_from):
                 # Handle incorrect junctions
+                #offset for BED
                 print >>from_stream, '{}\t{}\t{}\t{}\t1\t{}'.format(
-                        junction[0], junction[1], junction[2], junction[4], junction[3]
+                        junction[0], str(int(junction[1])-1), junction[2], junction[4], junction[3]
                     )
         liftover_process = subprocess.check_call(' '.join([
                                                 args.liftover,
@@ -100,6 +101,8 @@ def liftover(args, annotated_junctions_from, annotated_junctions_to):
         with open(temp_to) as to_stream:
             for line in to_stream:
                 chrom, start, end, name, score, strand = line.strip().split('\t')[:6]
+                #convert from BED to 1-base
+                start = str(int(start)+1)
                 if chrom in refs:
                     annotated_junctions_to.add((chrom, int(start), int(end), strand, name))
                 else:
