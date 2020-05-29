@@ -57,7 +57,7 @@ def get_record(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fhs
         current_chrm = fields[CHRM_COL]
         if not args.append_samples:
             fields.append(files[i][FILE_SAMPLE_ID_COL])
-        heapq.heappush(heap, (fields[CHRM_COL], int(fields[START_COL]), int(fields[END_COL]), (fields, next_fhs)))
+        heapq.heappush(heap, (fields[CHRM_COL], int(fields[START_COL]) + args.start_offset, int(fields[END_COL]), (fields, next_fhs)))
             
         #since we pushed one on the heap we can read another
         if fh is not None:
@@ -128,11 +128,7 @@ def merge(args):
                 previous[samples_col] += current[samples_col]
         else:
             previous = current
-        #sys.stderr.write("FILBUF_SIZE\t"+str(sys.getsizeof(filebuf))+'\t')
-        #sys.stderr.write("HEAP_SIZE\t"+str(sys.getsizeof(heap))+'\n')
     #last one
-    #sys.stderr.write("FILBUF_SIZE\t"+str(sys.getsizeof(filebuf))+'\t')
-    #sys.stderr.write("HEAP_SIZE\t"+str(sys.getsizeof(heap))+'\n')
     if len(previous) > 0:
         p = previous[:END_COL+1]
         p.extend([previous[strand_col],previous[motif_col],previous[samples_col]])
@@ -144,6 +140,7 @@ if __name__ == '__main__':
     parser.add_argument('--existing-sj-db', metavar='/path/to/existing_db_of_junctions', type=str, default="", help='allows to merge with an existing database of junctionss (assumes same format as output from --append-samples mode), default is empty string')
     parser.add_argument('--gzip', action='store_const', const=True, default=False, help='input files are gzipped')
     parser.add_argument('--append-samples', action='store_const', const=True, default=False, help='set this if aggregating beyond sample-level results')
+    parser.add_argument('--start-offset', metavar='0', type=int, default=0, help='if merging output from BED-formatted jx files pass "1" into this (0)')
     args = parser.parse_args()
     
     if len(args.existing_sj_db) > 0 and not args.append_samples:
