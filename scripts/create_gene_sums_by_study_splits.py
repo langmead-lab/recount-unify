@@ -15,9 +15,10 @@ annotation = sys.argv[3]
 #outdir='supers/gene_sums_per_study/' + annotation
 #outdir=annotation
 outdir = sys.argv[4]
+compilation = sys.argv[5]
 
 #5th arg is that we're not compressed
-is_compressed = len(sys.argv) < 6
+is_compressed = len(sys.argv) < 7
 
 run2study = {}
 with open(idsF,"r") as fin:
