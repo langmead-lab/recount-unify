@@ -21,7 +21,7 @@ static const int VALUE_COL=3;
 static const int NUM_CHRM=1024;
 static const int BOTH_OPPOSITE_VAL=10;
 //1MB per line should be more than enough
-static const int LINE_BUFFER_LENGTH=1048576;
+static const int LINE_BUFFER_LENGTH=104857600;
 //For future use
 static int TEST_MODE = -1;
 static int SPLICE_MOTIF_MODE = 0;
@@ -105,7 +105,7 @@ int read_chromosome_string<char>(FILE* cfp, char* chrm_array, long chrm_size, bo
         chrm_array_ptr = (chrm_array_ptr + bytes_read)-1;
 	    bytes_read = getline(&buf, &length, cfp);
     }
-    delete buf;
+    delete[] buf;
     return total_bytes_read;
 }
 
@@ -147,8 +147,8 @@ template<typename T>
 void delete_nested_array(T** array, long length)
 {
 	for(long i = 0; i < length; i++)
-		delete array[i];
-	delete array;
+		delete[] array[i];
+	delete[] array;
 }
 
 template <typename T>
@@ -248,6 +248,7 @@ double summarize_region(int* cidx, long* start, long* end, char* strand, T** chr
     {
             //adjust for the base-0 array, assumes base-1 coordinates (not BED)
 			sprintf(*motif, "%c%c-%c%c", chrm_array[*cidx][(*start)-1], chrm_array[*cidx][*start], chrm_array[*cidx][(*end)-2], chrm_array[*cidx][(*end)-1]);
+            motif[5]='\0';
             return summary;
     }
 	//fprintf(stderr,"value: %d line: %c\n",strand_val,*strand);
@@ -325,7 +326,7 @@ void go(std::string chrm_file, std::string perbase_file, int strand_col, std::st
 	bytes_read = getline(&line, &length, stdin);
 	char* line_wo_nl = new char[LINE_BUFFER_LENGTH];
     //only used when extracting splice motifs
-    char* motif = new char[4];
+    char* motif = new char[6];
 	while(bytes_read != -1)
 	{
 		//get rid of newline
@@ -348,9 +349,9 @@ void go(std::string chrm_file, std::string perbase_file, int strand_col, std::st
 	if(pcidx != 0)
 		fprintf(stderr,"MATCHING: chr idx %d done\n",pcidx);
 	std::cerr << "matching done\n";
-	delete line;
-	delete line_wo_nl;
-	delete_nested_array(chrm_array, NUM_CHRM+1);
+	delete[] line;
+	delete[] line_wo_nl;
+	//delete_nested_array(chrm_array, NUM_CHRM+1);
 }
 
 int main(int argc, char* argv[])
