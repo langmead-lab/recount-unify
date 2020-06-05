@@ -57,7 +57,8 @@ def get_record(args, fhs, filebuf, heap, current_chrm, files, last_col, next_fhs
         current_chrm = fields[CHRM_COL]
         if not args.append_samples:
             fields.append(files[i][FILE_SAMPLE_ID_COL])
-        heapq.heappush(heap, (fields[CHRM_COL], int(fields[START_COL]) + args.start_offset, int(fields[END_COL]), (fields, next_fhs)))
+        fields[START_COL] = str(int(fields[START_COL]) + args.start_offset)
+        heapq.heappush(heap, (fields[CHRM_COL], int(fields[START_COL]), int(fields[END_COL]), (fields, next_fhs)))
             
         #since we pushed one on the heap we can read another
         if fh is not None:
