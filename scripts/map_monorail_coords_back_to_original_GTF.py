@@ -22,7 +22,9 @@ with open(sys.argv[1],"r") as fin:
             continue
         (chrm, start, end, strand) = fields
         bp_length = str((int(end) - int(start)) + 1)
-        coord_map[delim.join([chrm,start,end,strand])] = [idx,bp_length]
+        key = delim.join([chrm,start,end,strand])
+        #sys.stderr.write(key+'\n')
+        coord_map[key] = [idx,bp_length]
 
 
 #GL000008.2^ICurated Genomic^Iexon^I124376^I125329^I.^I-^I.^Itranscript_id "gene14440.R109"; gene_id "gene14440.R109"; gene_name "SNX18P15"; Dbxref "GeneID:100419019,HGNC:HGNC:39623"; Name "SNX18P15"; description "sorting nexin 18 pseudogene 15"; gbkey "Gene"; gene_biotype "pseudogene"; pseudo "true";
@@ -48,9 +50,11 @@ for line in sys.stdin:
         if key not in coord_map:
             key = delim.join([gid+'.%s'%(chrm),chrm,start,end])
     if key not in coord_map:
-        sys.stderr.write("NOT_USED_IN_MONORAIL_%s, skipping %s" % (feat_type, line))
+        sys.stderr.write("NOT_USED_IN_MONORAIL_%s, key=%s, skipping %s" % (feat_type, key, line))
         continue
     fields[5] = coord_map[key][1]
-    recount_exon_id = ' recount_exon_id "%s";' % (key)
+    recount_exon_id = ''
+    if feat_type == 'exon':
+        recount_exon_id = ' recount_exon_id "%s";' % (key)
     #output a key we can sort later on to match the exact order of the sums file
     sys.stdout.write(str(coord_map[key][0])+'\t'+'\t'.join(fields)+recount_exon_id+'\n') 
