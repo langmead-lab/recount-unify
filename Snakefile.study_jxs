@@ -1,0 +1,116 @@
+#start
+import sys
+import os
+import glob
+
+if 'study_dir' not in config:
+    config['study_dir'] = 'study'
+if not os.path.exists(config['study_dir']):
+	os.makedirs(config['study_dir'])
+
+#setup the final set of target files
+studies = [f.split('/')[-1] for f in glob.glob(config['input']+'/??/*')]
+#FILES=["%s/%s.sj.merged.motifs.annotated" % (config['study_dir'], s) for s in studies]
+FILES=["%s/%s.mm.gz" % (config['study_dir'], s) for s in studies]
+FILES.extend(["%s/%s.jxs.gz" % (config['study_dir'], s) for s in studies])
+
+main_script_path=os.path.join(workflow.basedir,'scripts')
+
+SCRIPTS={'find':os.path.join(main_script_path,'find_new_files_jxs_per_study.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs_per_study.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'mmformat':os.path.join(workflow.basedir, 'merge', 'mmformat')}
+
+#ref_sizes=hg38.recount_pump.fa.new_sizes
+#ref_fasta=hg38.recount_pump.fa
+if 'ref_sizes' not in config or 'ref_fasta' not in config:
+	sys.stderr.write("need to pass values for 'ref_sizes' and/or 'ref_fasta' the jx motif extraction part of the pipeline!\n")
+	sys.exit(-1)	
+
+rule all:
+	input:
+		expand("{file}", file=FILES)
+
+###Splice junction merging rules
+rule find_sjs:
+	input: 
+		config['input'],
+		config['sample_ids_file']
+	output:
+		config['staging'] + '/sj.groups.manifest'
+	params:
+		staging=config['staging'],
+		wildc='"*.zst"',
+		script_path=SCRIPTS['find']
+	shell:
+		"{params.script_path}  {input[0]} {input[1]} {params.staging} sj {params.wildc}"
+
+rule filter_sjs:
+	input:
+		config['staging'] + '/sj.groups.manifest'
+	output:
+		config['staging'] + '/sj.{study}.manifest.filtered'
+	params:
+		study=lambda wildcards: wildcards.study,
+		staging=config['staging'],
+		script_path=SCRIPTS['filter']
+	shell:
+		"{params.script_path} {params.staging}/sj.{params.study}.manifest"
+
+#merge at the group level, uses sample_ids
+rule merge_sjs:
+	input:
+		config['staging'] + '/sj.{study}.manifest.filtered'
+	output:
+		config['staging'] + '/sj.{study}.merged'
+	threads: 8
+	params:
+		staging=config['staging'],
+		filtered_manifest=lambda wildcards, input: '.'.join(input[0].split('.')[:-1]),
+		script_path=SCRIPTS['merge']
+	shell:
+		"""
+        pypy {params.script_path} --list-file {params.filtered_manifest} > {output}
+        """
+
+rule extract_motifs_for_sjs:
+	input:
+		config['staging'] + '/sj.{study}.merged',
+		config['ref_sizes'],
+		config['ref_fasta']
+	output:
+		config['staging'] + '/sj.{study}.merged.motifs'
+	params:
+		script_path=SCRIPTS['perbase'],
+	shell:
+		"""
+        cat {input[0]} | {params.script_path} -c {input[1]} -g {input[2]} -f {input[1]} > {output} 2>{output}.errs
+		"""
+
+rule annotate_all_sjs:
+	input:
+		config['staging'] + '/sj.{study}.merged.motifs'
+	output:
+		config['study_dir'] + '/{study}.sj.merged.motifs.annotated'
+	params:
+		annot_sjs=config['annotated_sjs'],
+		script_path=SCRIPTS['annotate']
+	shell:
+		"cat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --compilation-id 0 | cut -f 2- > {output}"
+
+rule mmformat_sjs:
+	input:
+		config['study_dir'] + '/{study}.sj.merged.motifs.annotated'
+	output:
+		config['study_dir'] + '/{study}.mm.gz',
+		config['study_dir'] + '/{study}.jxs.gz'
+	threads: 2
+	params:
+		study_dir=config['study_dir'],
+		study=lambda wildcards: config['study_dir'] + '/' + wildcards.study,
+		script_path=SCRIPTS['mmformat']
+	shell:
+		"""
+		cut -f 11 {input} | tr , \\\\n | fgrep ':' | cut -d':' -f1 | sort -nu > {input}.sids
+		num_samples=`cat {input}.sids | wc -l`
+		cat {input} | {params.script_path} -n ${{num_samples}} -p {params.study} -s {input}.sids > {params.study}.jxs 2> {output[0]}.run
+		pigz --fast -p {threads} {params.study}.mm
+		pigz --fast -p {threads} {params.study}.jxs
+		"""
