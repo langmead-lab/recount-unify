@@ -384,8 +384,7 @@ rule extract_motifs_for_sjs:
 		script_path=SCRIPTS['perbase'],
 	shell:
 		"""
-                cat {input[0]} | {params.script_path} -c {input[1]} -g {input[2]} -f {input[1]} > {output}.temp 2>{output}.errrs
-		paste <(cut -f 1-4 {output}.temp) <(cut -f 7 {output}.temp | tr '[:lower:]' '[:upper:]') <(cut -f 6 {output}.temp) > {output}
+		cat {input[0]} | {params.script_path} -c {input[1]} -g {input[2]} -f {input[1]} > {output} 2>{output}.errrs
 		"""
 #| perl -ne '$f=$_; @f=split(/\t/,$_); $f[4]=uc($f[4]); print "".join("\t",@f)."\n";' > {output}
 

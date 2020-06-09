@@ -117,6 +117,9 @@ if __name__ == '__main__':
     snaptron_id = 0
     for line in sys.stdin:
         tokens = line.strip().split('\t')
+        #allows us to skip the intermediate rearrangement script
+        #assuming we're getting this from the output of perbase in motif mode
+        tokens[MOTIF_COL] = tokens.pop().upper()
         junction = tuple(tokens[:STRAND_COL])
         annotated = set()
         if junction in annotated_junctions:
@@ -126,6 +129,7 @@ if __name__ == '__main__':
         end = junction[END_COL]
         length = (int(end) + 1) - int(start)
         strand = tokens[STRAND_COL]
+        #sys.stderr.write(line)
         (left_motif, right_motif) = tokens[MOTIF_COL].split('-')
         additional_fields = tokens[SAMP_COV_COL:]
 
