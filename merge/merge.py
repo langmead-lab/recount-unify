@@ -93,11 +93,14 @@ def merge(args):
         #this only works in --append-samples mode
         files.append([args.existing_sj_db])
     fhs = []
+        
     if args.gzip:
         fhs = [gzip.open(f[0],"rb") for f in files]
     else:
         fhs = [open(f[0],"rb") for f in files]
     n = len(fhs)
+    #even if we only have 1 file, we still "merge"
+    #for ease of coding
     filebuf = [['']]*n
     heap = []
     current_chrm = None

@@ -16,7 +16,7 @@ FILES.extend(["%s/%s.jxs.gz" % (config['study_dir'], s) for s in studies])
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
-SCRIPTS={'find':os.path.join(main_script_path,'find_new_files_jxs_per_study.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs_per_study.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'mmformat':os.path.join(workflow.basedir, 'merge', 'mmformat')}
+SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'mmformat':os.path.join(workflow.basedir, 'merge', 'mmformat')}
 
 #ref_sizes=hg38.recount_pump.fa.new_sizes
 #ref_fasta=hg38.recount_pump.fa
@@ -40,26 +40,27 @@ rule find_sjs:
 		wildc='"*.zst"',
 		script_path=SCRIPTS['find']
 	shell:
-		"{params.script_path}  {input[0]} {input[1]} {params.staging} sj {params.wildc}"
+		"{params.script_path}  {input[0]} {input[1]} {params.staging} sj {params.wildc} per_study"
 
 rule filter_sjs:
 	input:
 		config['staging'] + '/sj.groups.manifest'
 	output:
-		config['staging'] + '/sj.{study}.manifest.filtered'
+		config['staging'] + '/sj.{study}.{run_group_num}.manifest.filtered'
 	params:
 		study=lambda wildcards: wildcards.study,
+		run_group_num=lambda wildcards: wildcards.run_group_num,
 		staging=config['staging'],
 		script_path=SCRIPTS['filter']
 	shell:
-		"{params.script_path} {params.staging}/sj.{params.study}.manifest"
+		"{params.script_path} {params.staging}/sj.{params.study}.{params.run_group_num}.manifest -1"
 
 #merge at the group level, uses sample_ids
 rule merge_sjs:
 	input:
-		config['staging'] + '/sj.{study}.manifest.filtered'
+		config['staging'] + '/sj.{study}.{run_group_num}.manifest.filtered'
 	output:
-		config['staging'] + '/sj.{study}.merged'
+		config['staging'] + '/sj.{study}.{run_group_num}.merged'
 	threads: 8
 	params:
 		staging=config['staging'],
@@ -67,26 +68,55 @@ rule merge_sjs:
 		script_path=SCRIPTS['merge']
 	shell:
 		"""
-        pypy {params.script_path} --list-file {params.filtered_manifest} > {output}
-        """
+		pypy {params.script_path} --list-file {params.filtered_manifest} > {output}
+		"""
+
+#gets  study + run loworder groupings, e.g. unified/sj.SRP005401.42.manifest.sj_sample_files.merged.tsv.gz
+#where "42" is the loworder digits for the run, e.g. SRR8733242 in SRP005401
+def get_sj_merged_files(wildcards):
+	study = wildcards.study
+	study_low_order = study[-2:]
+	return [config['staging']+"/sj.%s.%s.merged" % (study,f.split('/')[-1]) for f in glob.glob(config['input']+'/%s/%s/??' % (study_low_order,study))]
+
+rule collect_merged_sjs:
+	input:
+		get_sj_merged_files
+	output:
+		config['staging'] + '/sj.{study}.groups.merged.files.list'
+	params:
+		staging=config['staging'],
+		study=lambda wildcards: wildcards.study
+	shell:
+		"ls {params.staging}/sj.{params.study}.??.merged > {output}"
+
+rule merge_study_sjs:
+	input: 
+		config['staging'] + '/sj.{study}.groups.merged.files.list'
+	output:
+		config['staging'] + '/all.{study}.sjs.merged'
+	threads: 8
+	params:
+		script_path=SCRIPTS['merge']
+	shell:
+		"pypy {params.script_path} --list-file {input} --append-samples > {output}"
 
 rule extract_motifs_for_sjs:
 	input:
-		config['staging'] + '/sj.{study}.merged',
+		config['staging'] + '/all.{study}.sjs.merged',
 		config['ref_sizes'],
 		config['ref_fasta']
 	output:
-		config['staging'] + '/sj.{study}.merged.motifs'
+		config['staging'] + '/all.{study}.sjs.merged.motifs'
 	params:
 		script_path=SCRIPTS['perbase'],
 	shell:
 		"""
-        cat {input[0]} | {params.script_path} -c {input[1]} -g {input[2]} -f {input[1]} > {output} 2>{output}.errs
+		cat {input[0]} | {params.script_path} -c {input[1]} -g {input[2]} -f {input[1]} > {output} 2>{output}.errs
 		"""
 
 rule annotate_all_sjs:
 	input:
-		config['staging'] + '/sj.{study}.merged.motifs'
+		config['staging'] + '/all.{study}.sjs.merged.motifs'
 	output:
 		config['study_dir'] + '/{study}.sj.merged.motifs.annotated'
 	params:
