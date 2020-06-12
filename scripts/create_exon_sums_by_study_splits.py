@@ -30,9 +30,29 @@ with open(headerF,"r") as fin:
 
 for study in study_cuts.keys():
     if len(study_cuts[study]) > 0:
+        #find contiguous ranges of 
+        #sample positions to condense
+        #this keeps the command line smaller
+        prev_run_pos = -100
+        start_pos = -100
+        positions = []
+        for run_pos in study_cuts[study]:
+            if run_pos != prev_run_pos+1:
+                pos = prev_run_pos
+                if start_pos != pos:
+                    pos = "%d-%d" % (start_pos, prev_run_pos)
+                if prev_run_pos != -100:
+                    positions.append(str(pos))
+                start_pos = run_pos 
+            prev_run_pos = run_pos
+        pos = prev_run_pos
+        if start_pos != pos:
+            pos = "%d-%d" % (start_pos, prev_run_pos)
+        if prev_run_pos != -100:
+            positions.append(str(pos))
+        cut_fields = ','.join(positions) 
         #only cut out the sample counts, we can always add in the gid,chr,bplengthstart,end separately, saves space
-        cut_fields = (','.join([str(run_pos) for run_pos in study_cuts[study]]))
-        #sys.stdout.write("cat <(echo '##annotation=%s') <(echo '##date.generated=%s') <(cut -f %s %s) <(pigz --stdout -p 2 -d %s | cut -f %s) | pigz --fast -p3 > %s/%s.gz\n" % (annotation, date_split, cut_fields, headerF, sumsF, cut_fields, outdir, study))
+        #cut_fields = (','.join([str(run_pos) for run_pos in study_cuts[study]]))
         #since we're not doing the annotation split here don't include the extra headers yet
         sys.stdout.write("cat <(cut -f 1,%s %s) <(pigz --stdout -p 2 -d %s | cut -f 1,%s) | pigz --fast -p1 > %s/study_splits.%s.gz\n" % (cut_fields, headerF, sumsF, cut_fields, outdir, study))
     else:
