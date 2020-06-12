@@ -86,6 +86,10 @@ def merge(args):
     last_col = MOTIF_COL + 1
     samples_col = scol - offset
     strand_col = STRAND_COL - offset
+    if args.motif_correction > -1:
+        #7 is typically the last col, so no need to set
+        #last_col = args.motif_correction
+        motif_col = args.motif_correction
     files = []
     with open(args.list_file, "rb") as fin:
         files = [f.rstrip().split('\t') for f in list(fin)]
@@ -144,6 +148,7 @@ if __name__ == '__main__':
     parser.add_argument('--gzip', action='store_const', const=True, default=False, help='input files are gzipped')
     parser.add_argument('--append-samples', action='store_const', const=True, default=False, help='set this if aggregating beyond sample-level results')
     parser.add_argument('--start-offset', metavar='0', type=int, default=0, help='if merging output from BED-formatted jx files pass "1" into this (0)')
+    parser.add_argument('--motif-correction', metavar='-1', type=int, default=-1, help='if merging output after extract motifs, the correct motif will be in a later column and needs to overwrite the official motif column (-1), 0-based')
     args = parser.parse_args()
     
     if len(args.existing_sj_db) > 0 and not args.append_samples:

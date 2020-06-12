@@ -3,26 +3,50 @@ import sys
 import os
 import glob
 
+## This snakemake will produce:
+#1) compilation aggregation of all junctions, with motifs (extracted from reference) and annotations where applicable,
+#formatted for indexing by Snaptron
+#2) a set of per-study, recount3 formatted jx sample coverage (MM) and row ranges (RR) files
+
 if 'study_dir' not in config:
     config['study_dir'] = 'study'
 if not os.path.exists(config['study_dir']):
 	os.makedirs(config['study_dir'])
 
+#overall tranches level jx files, formatted for input to Snaptron indexing
+FILES=['all.sjs.motifs.merged.tsv', 'all.sjs.motifs.merged.annotated.tsv.gz']
 #setup the final set of target files
 studies = [f.split('/')[-1] for f in glob.glob(config['input']+'/??/*')]
 #FILES=["%s/%s.sj.merged.motifs.annotated" % (config['study_dir'], s) for s in studies]
-FILES=["%s/%s.mm.gz" % (config['study_dir'], s) for s in studies]
+#add per study level jx files formatted for recount3
+FILES.extend(["%s/%s.mm.gz" % (config['study_dir'], s) for s in studies])
 FILES.extend(["%s/%s.jxs.gz" % (config['study_dir'], s) for s in studies])
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
 SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'mmformat':os.path.join(workflow.basedir, 'merge', 'mmformat')}
 
+if 'annotated_sjs' not in config:
+	sys.stderr.write("need to pass a path to an annotation jx database!\n")
+	sys.exit(-1)
+
 #ref_sizes=hg38.recount_pump.fa.new_sizes
 #ref_fasta=hg38.recount_pump.fa
 if 'ref_sizes' not in config or 'ref_fasta' not in config:
 	sys.stderr.write("need to pass values for 'ref_sizes' and/or 'ref_fasta' the jx motif extraction part of the pipeline!\n")
 	sys.exit(-1)	
+
+#annotated_junctions.tsv.gz
+if 'existing_sj_db' not in config:
+	config['existing_sj_db']=""
+
+if 'compilation_id' not in config:
+	config['compilation_id']=0
+
+
+wildcard_constraints:
+	study_group_num="[0-9a-zA-Z]{2}",
+	run_group_num="[0-9a-zA-Z]{2}",
 
 rule all:
 	input:
@@ -114,7 +138,7 @@ rule extract_motifs_for_sjs:
 		cat {input[0]} | {params.script_path} -c {input[1]} -g {input[2]} -f {input[1]} > {output} 2>{output}.errs
 		"""
 
-rule annotate_all_sjs:
+rule annotate_study_sjs:
 	input:
 		config['staging'] + '/all.{study}.sjs.merged.motifs'
 	output:
@@ -148,3 +172,69 @@ rule mmformat_sjs:
 			touch {params.study}.mm.gz {params.study}.jxs.gz
 		fi
 		"""
+
+def get_sj_merged_per_study_files(wildcards):
+	study_low_order = wildcards.study_low_order
+	return [config['staging']+"/all.%s.sjs.merged.motifs" % (f.split('/')[-1]) for f in glob.glob(config['input']+'/%s/*' % (study_low_order))]
+
+rule collect_per_study_sjs:
+	input:
+		get_sj_merged_per_study_files
+	output:
+		config['staging'] + '/sj.{study_low_order}.manifest'
+	params:
+		staging=config['staging'],
+		study_low_order=lambda wildcards: wildcards.study_low_order
+	shell:
+		"ls {params.staging}/all.*{params.study_low_order}.sjs.merged.motifs > {output}"
+
+#merge at the group level, uses sample_ids
+rule merge_per_study_sjs:
+	input:
+		config['staging'] + '/sj.{study_low_order}.manifest'
+	output:
+		config['staging'] + '/sj.{study_low_order}.motifs.merged.tsv'
+	threads: 8
+	params:
+		staging=config['staging'],
+		#manifest=lambda wildcards, input: '.'.join(input[0].split('.')[:-1]),
+		script_path=SCRIPTS['merge']
+	shell:
+		"pypy {params.script_path} --list-file {input} --motif-correction 6 --append-samples > {output}"
+
+def get_sj_study_low_order_merged_files(wildcards):
+	return [config['staging']+"/sj.%s.motifs.merged.tsv" % (f.split('/')[-1]) for f in glob.glob(config['input']+'/??')]
+
+rule collect_study_merged_sjs:
+	input:
+		get_sj_study_low_order_merged_files
+	output:
+		config['staging'] + '/sj.all.merged.files.list'
+	params:
+		staging=config['staging']
+	shell:
+		"ls {params.staging}/sj.??.motifs.merged.tsv > {output}"
+
+rule merge_all_sjs:
+	input: 
+		config['staging'] + '/sj.all.merged.files.list'
+	output:
+		'all.sjs.motifs.merged.tsv'
+	params:
+		script_path=SCRIPTS['merge'],
+		existing_sj_db=config['existing_sj_db']
+	shell:
+		"pypy {params.script_path} --list-file {input} --append-samples --existing-sj-db \"{params.existing_sj_db}\" > {output}"
+
+rule annotate_all_sjs:
+	input:
+		'all.sjs.motifs.merged.tsv'
+	output:
+		'all.sjs.motifs.merged.annotated.tsv.gz'
+	threads: 8
+	params:
+		annot_sjs=config['annotated_sjs'],
+		script_path=SCRIPTS['annotate'],
+		compilation_id=config['compilation_id']
+	shell:
+		"cat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --motif-correct --compilation-id {params.compilation_id} | pigz --fast -p {threads} > {output}"

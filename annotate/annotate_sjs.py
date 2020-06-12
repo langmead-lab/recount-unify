@@ -110,6 +110,8 @@ if __name__ == '__main__':
     parser.add_argument('--compilation-id', type=int, required=True,
             help='source compilation ID for Snaptron output'
         )
+    parser.add_argument('--motif-correct', action='store_const', const=True, default=False, help='determines whether or not copy appended motif column into official column')
+
     args = parser.parse_args()
 
     (annotated_junctions, five_p, three_p) = load_preformatted_annotated_junctions(args.compiled_annotations) 
@@ -119,7 +121,8 @@ if __name__ == '__main__':
         tokens = line.strip().split('\t')
         #allows us to skip the intermediate rearrangement script
         #assuming we're getting this from the output of perbase in motif mode
-        tokens[MOTIF_COL] = tokens.pop().upper()
+        if not args.motif_correct:
+            tokens[MOTIF_COL] = tokens.pop().upper()
         junction = tuple(tokens[:STRAND_COL])
         annotated = set()
         if junction in annotated_junctions:
