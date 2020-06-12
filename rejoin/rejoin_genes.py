@@ -74,6 +74,7 @@ def determine_annotation_source(gname, annot_fhs=None):
         annot_fhs[annot_src].write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
     return (gene_id, annot_src)
 
+
 #check if we're doing mouse
 mouse = snaptron_annot_src[0] == 'M'
 
@@ -100,7 +101,7 @@ for line in sys.stdin:
     line = line.rstrip()
     fields = line.split('\t')
     (gnames, chrm, gstart, gend, glength, strand) = fields[:6]
-    #account for 0-based start coordinate
+    #account for 0-based start coordinate (depending on organism)
     gstart = str(int(gstart)+1)
     counts = "\t".join(fields[6:])
     #output is: Gene   bp_length       chromosome      start   end count1 count2 count3....
