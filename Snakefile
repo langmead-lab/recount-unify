@@ -386,7 +386,6 @@ rule extract_motifs_for_sjs:
 		"""
 		cat {input[0]} | {params.script_path} -c {input[1]} -g {input[2]} -f {input[1]} > {output} 2>{output}.errrs
 		"""
-#| perl -ne '$f=$_; @f=split(/\t/,$_); $f[4]=uc($f[4]); print "".join("\t",@f)."\n";' > {output}
 
 rule annotate_all_sjs:
 	input:
