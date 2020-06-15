@@ -19,12 +19,12 @@ FILES=['all.sjs.motifs.merged.tsv', 'all.sjs.motifs.merged.annotated.tsv.gz']
 studies = [f.split('/')[-1] for f in glob.glob(config['input']+'/??/*')]
 #FILES=["%s/%s.sj.merged.motifs.annotated" % (config['study_dir'], s) for s in studies]
 #add per study level jx files formatted for recount3
-FILES.extend(["%s/%s.mm.gz" % (config['study_dir'], s) for s in studies])
-FILES.extend(["%s/%s.jxs.gz" % (config['study_dir'], s) for s in studies])
+FILES.extend(["%s/%s.MM.gz" % (config['study_dir'], s) for s in studies])
+FILES.extend(["%s/%s.RR.gz" % (config['study_dir'], s) for s in studies])
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
-SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'mmformat':os.path.join(workflow.basedir, 'merge', 'mmformat')}
+SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'mmformat':os.path.join(workflow.basedir, 'scripts', 'mmformat')}
 
 if 'annotated_sjs' not in config:
 	sys.stderr.write("need to pass a path to an annotation jx database!\n")
@@ -153,8 +153,8 @@ rule mmformat_sjs:
 	input:
 		config['study_dir'] + '/{study}.sj.merged.motifs.annotated'
 	output:
-		config['study_dir'] + '/{study}.mm.gz',
-		config['study_dir'] + '/{study}.jxs.gz'
+		config['study_dir'] + '/{study}.MM.gz',
+		config['study_dir'] + '/{study}.RR.gz'
 	threads: 2
 	params:
 		study_dir=config['study_dir'],
@@ -165,11 +165,12 @@ rule mmformat_sjs:
 		if [[ -s {input} ]]; then
 			cut -f 11 {input} | tr , \\\\n | fgrep ':' | cut -d':' -f1 | sort -nu > {input}.sids
 			num_samples=`cat {input}.sids | wc -l`
-			cat {input} | {params.script_path} -n ${{num_samples}} -p {params.study} -s {input}.sids > {params.study}.jxs 2> {output[0]}.run
-			pigz --fast -p {threads} {params.study}.mm
-			pigz --fast -p {threads} {params.study}.jxs
+			cat {input} | {params.script_path} -n ${{num_samples}} -p {params.study} -s {input}.sids > {params.study}.RR 2> {output[0]}.run
+            mv {params.study}.mm {params.study}.MM
+			pigz --fast -p {threads} {params.study}.MM
+			pigz --fast -p {threads} {params.study}.RR
 		else
-			touch {params.study}.mm.gz {params.study}.jxs.gz
+			touch {params.study}.MM.gz {params.study}.RR.gz
 		fi
 		"""
 
