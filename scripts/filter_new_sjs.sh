@@ -1,11 +1,25 @@
 #!/bin/bash
-set -o pipefail -o nounset -o errexit 
+set -o pipefail -o errexit 
 
-#filter out non-canonical splice junctions and sort by coordinates, while cutting out extraneous fields, and ? stranded junctions
+manifest=$1
+
+#[optional] number of threads to use when pigz'ing output, default 1
+threads=$2
+if [[ -z $threads ]]; then
+	threads=1
+fi
+
+#reformat splice junctions and sort by coordinates, while cutting out extraneous fields, and ? stranded junctions
 #assumes $f's directory is writable
 
-#canoncals are the same as they were in Rail, GT-AG, GC-AG, and AT-AC
-for f in `cut -f 3 ${1}`; do
-    zstd -cd $f 2>/dev/null | perl -ne 'BEGIN { %MOTIF_MAP=(1=>"GT-AG",2=>"GT-AG",3=>"GC-AG",4=>"GC-AG",5=>"AT-AC",6=>"AT-AC"); } chomp; $f=$_; ($chr,$start,$end,$strand,$motif,$annotated,$num_uniques,$num_multis,$max_overhang)=split(/\t/,$f); next if(!$MOTIF_MAP{$motif} || $strand == 0 || ($motif=~/[246]/ && $strand == 1) || ($motif=~/[135]/ && $strand == 2)); $total_cov=$num_uniques+$num_multis; $strand=~tr/12/\+\-/; print "$chr\t$start\t$end\t$num_multis\t$total_cov\t$strand\t".$MOTIF_MAP{$motif}."\n";' | sort -k1,1 -k2,2n -k3,3n | gzip > ${f}.filtered.sorted.gz;
+#ensure sort order is the same across all
+export LC_ALL=C
+#motifs are filled in later rather than here
+for f in `cut -f 3 ${manifest}`; do
+    if [[ $threads -gt 0 ]]; then
+        zstd -cd $f 2>/dev/null | perl -ne 'chomp; $f=$_; ($chr,$start,$end,$strand,$motif,$annotated,$num_uniques,$num_multis,$max_overhang)=split(/\t/,$f); $total_cov=$num_uniques+$num_multis; $strand=~tr/012/\?\+\-/; print "$chr\t$start\t$end\t$num_multis\t$total_cov\t$strand\tCC-CC\n";' | sort -k1,1 -k2,2n -k3,3n -u | pigz --fast -p $threads > ${f}.filtered.sorted.gz;
+    else
+        zstd -cd $f 2>/dev/null | perl -ne 'chomp; $f=$_; ($chr,$start,$end,$strand,$motif,$annotated,$num_uniques,$num_multis,$max_overhang)=split(/\t/,$f); $total_cov=$num_uniques+$num_multis; $strand=~tr/012/\?\+\-/; print "$chr\t$start\t$end\t$num_multis\t$total_cov\t$strand\tCC-CC\n";' | sort -k1,1 -k2,2n -k3,3n -u > ${f}.filtered.sorted
+    fi
 done
-touch ${1}.filtered
+touch ${manifest}.filtered
