@@ -28,7 +28,7 @@ test -n "${ANNOTATED_JXS}"
 test -s "${ANNOTATED_JXS}"
 
 #e.g. /path/to/exons.bed.w_header.gz
-echo "Disjoint Exons BED Path: ${EXON_COORDINATES_BED}"
+echo "Disjoint Exons BED Path (w/ header): ${EXON_COORDINATES_BED}"
 test -n "${EXON_COORDINATES_BED}"
 test -s "${EXON_COORDINATES_BED}"
 
@@ -65,7 +65,17 @@ test -n "${LIST_OF_ANNOTATIONS}"
 echo "CPUs: ${RECOUNT_CPUS}"
 test -n "${RECOUNT_CPUS}"
 
-num_samples=$(cat ${SAMPLE_ID_MANIFEST} | wc -l) 
+num_samples=$(cat ${SAMPLE_ID_MANIFEST} | wc -l)
+
+#need to make sure we have the exact number of 0's for samples which are missing sums
+num_exons=$(zcat ${EXON_COORDINATES_BED} | tail -n+2 | wc -l)
+num_zeros=$(cat list_of_zeros.gz.wc)
+if [[ $num_zeros -lt $num_exons ]]; then
+    additional_zeros=$((num_exons - num_zeros)) 
+    cat <(zcat /list_of_zeros.gz) <(perl -e 'for($i=0;i<'$additional_zeros';$i++) { print "0\n"; }') > ./blank_exon_sums
+else
+    zcat /list_of_zeros.gz | head -${num_exons} > ./blank_exon_sums
+fi
 
 #a config.json file could be provided in running directory
 CONFIGFILE=""

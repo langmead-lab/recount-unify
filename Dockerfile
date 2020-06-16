@@ -2,8 +2,6 @@ FROM continuumio/miniconda3:4.5.12
 
 USER root
 
-RUN apt-get update -y && apt-get install -y gcc g++ libz-dev make unzip zip
-
 # install conda environment
 COPY env.yml /env-base.yml
 RUN chmod a+r /env-base.yml
@@ -17,6 +15,8 @@ RUN chmod a+r /Snakefile
 # install generic workflow wrapper script
 COPY workflow.bash /workflow.bash
 RUN chmod a+rx /workflow.bash
+
+COPY list_of_zeros.gz /list_of_zeros.gz
 
 USER recount
 
