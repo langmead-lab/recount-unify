@@ -61,6 +61,12 @@ An example for an human SRA tranche (5) on the IDIES systems:
 
 ```/bin/bash -x ../scripts/find_done.sh /full/path/to/langmead/sra_human_v3_5 links sra_human_v3```
 
+Finally, a file named `blank_exon_sums` needs to be in the working directory of the unifier.
+
+This file should contain the exact number of lines that are in the list of annotated exon intervals used in the `recount-pump` run sans the header line (e.g. `exons.bed.w_header.gz`) above, but where every line is a single 0.  This is used as a placeholder for samples which for some reason don't have sums, as the total # of columns in sums output needs to match the total # of input samples.
+
+The blank_exon_sums files in the root of this repo was used for SRAv3/GTExv2/TCGAv2 (human).
+
 ## Running the Unifier Workflow
 
 An semi-generic example of the unifier command for a human SRA tranche:
