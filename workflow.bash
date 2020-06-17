@@ -14,7 +14,18 @@ set -ex
 #working directory has been bind mounted and we've entered it
 
 # Ensure directories/paths
+echo "Working dir: ${WORKING_DIR}"
+test -n "${WORKING_DIR}"
+test -d "${WORKING_DIR}"
 
+pushd ${WORKING_DIR}
+
+#echo "Ref dir: ${REF_DIR}"
+#test -n "${REF_DIR}"
+#test -d "${REF_DIR}"
+
+#original root directory of recount-pump output
+#OR
 #path to symbolic links of all input files/directory structure
 #to recount-unify, e.g. ./links
 #this needs to be created/populated ahead of running this script
@@ -61,6 +72,10 @@ test -s "${REF_FASTA}"
 echo "Annotation List: ${LIST_OF_ANNOTATIONS}"
 test -n "${LIST_OF_ANNOTATIONS}"
 
+echo "Sample ID manifest: ${SAMPLE_ID_MANIFEST}"
+test -n "${SAMPLE_ID_MANIFEST}"
+test -e "${SAMPLE_ID_MANIFEST}"
+
 #e.g. 40
 echo "CPUs: ${RECOUNT_CPUS}"
 test -n "${RECOUNT_CPUS}"
@@ -68,14 +83,14 @@ test -n "${RECOUNT_CPUS}"
 num_samples=$(cat ${SAMPLE_ID_MANIFEST} | wc -l)
 
 #need to make sure we have the exact number of 0's for samples which are missing sums
-num_exons=$(zcat ${EXON_COORDINATES_BED} | tail -n+2 | wc -l)
-num_zeros=$(cat list_of_zeros.gz.wc)
-if [[ $num_zeros -lt $num_exons ]]; then
-    additional_zeros=$((num_exons - num_zeros)) 
-    cat <(zcat /list_of_zeros.gz) <(perl -e 'for($i=0;i<'$additional_zeros';$i++) { print "0\n"; }') > ./blank_exon_sums
-else
-    zcat /list_of_zeros.gz | head -${num_exons} > ./blank_exon_sums
-fi
+#num_exons=$(zcat ${EXON_COORDINATES_BED} | tail -n+2 | wc -l)
+#num_zeros=$(cat /recount-unify/list_of_zeros.gz.wc)
+#if [[ $num_zeros -lt $num_exons ]]; then
+#    additional_zeros=$((num_exons - num_zeros)) 
+#    cat <(zcat /recount-unify/list_of_zeros.gz) <(perl -e 'for($i=0;i<'$additional_zeros';$i++) { print "0\n"; }') > ./blank_exon_sums
+#else
+#    zcat /recount-unify/list_of_zeros.gz | head -${num_exons} > ./blank_exon_sums
+#fi
 
 #a config.json file could be provided in running directory
 CONFIGFILE=""
@@ -83,7 +98,7 @@ if [[ -f "config.json" ]] ; then
     CONFIGFILE="--configfile config.json"
 fi
 snakemake \
-    --snakefile /Snakefile \
+    --snakefile /recount-unify/Snakefile \
     ${CONFIGFILE}
     -j "${RECOUNT_CPUS}" \
     --stats recount-unify.stats.json
@@ -103,4 +118,5 @@ snakemake \
         ref_fasta="${REF_FASTA}" \
         annotation_list="${LIST_OF_ANNOTATIONS}" \
         2>&1 | tee recount-unify.output.txt
+popd
 echo SUCCESS
