@@ -1,7 +1,5 @@
 FROM continuumio/miniconda3:4.5.12
 
-USER root
-
 RUN apt-get update -y && apt-get install -y gcc g++  make git
 
 RUN mkdir -p /recount-unify
@@ -40,7 +38,5 @@ COPY workflow.bash /recount-unify/workflow.bash
 RUN chmod a+rx /recount-unify/workflow.bash
 
 COPY list_of_zeros.gz /recount-unify/list_of_zeros.gz
-
-USER recount
 
 CMD ["bash", "-c", "source activate recount-unify && /recount-unify/workflow.bash"]
