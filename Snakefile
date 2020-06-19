@@ -8,6 +8,11 @@ import glob
 #e.g. (for CCLE, replace UUID with SRR accession if SRA/GTEx):
 #ccle/le/ccle/b7/dc564d9f-3732-48ee-86ab-e21facb622b7/ccle1_in13_att2
 
+if 'bash_path' not in config:
+	bash_path='/bin/bash'
+
+shell.executable(bash_path)
+
 #just rejoin and after for sums
 #main production version
 FILES=['all.exon_bw_count.pasted.gz', 'unique.exon_bw_count.pasted.gz', 'all.sjs.merged.annotated.tsv.gz', 'all.logs.tar.gz', 'all.gene_counts.rejoined.tsv.gz', 'all.intron_counts.rejoined.tsv.gz', 'all.exon_counts.rejoined.tsv.gz', 'intron_counts_summed.tsv']
@@ -23,7 +28,7 @@ SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.pat
 #sample_ids_file=ids.tsv
 if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'sample_ids_file' not in config or 'num_samples' not in config:
 	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and/or 'exon_rejoin_mapping' and/or 'sample_ids_file' and/or 'num_samples' for the rejoining part of the pipeline!\n")
-	sys.exit(-1)	
+	sys.exit(-1)
 
 #ref_sizes=hg38.recount_pump.fa.new_sizes
 #ref_fasta=hg38.recount_pump.fa
