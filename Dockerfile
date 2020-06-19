@@ -1,6 +1,8 @@
 FROM continuumio/miniconda3:4.5.12
 
-RUN apt-get update -y && apt-get install -y gcc g++  make git
+RUN apt-get update -y && apt-get install -y gcc g++ make git python2.7 python-pip
+
+RUN /usr/bin/pip install numpy
 
 RUN mkdir -p /recount-unify
 COPY rejoin/ /recount-unify/rejoin/
