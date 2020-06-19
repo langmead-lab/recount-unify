@@ -72,25 +72,40 @@ test -s "${REF_FASTA}"
 echo "Annotation List: ${LIST_OF_ANNOTATIONS}"
 test -n "${LIST_OF_ANNOTATIONS}"
 
+if [[ -z $PROJECT_ID ]]; then
+    PROJECT_ID=0
+fi
+
 echo "Sample ID manifest: ${SAMPLE_ID_MANIFEST}"
 test -n "${SAMPLE_ID_MANIFEST}"
 test -e "${SAMPLE_ID_MANIFEST}"
+
+#check passed in sample ID file for number of fields (no header)
+num_cols=$(head -1 ${SAMPLE_ID_MANIFEST} | tr \\t \\n | wc -l)
+#not getting the numeric IDs (3rd column)
+#so we'll need to generate them
+if [[ $num_cols -ne 3 ]]; then
+    if [[ $num_cols -ne 2 ]]; then
+        echo "${SAMPLE_ID_MANIFEST} needs to have either 2 or 3 columns, exiting"
+        exit -1
+    fi
+    pushd /recount-unify/sample_ids
+    /usr/bin/python2.7 assign_compilation_ids.py --accessions-file $SAMPLE_ID_MANIFEST --acc-col 1 --compilation-code $PROJECT_ID --no-header > ${WORKING_DIR}/ids.tsv 2> ${WORKING_DIR}/assign_compilation_ids.py.errs
+    export SAMPLE_ID_MANIFEST=${WORKING_DIR}/ids.tsv
+    popd
+fi
+
+/bin/bash -x /recount-unify/scripts/create_directory_hierarchy_for_one_study.sh $SAMPLE_ID_MANIFEST $INPUT_DIR ${WORKING_DIR}/intermediate_links > setup_intermediate_links.run 2>&1
+
+#need to create the directory structure we expect from the basic output of
+#recount-pump on one study (assumed)
+/bin/bash -x /recount-unify/scripts/find_done.sh ${WORKING_DIR}/intermediate_links links "*_att" > setup_links.run 2>&1
 
 #e.g. 40
 echo "CPUs: ${RECOUNT_CPUS}"
 test -n "${RECOUNT_CPUS}"
 
 num_samples=$(cat ${SAMPLE_ID_MANIFEST} | wc -l)
-
-#need to make sure we have the exact number of 0's for samples which are missing sums
-#num_exons=$(zcat ${EXON_COORDINATES_BED} | tail -n+2 | wc -l)
-#num_zeros=$(cat /recount-unify/list_of_zeros.gz.wc)
-#if [[ $num_zeros -lt $num_exons ]]; then
-#    additional_zeros=$((num_exons - num_zeros)) 
-#    cat <(zcat /recount-unify/list_of_zeros.gz) <(perl -e 'for($i=0;i<'$additional_zeros';$i++) { print "0\n"; }') > ./blank_exon_sums
-#else
-#    zcat /recount-unify/list_of_zeros.gz | head -${num_exons} > ./blank_exon_sums
-#fi
 
 #a config.json file could be provided in running directory
 CONFIGFILE=""
@@ -99,12 +114,12 @@ if [[ -f "config.json" ]] ; then
 fi
 snakemake \
     --snakefile /recount-unify/Snakefile \
-    ${CONFIGFILE}
+    ${CONFIGFILE} \
     -j "${RECOUNT_CPUS}" \
-    --stats recount-unify.stats.json
-    -p
-    --config \ 
-        input="${INPUT_DIR}" \
+    --stats recount-unify.stats.json \
+    -p \
+    --config \
+        input=links \
         staging=staging \
         compilation_id="${PROJECT_ID}" \
         sample_ids_file="${SAMPLE_ID_MANIFEST}" \
