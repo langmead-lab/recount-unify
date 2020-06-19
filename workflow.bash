@@ -20,9 +20,12 @@ test -d "${WORKING_DIR}"
 
 pushd ${WORKING_DIR}
 
-#echo "Ref dir: ${REF_DIR}"
-#test -n "${REF_DIR}"
-#test -d "${REF_DIR}"
+#needed for blank sums file copy
+echo "Ref dir: ${REF_DIR}"
+test -n "${REF_DIR}"
+test -d "${REF_DIR}"
+
+cp ${REF_DIR}/blank_exon_sums ${WORKING_DIR}/
 
 #original root directory of recount-pump output
 #OR
