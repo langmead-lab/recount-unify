@@ -421,7 +421,7 @@ rule sum_intron_counts:
 #it's more modular to keep it outside
 rule QC:
 	input:
-		config['recount_pump_output'],
+		config['input'],
 		'intron_counts_summed.tsv'
 	output:
 		'qc.stats.tsv'
