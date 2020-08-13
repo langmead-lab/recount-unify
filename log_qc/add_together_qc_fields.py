@@ -1,9 +1,6 @@
 #!/usr/bin/env python3.6
 import sys
 
-QC_START_COL=70
-QC_END_COL=129
-
 new_header_fields = ["star.number_of_input_reads_both",
 "star.all_mapped_reads_both",
 "star.number_of_chimeric_reads_both",
@@ -23,7 +20,14 @@ new_header_fields = ["star.number_of_input_reads_both",
 "star.uniquely_mapped_reads_%_both"]
 
 total_col = 0
-fields_to_add=[102,82,100,104,106,108,110,112,128]
+add_both = True
+#srav3h, srav1m fields
+#fields_to_add=[102,82,100,104,106,108,110,112,128]
+#gtexv2 fields
+#fields_to_add=[131, 111, 129, 133, 135, 137, 139, 141, 157]
+#tcgav2 fields
+fields_to_add=[903, 893, 902, 904, 905, 906, 907, 908, 916]
+add_both = False
 
 with open(sys.argv[1],"r") as fin:
     header_fields = []
@@ -40,12 +44,20 @@ with open(sys.argv[1],"r") as fin:
             sys.stdout.write(line + '\t' + '\t'.join(new_header_fields) + '\n')
             continue
         j = 0
+        bad_row = False
         for i in fields_to_add:
             f1 = float(fields[i])
-            f2 = float(fields[i+1])
-            new_qc[j] = f1 + f2
+            new_qc[j] = f1
+            if add_both:
+                f2 = float(fields[i+1])
+                new_qc[j] = f1 + f2
+            if j == 0 and new_qc[j] == 0.0:
+                new_qc[total_col]=0.000000001
+                bad_row = True
             if(j > 0):
                 new_qc_pct[j-1] = '%.1f' % (100*(new_qc[j] / new_qc[total_col]))
             j += 1
+        if bad_row:
+            sys.stderr.write("BAD_ROW_0_TOTAL_INPUT_READS\t"+line+'\n')
         new_qc_str = '\t'.join([str(x) for x in new_qc]) + '\t' + '\t'.join([str(x) for x in new_qc_pct])
         sys.stdout.write(line + '\t' + new_qc_str + '\n')
