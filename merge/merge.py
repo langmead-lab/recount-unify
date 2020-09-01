@@ -121,7 +121,7 @@ def merge(args):
         #print current
         #format sampleID:coverage for Snaptron
         if not args.append_samples:
-            current.append(",%s:%s" % (current[SAMPLE_COL],current[COVERAGE_COL]))
+            current.append(",%s:%s" % (current[SAMPLE_COL], current[args.coverage_col]))
         #check for previous junction in case we have to actually merge a junction from multiple sources
         if len(previous) > 0:
             #different junction, print the previous one
@@ -148,6 +148,7 @@ if __name__ == '__main__':
     parser.add_argument('--gzip', action='store_const', const=True, default=False, help='input files are gzipped')
     parser.add_argument('--append-samples', action='store_const', const=True, default=False, help='set this if aggregating beyond sample-level results')
     parser.add_argument('--start-offset', metavar='0', type=int, default=0, help='if merging output from BED-formatted jx files pass "1" into this (0)')
+    parser.add_argument('--coverage-col', metavar='0', type=int, default=COVERAGE_COL, help='if merging single sample jx files (first pass) this will determine which input column to use to get the coverage for that sample, 0-based (%d)' % (COVERAGE_COL))
     parser.add_argument('--motif-correction', metavar='-1', type=int, default=-1, help='if merging output after extract motifs, the correct motif will be in a later column and needs to overwrite the official motif column (-1), 0-based')
     args = parser.parse_args()
     

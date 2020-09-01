@@ -9,7 +9,7 @@ import glob
 #2) a set of per-study, recount3 formatted jx sample coverage (MM) and row ranges (RR) files
 
 if 'study_dir' not in config:
-    config['study_dir'] = 'study'
+	config['study_dir'] = 'study'
 if not os.path.exists(config['study_dir']):
 	os.makedirs(config['study_dir'])
 
@@ -19,8 +19,10 @@ FILES=['all.sjs.motifs.merged.tsv', 'all.sjs.motifs.merged.annotated.tsv.gz']
 studies = [f.split('/')[-1] for f in glob.glob(config['input']+'/??/*')]
 #FILES=["%s/%s.sj.merged.motifs.annotated" % (config['study_dir'], s) for s in studies]
 #add per study level jx files formatted for recount3
-FILES.extend(["%s/%s.MM.gz" % (config['study_dir'], s) for s in studies])
-FILES.extend(["%s/%s.RR.gz" % (config['study_dir'], s) for s in studies])
+FILES.extend(["%s/%s.all.MM.gz" % (config['study_dir'], s) for s in studies])
+FILES.extend(["%s/%s.all.RR.gz" % (config['study_dir'], s) for s in studies])
+#FILES.extend(["%s/%s.unique.MM.gz" % (config['study_dir'], s) for s in studies])
+#FILES.extend(["%s/%s.unique.RR.gz" % (config['study_dir'], s) for s in studies])
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
@@ -34,7 +36,7 @@ if 'annotated_sjs' not in config:
 #ref_fasta=hg38.recount_pump.fa
 if 'ref_sizes' not in config or 'ref_fasta' not in config:
 	sys.stderr.write("need to pass values for 'ref_sizes' and/or 'ref_fasta' the jx motif extraction part of the pipeline!\n")
-	sys.exit(-1)	
+	sys.exit(-1)
 
 #annotated_junctions.tsv.gz
 if 'existing_sj_db' not in config:
@@ -43,10 +45,12 @@ if 'existing_sj_db' not in config:
 if 'compilation_id' not in config:
 	config['compilation_id']=0
 
-
+#used to choose the coverage column in the per-sample filtered jx files
+TYPE_COL_MAP={'all':4, 'unique':3}
 wildcard_constraints:
 	study_group_num="[0-9a-zA-Z]{2}",
 	run_group_num="[0-9a-zA-Z]{2}",
+	type="(all)|(unique)"
 
 rule all:
 	input:
@@ -84,15 +88,16 @@ rule merge_sjs:
 	input:
 		config['staging'] + '/sj.{study}.{run_group_num}.manifest.filtered'
 	output:
-		config['staging'] + '/sj.{study}.{run_group_num}.merged'
+		config['staging'] + '/sj.{study}.{run_group_num}.{type}.merged'
 	threads: 8
 	params:
 		staging=config['staging'],
 		filtered_manifest=lambda wildcards, input: '.'.join(input[0].split('.')[:-1]),
-		script_path=SCRIPTS['merge']
+		script_path=SCRIPTS['merge'],
+		cov_col=lambda wildcards: TYPE_COL_MAP[wildcards.type]
 	shell:
 		"""
-		pypy {params.script_path} --list-file {params.filtered_manifest} > {output}
+		pypy {params.script_path} --list-file {params.filtered_manifest} --coverage-col {params.cov_col} > {output}
 		"""
 
 #gets  study + run loworder groupings, e.g. unified/sj.SRP005401.42.manifest.sj_sample_files.merged.tsv.gz
@@ -100,24 +105,25 @@ rule merge_sjs:
 def get_sj_merged_files(wildcards):
 	study = wildcards.study
 	study_low_order = study[-2:]
-	return [config['staging']+"/sj.%s.%s.merged" % (study,f.split('/')[-1]) for f in glob.glob(config['input']+'/%s/%s/??' % (study_low_order,study))]
+	return [config['staging']+"/sj.%s.%s.%s.merged" % (study,f.split('/')[-1],wildcards.type) for f in glob.glob(config['input']+'/%s/%s/??' % (study_low_order,study))]
 
 rule collect_merged_sjs:
 	input:
 		get_sj_merged_files
 	output:
-		config['staging'] + '/sj.{study}.groups.merged.files.list'
+		config['staging'] + '/sj.{study}.{type}.groups.merged.files.list'
 	params:
 		staging=config['staging'],
-		study=lambda wildcards: wildcards.study
+		study=lambda wildcards: wildcards.study,
+		type=lambda wildcards: wildcards.type
 	shell:
-		"ls {params.staging}/sj.{params.study}.??.merged > {output}"
+		"ls {params.staging}/sj.{params.study}.??.{params.type}.merged > {output}"
 
 rule merge_study_sjs:
 	input: 
-		config['staging'] + '/sj.{study}.groups.merged.files.list'
+		config['staging'] + '/sj.{study}.{type}.groups.merged.files.list'
 	output:
-		config['staging'] + '/all.{study}.sjs.merged'
+		config['staging'] + '/all.{study}.{type}.sjs.merged'
 	threads: 8
 	params:
 		script_path=SCRIPTS['merge']
@@ -126,11 +132,11 @@ rule merge_study_sjs:
 
 rule extract_motifs_for_sjs:
 	input:
-		config['staging'] + '/all.{study}.sjs.merged',
+		config['staging'] + '/all.{study}.{type}.sjs.merged',
 		config['ref_sizes'],
 		config['ref_fasta']
 	output:
-		config['staging'] + '/all.{study}.sjs.merged.motifs'
+		config['staging'] + '/all.{study}.{type}.sjs.merged.motifs'
 	params:
 		script_path=SCRIPTS['perbase'],
 	shell:
@@ -140,9 +146,9 @@ rule extract_motifs_for_sjs:
 
 rule annotate_study_sjs:
 	input:
-		config['staging'] + '/all.{study}.sjs.merged.motifs'
+		config['staging'] + '/all.{study}.{type}.sjs.merged.motifs'
 	output:
-		config['study_dir'] + '/{study}.sj.merged.motifs.annotated'
+		config['study_dir'] + '/{study}.{type}.sj.merged.motifs.annotated'
 	params:
 		annot_sjs=config['annotated_sjs'],
 		script_path=SCRIPTS['annotate']
@@ -151,10 +157,10 @@ rule annotate_study_sjs:
 
 rule mmformat_sjs:
 	input:
-		config['study_dir'] + '/{study}.sj.merged.motifs.annotated'
+		config['study_dir'] + '/{study}.{type}.sj.merged.motifs.annotated'
 	output:
-		config['study_dir'] + '/{study}.MM.gz',
-		config['study_dir'] + '/{study}.RR.gz'
+		config['study_dir'] + '/{study}.{type}.MM.gz',
+		config['study_dir'] + '/{study}.{type}.RR.gz'
 	threads: 2
 	params:
 		study_dir=config['study_dir'],
@@ -166,17 +172,17 @@ rule mmformat_sjs:
 			cut -f 11 {input} | tr , \\\\n | fgrep ':' | cut -d':' -f1 | sort -nu > {input}.sids
 			num_samples=`cat {input}.sids | wc -l`
 			cat {input} | {params.script_path} -n ${{num_samples}} -p {params.study} -s {input}.sids > {params.study}.RR 2> {output[0]}.run
-            mv {params.study}.mm {params.study}.MM
-			pigz --fast -p {threads} {params.study}.MM
-			pigz --fast -p {threads} {params.study}.RR
+			mv {params.study}.mm {params.study}.MM
+			cat {params.study}.MM | pigz --fast -p {threads} > {output[0]}
+			cat {params.study}.RR | pigz --fast -p {threads} > {output[1]}
 		else
-			touch {params.study}.MM.gz {params.study}.RR.gz
+			touch {output[0]} {output[1]}
 		fi
 		"""
 
 def get_sj_merged_per_study_files(wildcards):
 	study_low_order = wildcards.study_low_order
-	return [config['staging']+"/all.%s.sjs.merged.motifs" % (f.split('/')[-1]) for f in glob.glob(config['input']+'/%s/*' % (study_low_order))]
+	return [config['staging']+"/all.%s.all.sjs.merged.motifs" % (f.split('/')[-1]) for f in glob.glob(config['input']+'/%s/*' % (study_low_order))]
 
 rule collect_per_study_sjs:
 	input:
@@ -187,7 +193,7 @@ rule collect_per_study_sjs:
 		staging=config['staging'],
 		study_low_order=lambda wildcards: wildcards.study_low_order
 	shell:
-		"ls {params.staging}/all.*{params.study_low_order}.sjs.merged.motifs > {output}"
+		"ls {params.staging}/all.*{params.study_low_order}.all.sjs.merged.motifs > {output}"
 
 #merge at the group level, uses sample_ids
 rule merge_per_study_sjs:
