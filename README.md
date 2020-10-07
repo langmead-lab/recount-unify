@@ -77,7 +77,7 @@ For example, if you find that you're getting blanks instead of actual integers i
 
 Assuming your top level directory for input is called `links`, the expected directory hierarchy for each sequencing run/sample is:
 
-`links/<study_loworder>/<study>/<run_loworder>/<run>/<symlink_to_recount-pump_attempt_director_for_this_run>
+`links/study_loworder/study/run_loworder/run/symlink_to_recount-pump_attempt_directory_for_this_run
 
 e.g.:
 
