@@ -1,5 +1,5 @@
-#!/bin/bash -x
-set -o pipefail -o nounset -o errexit 
+#!/usr/bin/env bash
+set -o pipefail -o nounset -o errexit
 
 manifest=$1
 output_sentinel=$2

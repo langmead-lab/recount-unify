@@ -1,5 +1,5 @@
-#!/bin/bash
-set -o pipefail -o errexit 
+#!/usr/bin/env bash
+set -o pipefail -o errexit
 
 manifest=$1
 output=$2

@@ -1,5 +1,5 @@
-#!/bin/bash
-set -o pipefail -o nounset -o errexit 
+#!/usr/bin/env bash
+set -o pipefail -o errexit -o nounset
 
 date=`date +%s`
 
