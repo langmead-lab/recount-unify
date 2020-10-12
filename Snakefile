@@ -19,16 +19,19 @@ FILES=['all.exon_bw_count.pasted.gz', 'unique.exon_bw_count.pasted.gz', 'all.log
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
-SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'rejoin':os.path.join(workflow.basedir, 'rejoin', 'rejoin'),'sum_counts':os.path.join(workflow.basedir, 'merge', 'sum_counts'),'QC':"python3 %s" % os.path.join(workflow.basedir, 'log_qc', 'parse_logs_for_qc.py'), 'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'rejoin_genes':"pypy %s" % os.path.join(workflow.basedir, 'rejoin', 'rejoin_genes.py'),'split_genes':os.path.join(main_script_path,'split_out_gene_sums_by_study.sh')}
+SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'rejoin':os.path.join(workflow.basedir, 'rejoin', 'rejoin'),'sum_counts':os.path.join(workflow.basedir, 'merge', 'sum_counts'),'QC':"python3 %s" % os.path.join(workflow.basedir, 'log_qc', 'parse_logs_for_qc.py'), 'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'rejoin_genes':"pypy %s" % os.path.join(workflow.basedir, 'rejoin', 'rejoin_genes.py'),'split_genes':os.path.join(main_script_path,'split_out_gene_sums_by_study.sh'),'split_exons':os.path.join(workflow.basedir, 'rejoin', 'split_out_exon_sums_by_study.sh')}
 
 #typical values for the following required parameters:
 #gene_rejoin_mapping=G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed
 #exon_rejoin_mapping=G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed
 #gene_mapping_final=G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed
 #sample_ids_file=ids.tsv
-if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'sample_ids_file' not in config or 'num_samples' not in config:
-	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and/or 'exon_rejoin_mapping' and/or 'sample_ids_file' and/or 'num_samples' for the rejoining part of the pipeline!\n")
+#exon_bitmasks=srav3h.exon_counts.bitmasks.tsv
+#exon_bitmasks_coords=srav3h.exon_counts.bitmasks.coords
+if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'sample_ids_file' not in config or 'num_samples' not in config or 'exon_bitmasks' not in config or 'exon_bitmasks_coords' not in config or 'num_exons' not in config:
+	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and 'exon_rejoin_mapping' and 'sample_ids_file' and 'num_samples' and 'num_exons' and exon_bitmasks and exon_bitmasks_coords for the rejoining part of the pipeline!\n")
 	sys.exit(-1)
+
 
 #ref_sizes=hg38.recount_pump.fa.new_sizes
 #ref_fasta=hg38.recount_pump.fa
@@ -65,7 +68,8 @@ if 'annotation_list' in config:
 	#e.g gene_sums_per_study/99/SRP214699/sra.gene_sums.SRP214699.G026.gz
 	FILES.extend(["gene_sums_per_study/%s/%s/sra.gene_sums.%s.%s.gz" % (study[0], study[1], study[1], annotation) for study in studies for annotation in annotations_list])
 	gene_sum_per_study_files = ["gene_sums_per_study/%s/%s/sra.gene_sums.%s.{annotation}.gz" % (study[0], study[1], study[1]) for study in studies]
-#	FILES.extend(["exon_sums_per_study/%s/%s/sra.exon_sums.%s.%s.gz" % (study[0], study[1], study[1], annotation) for study in studies for annotation in annotations_list])
+	FILES.extend(["exon_sums_per_study/%s/%s/sra.exon_sums.%s.%s.gz" % (study[0], study[1], study[1], annotation) for study in studies for annotation in annotations_list])
+	exon_sum_per_study_files = ["exon_sums_per_study/%s/%s/sra.exon_sums.%s.%s.gz" % (study[0], study[1], study[1], annotation) for study in studies for annotation in annotations_list]
 else:
 	config['gene_mapping_final'] = None
 	config['annotation_list'] = None
@@ -303,6 +307,25 @@ rule rejoin_exons:
 		cut -f 1-6 exon.counts > {output[0]}.coords
 		cat exon.counts | pigz --fast -p {threads} > {output[0]}
 		rm -f exon.counts exon.intron_counts
+		"""
+
+rule split_final_rejoined_exons:
+	input:
+		'all.exon_counts.rejoined.tsv.gz',
+		'all.exon_counts.rejoined.tsv.gz.accession_header'
+	output:
+		exon_sum_per_study_files
+	threads: 40
+	params:
+		script_path=SCRIPTS['split_exons'],
+		compilation=config['compilation'],
+		annotations=config['annotation_list'],
+		num_exons=config['num_exons'],
+		bitmasks_file=config['exon_bitmasks'],
+		bitmasks_coords_file=config['exon_bitmasks_coords']
+	shell:
+		"""
+		/bin/bash {params.script_path} {params.compilation} {params.annotations} {params.num_exons} {params.bitmasks_file} {params.bitmasks_coords_file} {input[0]} {threads}
 		"""
 
 rule sum_intron_counts:

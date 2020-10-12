@@ -1,4 +1,5 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
+set -o pipefail -o errexit -o nounset
 #use this to do the following to get per-study, per-annotation exon sums from rejoined exons sums in a tranche/project
 #1) Cuts out all the columns which are samples in the study from the rejoined exons file
 #2) Further splits the cut file into one or more annotation sums files

@@ -54,6 +54,6 @@ for study in study_cuts.keys():
         #only cut out the sample counts, we can always add in the gid,chr,bplengthstart,end separately, saves space
         #cut_fields = (','.join([str(run_pos) for run_pos in study_cuts[study]]))
         #since we're not doing the annotation split here don't include the extra headers yet
-        sys.stdout.write("cat <(cut -f 1,%s %s) <(pigz --stdout -p 2 -d %s | cut -f 1,%s) | pigz --fast -p2 > %s/study_splits.%s.gz\n" % (cut_fields, headerF, sumsF, cut_fields, outdir, study))
+        sys.stdout.write("cat <(cut -f 1,%s %s) <(pigz --stdout -p 2 -d %s | cut -f 1,%s) | pigz --fast -p2 > %s/%s.gz\n" % (cut_fields, headerF, sumsF, cut_fields, outdir, study))
     else:
         sys.stderr.write("%s\tno_runs\n" % study)
