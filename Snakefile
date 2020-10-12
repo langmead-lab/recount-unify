@@ -52,7 +52,8 @@ gene_annotations_uncompressed = ["DONT_USE"]
 main_annotation = None
 studies = []
 gene_sum_per_study_files = []
-#e.g. G026,G029,R109,ERCC,SIRV,F006
+#order is critical, it *has* to be: "G026,G029,R109,F006,ERCC,SIRV"
+#for exon splits to work correctly (bitmasks file is a static ordering of the annotations)
 if 'annotation_list' in config:
 	annotations_list = config['annotation_list'].split(',')
 	gene_annotations_uncompressed=['%s.gene.sums.tsv' % (annotation) for annotation in annotations_list]
