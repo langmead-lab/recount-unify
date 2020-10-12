@@ -19,7 +19,7 @@ FILES=['all.exon_bw_count.pasted.gz', 'unique.exon_bw_count.pasted.gz', 'all.log
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
-SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'rejoin':os.path.join(workflow.basedir, 'rejoin', 'rejoin'),'sum_counts':os.path.join(workflow.basedir, 'merge', 'sum_counts'),'QC':"python3 %s" % os.path.join(workflow.basedir, 'log_qc', 'parse_logs_for_qc.py'), 'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'rejoin_genes':"pypy %s" % os.path.join(workflow.basedir, 'rejoin', 'rejoin_genes.py')}
+SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.path.join(main_script_path,'find_new_files.sh'),'decompress':os.path.join(main_script_path,'decompress_sums.sh'),'paste':os.path.join(main_script_path,'paste_sums.sh'),'rejoin':os.path.join(workflow.basedir, 'rejoin', 'rejoin'),'sum_counts':os.path.join(workflow.basedir, 'merge', 'sum_counts'),'QC':"python3 %s" % os.path.join(workflow.basedir, 'log_qc', 'parse_logs_for_qc.py'), 'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'rejoin_genes':"pypy %s" % os.path.join(workflow.basedir, 'rejoin', 'rejoin_genes.py'),'split_genes':os.path.join(main_script_path,'split_out_gene_sums_by_study.sh')}
 
 #typical values for the following required parameters:
 #gene_rejoin_mapping=G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed
@@ -34,7 +34,11 @@ if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or
 #ref_fasta=hg38.recount_pump.fa
 if 'ref_sizes' not in config or 'ref_fasta' not in config:
 	sys.stderr.write("need to pass values for 'ref_sizes' and/or 'ref_fasta' the jx motif extraction part of the pipeline!\n")
-	sys.exit(-1)	
+	sys.exit(-1)
+
+if 'compilation' not in config:
+	sys.stderr.write("need to pass in a compilation (e.g. \"sra\" for either human or mouse, \"gtex\", or \"tcga\")\n")
+	sys.exit(-1)
 
 #exons.bed.w_header.gz
 if 'existing_sums' not in config:
@@ -43,16 +47,25 @@ if 'existing_sums' not in config:
 gene_annotations = ["DONT_USE"]
 gene_annotations_uncompressed = ["DONT_USE"]
 main_annotation = None
+studies = []
+gene_sum_per_study_files = []
 #e.g. G026,G029,R109,ERCC,SIRV,F006
 if 'annotation_list' in config:
-	gene_annotations_uncompressed=['%s.gene.sums.tsv' % (annotation) for annotation in config['annotation_list'].split(',')]
+	annotations_list = config['annotation_list'].split(',')
+	gene_annotations_uncompressed=['%s.gene.sums.tsv' % (annotation) for annotation in annotations_list]
 	if 'gene_mapping_final' not in config:
 		sys.stderr.write("need to pass values for 'gene_mapping_final' for the final (gene) part of rejoining pipeline!\n")
 		sys.exit(-1)
-	gene_annotations=['%s.gene.sums.tsv.gz' % (annotation) for annotation in config['annotation_list'].split(',')]
+	gene_annotations=['%s.gene.sums.tsv.gz' % (annotation) for annotation in annotations_list]
 	FILES.extend(gene_annotations)
 	#typically G026
-	main_annotation=config['annotation_list'].split(',')[0]
+	main_annotation=annotations_list[0]
+	#create FILES targets for all per-study gene & exon sums
+	studies = [f.split('/')[-2:] for f in glob.glob(config['input']+'/??/*')]
+	#e.g gene_sums_per_study/99/SRP214699/sra.gene_sums.SRP214699.G026.gz
+	FILES.extend(["gene_sums_per_study/%s/%s/sra.gene_sums.%s.%s.gz" % (study[0], study[1], study[1], annotation) for study in studies for annotation in annotations_list])
+	gene_sum_per_study_files = ["gene_sums_per_study/%s/%s/sra.gene_sums.%s.{annotation}.gz" % (study[0], study[1], study[1]) for study in studies]
+#	FILES.extend(["exon_sums_per_study/%s/%s/sra.exon_sums.%s.%s.gz" % (study[0], study[1], study[1], annotation) for study in studies for annotation in annotations_list])
 else:
 	config['gene_mapping_final'] = None
 	config['annotation_list'] = None
@@ -232,7 +245,7 @@ rule rejoin_genes_final:
 		#G026,G029,R109,ERCC,SIRV,F006
 		annotation_list=config['annotation_list'],
 		id_mapping=config['sample_ids_file'],
-        	#G026
+		#G026
 		main_annotation=main_annotation
 	shell:
 		"""
@@ -242,6 +255,21 @@ rule rejoin_genes_final:
 		pigz --stdout -p 1 -d {input[0]} | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation}
 		set +o pipefail
 		paste <(echo "gene_id	chromosome	start	end	bp_length	strand") <(head -1 {params.main_annotation}.gene.sums.tsv | cut -f 6-) > all.exon_counts.rejoined.tsv.gz.accession_header
+		"""
+
+rule split_final_rejoined_genes:
+	input:
+		'{annotation}.gene.sums.tsv'
+	output:
+		gene_sum_per_study_files
+	threads: 40
+	params:
+		script_path=SCRIPTS['split_genes'],
+		compilation=config['compilation'],
+		annotation=lambda wildcards: wildcards.annotation
+	shell:
+		"""
+		/bin/bash {params.script_path} {params.compilation} {params.annotation} {threads}
 		"""
 
 rule compress_final_rejoined_genes:

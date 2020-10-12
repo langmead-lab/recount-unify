@@ -14,6 +14,7 @@ sumsF = sys.argv[2]
 annotation = sys.argv[3]
 #outdir='supers/gene_sums_per_study/' + annotation
 #outdir=annotation
+#outdir=gene_sums_per_study
 outdir = sys.argv[4]
 compilation = sys.argv[5]
 
@@ -62,8 +63,8 @@ for study in study_cuts.keys():
         sample_positions = ','.join(positions) 
         #only cut out the sample counts, we can always add in the gid,chr,bplengthstart,end separately, saves space
         if is_compressed:
-            sys.stdout.write("mkdir -p %s/%s ; cat <(echo '##annotation=%s') <(echo '##date.generated=%s') <(pigz --stdout -p2 -d %s | cut -f 1,%s) | pigz --fast -p1 > %s/%s/%s.%s.%s.%s.gz\n" % (outdir, lo, annotation, date_split, sumsF, sample_positions, outdir, lo, compilation, feat_type, study, annotation))
+            sys.stdout.write("mkdir -p %s/%s ; cat <(echo '##annotation=%s') <(echo '##date.generated=%s') <(pigz --stdout -p2 -d %s | cut -f 1,%s) | pigz --fast -p1 > %s/%s/%s/%s.%s.%s.%s.gz\n" % (outdir, lo, annotation, date_split, sumsF, sample_positions, outdir, lo, study, compilation, feat_type, study, annotation))
         else:
-            sys.stdout.write("mkdir -p %s/%s ; cat <(echo '##annotation=%s') <(echo '##date.generated=%s') <(cat %s | cut -f 1,%s) | pigz --fast -p1 > %s/%s/%s.%s.%s.%s.gz\n" % (outdir, lo, annotation, date_split, sumsF, sample_positions, outdir, lo, compilation, feat_type, study, annotation))
+            sys.stdout.write("mkdir -p %s/%s ; cat <(echo '##annotation=%s') <(echo '##date.generated=%s') <(cat %s | cut -f 1,%s) | pigz --fast -p1 > %s/%s/%s/%s.%s.%s.%s.gz\n" % (outdir, lo, annotation, date_split, sumsF, sample_positions, outdir, lo, study, compilation, feat_type, study, annotation))
     else:
         sys.stderr.write("%s\tno_runs\n" % study)
