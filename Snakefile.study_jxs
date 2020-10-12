@@ -3,6 +3,9 @@ import sys
 import os
 import glob
 
+SNAPTRON_SCHEMA_FILE='../snaptron/deploy/snaptron_schema.sql'
+SNAPTRON_INDEX_SCHEMA_FILE='../snaptron/deploy/snaptron_schema_index.sql'
+
 ## This snakemake will produce:
 #1) compilation aggregation of all junctions, with motifs (extracted from reference) and annotations where applicable,
 #formatted for indexing by Snaptron
@@ -44,6 +47,9 @@ if 'existing_sj_db' not in config:
 
 if 'compilation_id' not in config:
 	config['compilation_id']=0
+
+if 'build_sqlitedb' in config:
+	FILES.append("junctions.sqlite")
 
 #used to choose the coverage column in the per-sample filtered jx files
 TYPE_COL_MAP={'all':4, 'unique':3}
@@ -237,15 +243,28 @@ rule annotate_all_sjs:
 	input:
 		'all.sjs.motifs.merged.tsv'
 	output:
-		'all.sjs.motifs.merged.annotated.tsv.gz',
-		'all.sjs.motifs.merged.annotated.tsv.bgz.tbi'
-	threads: 8
+		'all.sjs.motifs.merged.annotated.tsv.bgz',
+		'all.sjs.motifs.merged.annotated.tsv.bgz.tbi',
+		'junctions.sqlite'
+	threads: 7
 	params:
 		annot_sjs=config['annotated_sjs'],
 		script_path=SCRIPTS['annotate'],
-		compilation_id=config['compilation_id']
+		compilation_id=config['compilation_id'],
+		snaptron_schema_file=SNAPTRON_SCHEMA_FILE,
+		snaptron_index_schema_file=SNAPTRON_INDEX_SCHEMA_FILE,
+		build_sqlitedb=lambda wildcards: 'build_sqlitedb' in config
 	shell:
 		"""
+		if [[ "{params.build_sqlitedb}" == "True" ]]; then
+            rm -f jx_sqlite_import
+            mkfifo jx_sqlite_import
+            sqlite3 junctions.sqlite < {params.snaptron_schema_file}
+            cat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --motif-correct --compilation-id {params.compilation_id} | tee jx_sqlite_import | bgzip -@ {threads} > {output[0]} &
+            sqlite3 junctions.sqlite -cmd '.separator "\t"' ".import ./jx_sqlite_import intron"
+            sqlite3 junctions.sqlite < {params.snaptron_index_schema_file}
+        else
             cat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --motif-correct --compilation-id {params.compilation_id} | bgzip -@ {threads} > {output[0]}
-            tabix -s2 -b3 -e4 {output[0]}
+        fi
+        tabix -s2 -b3 -e4 {output[0]}
         """

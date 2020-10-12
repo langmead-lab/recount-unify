@@ -1,0 +1,3 @@
+[submodule "snaptron"]
+	path = snaptron
+	url = git@github.com:ChristopherWilks/snaptron.git
