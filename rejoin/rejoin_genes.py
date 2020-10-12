@@ -27,10 +27,10 @@ with open(counts_headerF,"r") as fin:
 
 #get accessions (or barcodes) as counts header rather than rail_ids
 if study is not None:
-    with open(snaptron_annot_src+"."+annot_type+".sums.snaptron_header.%s.tsv" % study,"w") as fout:
+    with open(snaptron_annot_src+"."+annot_type+"_sums.snaptron_header.%s.tsv" % study,"w") as fout:
         fout.write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
 else:
-    with open(snaptron_annot_src+"."+annot_type+".sums.snaptron_header.tsv","w") as fout:
+    with open(snaptron_annot_src+"."+annot_type+"_sums.snaptron_header.tsv","w") as fout:
         fout.write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
 
 id_mapping = {}
@@ -68,9 +68,9 @@ def determine_annotation_source(gname, annot_fhs=None):
     gene_id = '.'.join(gsplit)
     if annot_src is not None and annot_fhs is not None and annot_src not in annot_fhs:
         if study is not None:
-            annot_fhs[annot_src] = open(annot_src+"."+annot_type+".sums.%s.tsv" % study,"w")
+            annot_fhs[annot_src] = open(annot_src+"."+annot_type+"_sums.%s.tsv" % study,"w")
         else:
-            annot_fhs[annot_src] = open(annot_src+"."+annot_type+".sums.tsv","w")
+            annot_fhs[annot_src] = open(annot_src+"."+annot_type+"_sums.tsv","w")
         annot_fhs[annot_src].write("gene_id\tbp_length\tchromosome\tstart\tend\t%s\n" % (counts_header))
     return (gene_id, annot_src)
 

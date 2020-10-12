@@ -56,11 +56,12 @@ gene_sum_per_study_files = []
 #for exon splits to work correctly (bitmasks file is a static ordering of the annotations)
 if 'annotation_list' in config:
 	annotations_list = config['annotation_list'].split(',')
-	gene_annotations_uncompressed=['%s.gene.sums.tsv' % (annotation) for annotation in annotations_list]
+	gene_annotations_uncompressed=['%s.gene_sums.tsv' % (annotation) for annotation in annotations_list]
+	gene_annotations_uncompressed.append('all.exon_counts.rejoined.tsv.gz.accession_header')
 	if 'gene_mapping_final' not in config:
 		sys.stderr.write("need to pass values for 'gene_mapping_final' for the final (gene) part of rejoining pipeline!\n")
 		sys.exit(-1)
-	gene_annotations=['%s.gene.sums.tsv.gz' % (annotation) for annotation in annotations_list]
+	gene_annotations=['%s.gene_sums.tsv.gz' % (annotation) for annotation in annotations_list]
 	FILES.extend(gene_annotations)
 	#typically G026
 	main_annotation=annotations_list[0]
@@ -259,12 +260,12 @@ rule rejoin_genes_final:
 		set -o pipefail
 		pigz --stdout -p 1 -d {input[0]} | {params.script_path} {params.gene_mapping_final_file} gene all.exon_bw_count.pasted.gz.samples_header {params.annotation_list} {params.id_mapping} {params.main_annotation}
 		set +o pipefail
-		paste <(echo "gene_id	chromosome	start	end	bp_length	strand") <(head -1 {params.main_annotation}.gene.sums.tsv | cut -f 6-) > all.exon_counts.rejoined.tsv.gz.accession_header
+		paste <(echo "gene_id	chromosome	start	end	bp_length	strand") <(head -1 {params.main_annotation}.gene_sums.tsv | cut -f 6-) > all.exon_counts.rejoined.tsv.gz.accession_header
 		"""
 
 rule split_final_rejoined_genes:
 	input:
-		'{annotation}.gene.sums.tsv'
+		'{annotation}.gene_sums.tsv'
 	output:
 		gene_sum_per_study_files
 	threads: 40
@@ -279,15 +280,15 @@ rule split_final_rejoined_genes:
 
 rule compress_final_rejoined_genes:
 	input:
-		'{annotation}.gene.sums.tsv'
+		'{annotation}.gene_sums.tsv'
 	output:
-		'{annotation}.gene.sums.tsv.gz'
+		'{annotation}.gene_sums.tsv.gz'
 	threads: 8
 	params:
 		annotation=lambda wildcards: wildcards.annotation
 	shell:
 		"""
-		cat {params.annotation}.gene.sums.tsv | pigz --fast -p {threads} > {params.annotation}.gene.sums.tsv.gz
+		cat {params.annotation}.gene_sums.tsv | pigz --fast -p {threads} > {params.annotation}.gene_sums.tsv.gz
 		"""
 
 rule rejoin_exons:
