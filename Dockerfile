@@ -1,6 +1,6 @@
 FROM continuumio/miniconda3:4.5.12
 
-RUN apt-get update -y && apt-get install -y gcc g++ make git python2.7 python-pip
+RUN apt-get update -y && apt-get install -y gcc g++ make git python2.7 python-pip python-dev ant default-jdk sqlite3 tabix
 
 RUN /usr/bin/pip install numpy
 
@@ -33,7 +33,9 @@ RUN apt-get remove --purge -y gcc g++ make
 
 # install Snakefile
 COPY Snakefile /recount-unify/Snakefile
+COPY Snakefile.study_jxs /recount-unify/Snakefile.study_jxs
 RUN chmod a+r /recount-unify/Snakefile
+RUN chmod a+r /recount-unify/Snakefile.study_jxs
 
 # install generic workflow wrapper script
 COPY workflow.bash /recount-unify/workflow.bash

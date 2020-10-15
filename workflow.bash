@@ -71,12 +71,26 @@ echo "Reference FASTA Path: ${REF_FASTA}"
 test -n "${REF_FASTA}"
 test -s "${REF_FASTA}"
 
-#e.g. G026,G029,R109,ERCC,SIRV,F006
+#e.g. srav3h.exon_counts.bitmasks.tsv
+echo "Exon Bitmasks Path: ${EXON_BITMASKS}"
+test -n "${EXON_BITMASKS}"
+test -s "${EXON_BITMASKS}"
+
+#e.g. srav3h.exon_counts.bitmasks.coords
+echo "Exon Bitmask Coordinates Path: ${EXON_BITMASK_COORDS}"
+test -n "${EXON_BITMASK_COORDS}"
+test -s "${EXON_BITMASK_COORDS}"
+
+#e.g. G026,G029,R109,F006,ERCC,SIRV
 echo "Annotation List: ${LIST_OF_ANNOTATIONS}"
 test -n "${LIST_OF_ANNOTATIONS}"
 
 if [[ -z $PROJECT_ID ]]; then
     PROJECT_ID=0
+fi
+
+if [[ -z $PROJECT_SHORT_NAME ]]; then
+    PROJECT_SHORT_NAME="sra"
 fi
 
 echo "Sample ID manifest: ${SAMPLE_ID_MANIFEST}"
@@ -109,32 +123,54 @@ echo "CPUs: ${RECOUNT_CPUS}"
 test -n "${RECOUNT_CPUS}"
 
 num_samples=$(cat ${SAMPLE_ID_MANIFEST} | wc -l)
+num_exons=$(zcat ${EXON_COORDINATES_BED} | tail -n+2 | wc -l)
 
 #a config.json file could be provided in running directory
 CONFIGFILE=""
 if [[ -f "config.json" ]] ; then
     CONFIGFILE="--configfile config.json"
 fi
+
+#first do exon/gene sums Snakemake
 snakemake \
     --snakefile /recount-unify/Snakefile \
     ${CONFIGFILE} \
     -j "${RECOUNT_CPUS}" \
-    --stats recount-unify.stats.json \
+    --stats recount-unify.sums.stats.json \
     -p \
     --config \
         input=links \
         staging=staging \
-        compilation_id="${PROJECT_ID}" \
+        compilation="${PROJECT_SHORT_NAME}" \
         sample_ids_file="${SAMPLE_ID_MANIFEST}" \
         num_samples=${num_samples} \
         existing_sums="${EXON_COORDINATES_BED}" \
         gene_rejoin_mapping="${GENE_REJOIN_MAPPING}" \
         gene_mapping_final="${GENE_ANNOTATION_MAPPING}" \
         exon_rejoin_mapping="${EXON_REJOIN_MAPPING}" \
-        annotated_sjs="${ANNOTATED_JXS}" \
+        annotation_list="${LIST_OF_ANNOTATIONS}" \
+        exon_bitmasks="${EXON_BITMASKS}" \
+        exon_bitmasks_coords="${EXON_BITMASK_COORDS}" \
+        num_exons=${num_exons} \
+        2>&1 | tee recount-unify.output.sums.txt
+
+#now do junctions
+snakemake \
+    --snakefile /recount-unify/Snakefile.study_jxs \
+    ${CONFIGFILE} \
+    -j "${RECOUNT_CPUS}" \
+    --stats recount-unify.jxs.stats.json \
+    -p \
+    --config \
+        input=links \
+        staging=staging_jxs \
+        compilation_id="${PROJECT_ID}" \
+        sample_ids_file="${SAMPLE_ID_MANIFEST}" \
         ref_sizes="${REF_SIZES}" \
         ref_fasta="${REF_FASTA}" \
-        annotation_list="${LIST_OF_ANNOTATIONS}" \
-        2>&1 | tee recount-unify.output.txt
+        annotated_sjs="${ANNOTATED_JXS}" \
+        build_sqlitedb=1 \
+        2>&1 | tee recount-unify.output.jxs.txt
+        
 popd
 echo SUCCESS
