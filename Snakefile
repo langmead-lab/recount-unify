@@ -32,13 +32,6 @@ if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or
 	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and 'exon_rejoin_mapping' and 'sample_ids_file' and 'num_samples' and 'num_exons' and exon_bitmasks and exon_bitmasks_coords for the rejoining part of the pipeline!\n")
 	sys.exit(-1)
 
-
-#ref_sizes=hg38.recount_pump.fa.new_sizes
-#ref_fasta=hg38.recount_pump.fa
-if 'ref_sizes' not in config or 'ref_fasta' not in config:
-	sys.stderr.write("need to pass values for 'ref_sizes' and/or 'ref_fasta' the jx motif extraction part of the pipeline!\n")
-	sys.exit(-1)
-
 if 'compilation' not in config:
 	sys.stderr.write("need to pass in a compilation (e.g. \"sra\" for either human or mouse, \"gtex\", or \"tcga\")\n")
 	sys.exit(-1)
