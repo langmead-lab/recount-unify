@@ -43,4 +43,4 @@ RUN chmod a+rx /recount-unify/workflow.bash
 
 COPY list_of_zeros.gz /recount-unify/list_of_zeros.gz
 
-CMD ["bash", "-c", "source activate recount-unify && /recount-unify/workflow.bash"]
+CMD ["bash", "-c", "export PATH=/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && source activate recount-unify && /recount-unify/workflow.bash"]
