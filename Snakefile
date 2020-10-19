@@ -321,6 +321,7 @@ rule split_final_rejoined_exons:
 	shell:
 		"""
 		/bin/bash {params.script_path} {params.compilation} {params.annotations} {params.num_exons} {params.bitmasks_file} {params.bitmasks_coords_file} {input[0]} {threads}
+        rm -rf exons_split_by_study_temp exon_annotation_split_runs
 		"""
 
 rule sum_intron_counts:
