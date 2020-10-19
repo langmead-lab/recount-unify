@@ -152,7 +152,7 @@ int main(int argc, char** argv)
      
     //use this to quickly map from the sample_id to the column position for the 
     //sparse matrix format 
-    uint32_t* sample_id_map = new uint32_t[largest_sample_id];
+    uint32_t* sample_id_map = new uint32_t[largest_sample_id+1];
     uint32_t j;
     for(j = 0; j < sample_ids.size(); j++)
     {
