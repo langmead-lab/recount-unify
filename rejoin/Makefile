@@ -6,7 +6,7 @@ rejoin: rejoin.cpp
 debug: rejoin.cpp
 	g++ -g -std=c++11 rejoin.cpp -o rejoin-debug
 
-split: split_exons_by_annotation.cpp
+split_exons: split_exons_by_annotation.cpp
 	g++ -O3 -std=c++11 split_exons_by_annotation.cpp -o split_exons
 
 test: rejoin test/aexon_sums.tsv test/dexon2aexon_map.tsv
