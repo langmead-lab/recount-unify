@@ -22,8 +22,8 @@ studies = [f.split('/')[-1] for f in glob.glob(config['input']+'/??/*')]
 #add per study level jx files formatted for recount3
 FILES.extend(["%s/%s.all.MM.gz" % (config['study_dir'], s) for s in studies])
 FILES.extend(["%s/%s.all.RR.gz" % (config['study_dir'], s) for s in studies])
-#FILES.extend(["%s/%s.unique.MM.gz" % (config['study_dir'], s) for s in studies])
-#FILES.extend(["%s/%s.unique.RR.gz" % (config['study_dir'], s) for s in studies])
+FILES.extend(["%s/%s.unique.MM.gz" % (config['study_dir'], s) for s in studies])
+FILES.extend(["%s/%s.unique.RR.gz" % (config['study_dir'], s) for s in studies])
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
