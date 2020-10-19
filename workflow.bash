@@ -160,6 +160,12 @@ snakemake \
         num_exons=${num_exons} \
         2>&1 | tee recount-unify.output.sums.txt
 
+done=`fgrep 'steps (100%) done' recount-unify.output.sums.txt`
+if [[ -z $done ]]; then
+    echo "FAILURE running gene/exon unify"
+    exit -1
+fi
+
 #now do junctions
 snakemake \
     --snakefile /recount-unify/Snakefile.study_jxs \
@@ -175,8 +181,15 @@ snakemake \
         ref_sizes="${REF_SIZES}" \
         ref_fasta="${REF_FASTA}" \
         annotated_sjs="${ANNOTATED_JXS}" \
+        study_dir="junction_counts_per_study" \
         build_sqlitedb=1 \
         2>&1 | tee recount-unify.output.jxs.txt
-        
+
+done=`fgrep 'steps (100%) done' recount-unify.output.jxs.txt`
 popd
-echo SUCCESS
+if [[ -z $done ]]; then
+    echo "FAILURE running junction unify"
+    exit -1
+else
+    echo SUCCESS
+fi
