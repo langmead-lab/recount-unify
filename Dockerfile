@@ -1,10 +1,28 @@
 FROM continuumio/miniconda3:4.5.12
+ 
+RUN apt-get update -y && apt-get install -y gcc g++ make git python2.7 python-pip python-dev ant default-jdk sqlite3 tabix wget curl parallel
 
-RUN apt-get update -y && apt-get install -y gcc g++ make git python2.7 python-pip python-dev ant default-jdk sqlite3 tabix
+## set Snaptron related up here
+# cribbed from https://bitbucket.org/coady/docker/src/tip/pylucene/Dockerfile
+#RUN mkdir -p /usr/src/pylucene
+#WORKDIR /usr/src/pylucene
+#RUN curl http://snaptron.cs.jhu.edu/data/pylucene-6.5.0-src.tar.gz \
+#    | tar -xz --strip-components=1
+#RUN cd jcc \
+#    && JCC_JDK=/usr/lib/jvm/default-java python setup.py install
+#RUN make all install JCC='python -m jcc' ANT=ant PYTHON=python NUM_FILES=8
+
+#WORKDIR ..
+#RUN rm -rf pylucene
 
 RUN /usr/bin/pip install numpy
 
 RUN mkdir -p /recount-unify
+# clone master branch of Snaptron
+RUN git clone https://github.com/ChristopherWilks/snaptron.git /recount-unify/snaptron
+#RUN pip install -r /snaptron/requirements.txt
+
+WORKDIR /
 COPY rejoin/ /recount-unify/rejoin/
 COPY merge/ /recount-unify/merge/
 COPY scripts/ /recount-unify/scripts/
@@ -40,7 +58,5 @@ RUN chmod a+r /recount-unify/Snakefile.study_jxs
 # install generic workflow wrapper script
 COPY workflow.bash /recount-unify/workflow.bash
 RUN chmod a+rx /recount-unify/workflow.bash
-
-COPY list_of_zeros.gz /recount-unify/list_of_zeros.gz
 
 CMD ["bash", "-c", "export PATH=/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && source activate recount-unify && /recount-unify/workflow.bash"]
