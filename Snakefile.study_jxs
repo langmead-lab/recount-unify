@@ -3,8 +3,6 @@ import sys
 import os
 import glob
 
-SNAPTRON_SCHEMA_FILE='../snaptron/deploy/snaptron_schema.sql'
-SNAPTRON_INDEX_SCHEMA_FILE='../snaptron/deploy/snaptron_schema_index.sql'
 
 ## This snakemake will produce:
 #1) compilation aggregation of all junctions, with motifs (extracted from reference) and annotations where applicable,
@@ -29,7 +27,7 @@ FILES.extend(["%s/%s.all.RR.gz" % (config['study_dir'], s) for s in studies])
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
-SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'mmformat':os.path.join(workflow.basedir, 'scripts', 'mmformat')}
+SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'mmformat':os.path.join(workflow.basedir, 'scripts', 'mmformat'),'snaptron_schema':os.path.join(workflow.basedir,'snaptron','deploy','snaptron_schema.sql'),'snaptron_index_schema':os.path.join(workflow.basedir,'snaptron','deploy','snaptron_schema_index.sql')}
 
 if 'annotated_sjs' not in config:
 	sys.stderr.write("need to pass a path to an annotation jx database!\n")
@@ -251,8 +249,8 @@ rule annotate_all_sjs:
 		annot_sjs=config['annotated_sjs'],
 		script_path=SCRIPTS['annotate'],
 		compilation_id=config['compilation_id'],
-		snaptron_schema_file=SNAPTRON_SCHEMA_FILE,
-		snaptron_index_schema_file=SNAPTRON_INDEX_SCHEMA_FILE,
+		snaptron_schema_file=SCRIPTS['snaptron_schema'],
+		snaptron_index_schema_file=SCRIPTS['snaptron_index_schema'],
 		build_sqlitedb=lambda wildcards: 'build_sqlitedb' in config
 	shell:
 		"""
