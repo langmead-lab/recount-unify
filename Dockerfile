@@ -59,4 +59,7 @@ RUN chmod a+r /recount-unify/Snakefile.study_jxs
 COPY workflow.bash /recount-unify/workflow.bash
 RUN chmod a+rx /recount-unify/workflow.bash
 
+RUN echo 'pigz --stdout -p2 -d $1' > /usr/bin/pcat
+RUN chmod a+rx /usr/bin/pcat
+
 CMD ["bash", "-c", "export PATH=/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && source activate recount-unify && /recount-unify/workflow.bash"]
