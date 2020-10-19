@@ -97,6 +97,7 @@ echo "Sample ID manifest: ${SAMPLE_ID_MANIFEST}"
 test -n "${SAMPLE_ID_MANIFEST}"
 test -e "${SAMPLE_ID_MANIFEST}"
 
+
 #check passed in sample ID file for number of fields (no header)
 num_cols=$(head -1 ${SAMPLE_ID_MANIFEST} | tr \\t \\n | wc -l)
 #not getting the numeric IDs (3rd column)
@@ -112,18 +113,23 @@ if [[ $num_cols -ne 3 ]]; then
     popd
 fi
 
-/bin/bash -x /recount-unify/scripts/create_directory_hierarchy_for_one_study.sh $SAMPLE_ID_MANIFEST $INPUT_DIR ${WORKING_DIR}/intermediate_links > setup_intermediate_links.run 2>&1
-
-#need to create the directory structure we expect from the basic output of
-#recount-pump on one study (assumed)
-/bin/bash -x /recount-unify/scripts/find_done.sh ${WORKING_DIR}/intermediate_links links "*_att" > setup_links.run 2>&1
+#default case is single study, with "<sample_id>_att" style sample output directories from recount-pump
+if [[ -z $MULTI_STUDY ]]; then
+    /bin/bash -x /recount-unify/scripts/create_directory_hierarchy_for_one_study.sh $SAMPLE_ID_MANIFEST $INPUT_DIR ${WORKING_DIR}/intermediate_links > setup_intermediate_links.run 2>&1
+    #need to create the directory structure we expect from the basic output of
+    #recount-pump on one study (assumed)
+    /bin/bash -x /recount-unify/scripts/find_done.sh ${WORKING_DIR}/intermediate_links links "*_att" > setup_links.run 2>&1
+else
+    #multi study, this assumes the input directory hierarchy/naming is correctly setup for running of find_done.sh external to recount-unify, e.g. study_loworder/study/run_loworder/run/run_inputID_att\d+
+    /bin/bash -x /recount-unify/scripts/find_done.sh $INPUT_DIR links "*_att" > setup_links.run 2>&1
+fi
 
 #e.g. 40
 echo "CPUs: ${RECOUNT_CPUS}"
 test -n "${RECOUNT_CPUS}"
 
 num_samples=$(cat ${SAMPLE_ID_MANIFEST} | wc -l)
-num_exons=$(zcat ${EXON_COORDINATES_BED} | tail -n+2 | wc -l)
+num_exons=$(cat ${EXON_BITMASK_COORDS} | wc -l)
 
 #a config.json file could be provided in running directory
 CONFIGFILE=""
