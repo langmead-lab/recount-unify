@@ -13,10 +13,14 @@ rrf=$2
 #e.g. KIDNEY.unique.sj.merged.motifs.annotated.unique.sids
 #KIDNEY.all.sj.merged.motifs.annotated.sids
 #sids=$3
+#tcga, gtex, sra
+comp=$3
 
 #works for gtex, not for tcga
 sids=$(echo $mmf | perl -ne 'chomp; $f=$_; @f=split(/\./,$f); $d=shift(@f); $t=shift(@f); $r="$d.$t.sj.merged.motifs.annotated.$t.sids"; if($t eq "all") { $r=~s/.annotated.all.sids/.annotated.sids/; } print "$r\n";')
-#sids=$(echo $mmf | perl -ne 'chomp; $f=$_; @f=split(/\./,$f); $d=shift(@f); $t=shift(@f); $r="$d.unique.sj.merged.motifs.annotated.unique.sids"; print "$r\n";')
+if [[ "$comp" != "gtex" ]]; then
+    sids=$(echo $mmf | perl -ne 'chomp; $f=$_; @f=split(/\./,$f); $d=shift(@f); $t=shift(@f); $r="$d.unique.sj.merged.motifs.annotated.unique.sids"; print "$r\n";')
+fi
 
 { pcat $mmf ||:; } | head -3 | tail -n1 | tr \\t \\n > ${mmf}.check
 
