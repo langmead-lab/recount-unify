@@ -169,16 +169,17 @@ rule mmformat_sjs:
 	params:
 		study_dir=config['study_dir'],
 		study=lambda wildcards: config['study_dir'] + '/' + wildcards.study,
+		type=lambda wildcards: wildcards.type,
 		script_path=SCRIPTS['mmformat']
 	shell:
 		"""
 		if [[ -s {input} ]]; then
 			cut -f 11 {input} | tr , \\\\n | fgrep ':' | cut -d':' -f1 | sort -nu > {input}.sids
 			num_samples=`cat {input}.sids | wc -l`
-			cat {input} | {params.script_path} -n ${{num_samples}} -p {params.study} -s {input}.sids > {params.study}.RR 2> {output[0]}.run
-			mv {params.study}.mm {params.study}.MM
-			cat {params.study}.MM | pigz --fast -p {threads} > {output[0]}
-			cat {params.study}.RR | pigz --fast -p {threads} > {output[1]}
+			cat {input} | {params.script_path} -n ${{num_samples}} -p "{params.study}.{params.type}" -s {input}.sids > {params.study}.{params.type}.RR 2> {output[0]}.run
+			mv {params.study}.{params.type}.mm {params.study}.{params.type}.MM
+			cat {params.study}.{params.type}.MM | pigz --fast -p {threads} > {output[0]}
+			cat {params.study}.{params.type}.RR | pigz --fast -p {threads} > {output[1]}
 		else
 			touch {output[0]} {output[1]}
 		fi
