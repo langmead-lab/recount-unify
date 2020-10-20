@@ -15,7 +15,8 @@ if not os.path.exists(config['study_dir']):
 	os.makedirs(config['study_dir'])
 
 #overall tranches level jx files, formatted for input to Snaptron indexing
-FILES=['all.sjs.motifs.merged.tsv', 'all.sjs.motifs.merged.annotated.tsv.bgz', 'all.sjs.motifs.merged.annotated.tsv.bgz.tbi']
+#FILES=['all.sjs.motifs.merged.tsv', 'all.sjs.motifs.merged.annotated.tsv.bgz', 'all.sjs.motifs.merged.annotated.tsv.bgz.tbi']
+FILES=['all.sjs.motifs.merged.tsv', 'junctions.bgz', 'junctions.bgz.tbi']
 #setup the final set of target files
 studies = [f.split('/')[-1] for f in glob.glob(config['input']+'/??/*')]
 #FILES=["%s/%s.sj.merged.motifs.annotated" % (config['study_dir'], s) for s in studies]
@@ -242,8 +243,8 @@ rule annotate_all_sjs:
 	input:
 		'all.sjs.motifs.merged.tsv'
 	output:
-		'all.sjs.motifs.merged.annotated.tsv.bgz',
-		'all.sjs.motifs.merged.annotated.tsv.bgz.tbi',
+		'junctions.bgz',
+		'junctions.bgz.tbi',
 		'junctions.sqlite'
 	threads: 7
 	params:

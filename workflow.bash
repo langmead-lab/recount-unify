@@ -8,7 +8,7 @@
 # in the Monorail workflow.  This aggregates across
 # multiple samples in a study, project, or compilation
 
-set -ex
+set -exo pipefail
 
 #assumes we're in a container where the project-specific
 #working directory has been bind mounted and we've entered it
@@ -137,8 +137,10 @@ if [[ -f "config.json" ]] ; then
     CONFIGFILE="--configfile config.json"
 fi
 
-#first do exon/gene sums Snakemake
-snakemake \
+#first do exon/gene sums Snakemake not skipping
+if [[ -z $SKIP_SUMS ]]; then
+    echo "Unifying gene and exon sums"
+    snakemake \
     --snakefile /recount-unify/Snakefile \
     ${CONFIGFILE} \
     -j "${RECOUNT_CPUS}" \
@@ -160,14 +162,18 @@ snakemake \
         num_exons=${num_exons} \
         2>&1 | tee recount-unify.output.sums.txt
 
-done=`fgrep 'steps (100%) done' recount-unify.output.sums.txt`
-if [[ -z $done ]]; then
-    echo "FAILURE running gene/exon unify"
-    exit -1
+    done=`fgrep 'steps (100%) done' recount-unify.output.sums.txt`
+    if [[ -z $done ]]; then
+        echo "FAILURE running gene/exon unify"
+        popd
+        exit -1
+    fi
 fi
 
-#now do junctions
-snakemake \
+#now do junctions if not skipping
+if [[ -z $SKIP_JUNCTIONS ]]; then
+    echo "Unifying junction counts"
+    snakemake \
     --snakefile /recount-unify/Snakefile.study_jxs \
     ${CONFIGFILE} \
     -j "${RECOUNT_CPUS}" \
@@ -185,11 +191,13 @@ snakemake \
         build_sqlitedb=1 \
         2>&1 | tee recount-unify.output.jxs.txt
 
-done=`fgrep 'steps (100%) done' recount-unify.output.jxs.txt`
-popd
-if [[ -z $done ]]; then
-    echo "FAILURE running junction unify"
-    exit -1
-else
-    echo SUCCESS
+    done=`fgrep 'steps (100%) done' recount-unify.output.jxs.txt`
+    if [[ -z $done ]]; then
+        echo "FAILURE running junction unify"
+        popd
+        exit -1
+    fi
+    popd
 fi
+
+echo SUCCESS
