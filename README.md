@@ -13,10 +13,10 @@ Next step after recount-pump in the Monorail pipeline
 
 This step has two parts (2 Snakemake files) which both aggregate across the per-sample outputs produced by the `recount-pump` workflow:
 
-* summarizing at the gene and exon
-* junnction level counts
+* base coverage summed for exons and genes based on a set of annotations
+* junnction split-read counts
 
-Gene and exon level counts are produced as full matrices per annotation, per study (if running on an SRA tranche of multiple studies and with multiple annotations, e.g. GencodeV26 & RefSeq).  These can be used directly with/in recount3.  
+Gene and exon level counts are produced as full matrices per annotation, per study (if running on an SRA tranche of multiple studies and with multiple annotations, e.g. GencodeV26 & GencodeM23).  These can be used directly with/in recount3.  
 
 Junctions are also produced per-study for recount3.
 
@@ -41,22 +41,28 @@ The following files/information are needed to run the unifier, but are specific 
 * compilation ID for your project that doesn't collide with existing recount3/Snaptron2 compilations IDs (`compilation_id`)
 * number of samples/runs in the project (`#_samples` below, should be exactly the set of runs/samples which successfully ran through `recount-pump`)
 
-The following are more generic files used across projects sharing the same reference genome (e.g. `hg38`, or `grcm38`) and set of annotations, e.g. `G026,G029,R109,ERCC,SIRV,F006`:
+The following are more generic files used across projects sharing the same reference genome (e.g. `hg38`, or `grcm38`) and set of annotations, e.g. `G026,G029,R109,ERCC,SIRV,F006` needed for the gene/exon sums part:
 
 * set of annotation short names used (e.g. `G026,G029,R109,ERCC,SIRV,F006`)
 * disjoint exon-to-gene mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed`)
 * disjoint exon-to-annotated exon mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed`)
 * final gene disjoint-to-annotation mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed`)
-* a list of annotated junctions (e.g. `annotated_junctions.tsv.gz`)
+* exon annotation split mapping file `exon_bitmasks.tsv`
+* coordinates for exon annotation split mapping file `exon_bitmask_coords.tsv`
 * the list of annotated exon intervals used in the `recount-pump` run (e.g. `exons.bed.w_header.gz`)
   this file has to be be exactly the same order as the exon sums that's produced by `bamcount` as part of `recount-pump`
+* list of 0's for efficient placeholder for samples w/o any exon sums (`blank_exon_sums`), this should be the same length as the list of annotated exon intervals file (sans header line)
+  
+The following files are specifically needed only for the junction aggregation part:
+
+* a list of annotated junctions (e.g. `annotated_junctions.tsv.gz`)
 * genome reference chromosome sizes file (e.g. `hg38.recount_pump.fa.sizes.tsv`)
-
-These files can all be downloaded from https://github.com/langmead-lab/monorail-run-data
-for recount3 human & mouse projects.  They can also be obtained from https://recount-ref.s3.amazonaws.com/hg38
-
-And finally, also needed is the genome reference chromosome FASTA file (e.g. `hg38.recount_pump.fa`), which needs to be exactly the same as what's used in `recount-pump`, available from https://recount-ref.s3.amazonaws.com/hg38/fasta.tar.gz
+* genome reference chromosome FASTA file (e.g. `hg38.recount_pump.fa`), which needs to be exactly the same as what's used in `recount-pump`, available from https://recount-ref.s3.amazonaws.com/hg38/fasta.tar.gz
 The chromosome names need to exactly match what's in genome reference chromosome sizes file above, or this file should be regenerated based on the FASTA file.
+The genome FASTA and sizes are only needed for generating the dinucleotide splice site motifs for the junctions since STAR does not report the non-canonical splice motifs.
+
+With the exception of the genome FASTA file, the rest of these files can all be downloaded from https://github.com/langmead-lab/monorail-run-data
+for recount3 human & mouse projects.  They can also be obtained from https://recount-ref.s3.amazonaws.com/hg38
 
 ## Prep
 
