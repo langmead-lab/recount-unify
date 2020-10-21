@@ -9,9 +9,7 @@ and
 https://github.com/langmead-lab/monorail-external#unifier-aggregation-over-per-sample-pump-outputs
 
 
-Next step after recount-pump in the Monorail pipeline
-
-This step has two parts (2 Snakemake files) which both aggregate across the per-sample outputs produced by the `recount-pump` workflow:
+This phase of Monorail has two parts (2 Snakemake files) which both aggregate across the per-sample outputs produced by the eariler, `recount-pump` workflow phase of Monorail:
 
 * base coverage summed for exons and genes based on a set of annotations (`Snakefile`)
 * junnction split-read counts (`Snakefile.study_jxs`)
@@ -35,11 +33,12 @@ Alternatively, you can install/build the following dependencies:
 * `pypy` (for python 2.7) is needed for certain steps within the workflow (jx merging and annotating)
 * `zstd` is needed for decompressing `recount-pump` outputs
 * `pigz` is needed for compressing final outputs
+* a wrapper shell script around `pigz` emulating `zcat` called `pcat` in PATH which maps to `pigz --stdout -p2 -d`
 * `bgzip` is needed for compressing final, Snaptron-ready outputs (htslib >=1.9)
 * `tabix` same as `bgzip` but can be ~any version of htslib
 * `sqlite3` same reason as for `bgzip/tabix`
 * Python 2.7 with PyLucene 6.5.0 installed (optional, only needed if building Lucene indexes for Snaptron)
-* binaries needs to be built ahead of time for supporting utilities in `merge/`, `scripts/`, and `rejoin/`, cd into each and run `make all`
+* Custom supporting utility binaries need to be built ahead of time in `merge/`, `scripts/`, and `rejoin/`, cd into each and run `make all`
  
 Also, the following files/information are needed to run the unifier, but are specific to your project:
 
