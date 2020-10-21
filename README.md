@@ -137,7 +137,7 @@ where you need to provide the `compilation_id` used previously to generate the `
 
 This will generate both the recount3 and Snaptron-ready junction matrices & indices.
 
-For Snaptron you will still need to build the Lucene indices for the sample metadata, please see the last section (Super merge...) for details on that which can be applied here.
+For Snaptron you will still need to build the Lucene indices for the sample metadata, please see the last section for details on that which can be applied here.
 
 ## QC summary
 
@@ -164,9 +164,10 @@ Will produce 3 final files for Snaptron:
 `prefix` here is `srav3_human` which acts as the directory prefix for all the tranches, e.g. `srav3_human5` is the 6th human tranche (starts from 0).
 The script assumes it will be run in the parent directory where of all tranches' output from recount-unify in appropriately named subdirectories using that prefix (e.g. `srav3_human1`).
 
-You will still need a set of Lucene indexes of your metadata before you have a minimally viable Snaptron compilation.
+You will still need a set of Lucene indexes of your metadata before you have a minimally viable Snaptron compilation.  See the last section in this document for details.
 
-To do that, start with a tab-delimited file of sample metadata.  This file needs to have as the first column the `<rail_id>` generated as part of the unifier run above (typically in `ids.tsv` per tranche, which can be concatented together to form the full samples list).
+## Generating Lucene indices for sample metadata for Snaptron
+You will start with a tab-delimited file of sample metadata.  This file needs to have as the first column the `<rail_id>` generated as part of the unifier run above (typically in `ids.tsv` or `project1.ids.tsv` per tranche, which can be concatented together to form the full samples list for a super merge compilation).
 
 A useable `samples.tsv` file can be as simple as a list of:
 
@@ -178,7 +179,7 @@ Once you have a `samples.tsv` file you're happy with:
 
 `snaptron/deploy/build_lucene_indexes.sh samples.tsv all`
 
-in the same directory where `junctions.bgz` is located.
+in the same directory where the relevant `junctions.bgz` is located.
 
 NOTE: the Lucene builder script requires that PyLucene 6.5.0 be installed in the python2.7 instance in PATH.
 
