@@ -132,43 +132,18 @@ This is typically run after the unifier has been run on the project/tranche (if 
 
 ## Super merge of junctions for Snaptron
 
+The super merge of junctions is primarily useful as an input to the srav3h and srav1m Snaptron compilations.
+But it can also be used to do other types of cross tranche/compilation merging of junctions (e.g. all human: sra + gtex + tcga).
+
 ```merge/super_jx_merge_for_snaptron.sh <prefix> <set_of_annotated_jxs_file.gz> <compilation_id> <num_cpus_for_bgzip>```
 
 example:
 ```merge/super_jx_merge_for_snaptron.sh srav3_human annotated_junctions.hg38.tsv.gz 11 8```
 
+Will produce 3 final files for Snaptron:
 
-## [DEPRECATED] To run the patroller script:
-`python3 ./patroller.py --num-sm-proc #_procs --snakefile ./Snakefile --annotated-sj-file /path/to/annotated_junctions.tsv.gz --sample-ID-file /path/to/samples.tsv --incoming-dir /path/to/recount_pump_output --staging-dir /path/to/dir_to_hardlink_into --output-dir /path/to/dir_to_store_final_unified_output --existing-exon-sums-file /path/to/exons.bed.gz --project <project_name> --debug`
+* `junctions.bgz`
+* `junctions.bgz.tbi`
+* `junctions.sqlite`
 
-where:
-* `--num-sm-proc` is the number of concurrent Snakemake processes you want to run (i.e. `snakemake -j`)
-* `--annotated-sj-file` takes a gzipped, tab-delimited list of known annotated junctions and their source annotation abbreviations
-* `--sample-ID-file` takes a uncompressed, tab-delimited file of rail_id2run_accession mappings
-* `--incoming-dir` takes the top-level directory where all recount-pump output is dumped
-* `--staging-dir` takes a path to store all the hardlinks to all files in the recount_pump_output dir
-* `--output-dir ` takes a path to store the output of the unifier process which will be organized along the same lines as the --incoming-dir
-* `--existing-exon-sums-file` is a gzipped, tab-delimited list of just chromosome,start,ends
-*`<project_name>` is for downloading the project study2run mapping from S3 (e.g. `srav1`)
-
-`--debug` will force the pipeline to only run upto 5 random studies and then quit, otherwise it'll do every study that
-has a complete set of "done" runs and then loop forever after sleeping for a few seconds at each loop.
-
-Before running, make sure you've created the `--staging-dir`, the `--output-dir`, and a subdirectory in the working directory `logs` where per-study output from the Snakemake will be deposited.  Make the staging, output and logs directories be subdirectories of `$PWD` when running script.  Assumption is that `$PWD/logs` subdirectory exists.
-
-### Patroller Dependencies
-* zstd executable in the path
-* Snakemake executable in the path
-* Python 3.6
-* pypy 2.7
-
-## Other functionality
-
-*merge* is for merging junctions from all samples into one sparse matrix
-
-*disjoin* is for taking an annotation and creating a disjoint set of exons from it
-it also contains code to re-assemble counts for transcripts, genes, original exons from the disjoint exon counts
-
-*annotate/annotation* contains scripts for compiling a multi-source junction annotation
-
-annotate contains script(s) for annotating the merged junction file
+You will still need a set of Lucene indexes of your metadata before you have a minimally viable Snaptron compilation.
