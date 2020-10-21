@@ -38,7 +38,7 @@ Alternatively, you can install/build the following dependencies:
 * `tabix` same as `bgzip` but can be ~any version of htslib
 * `sqlite3` same reason as for `bgzip/tabix`
 * Python 2.7 with PyLucene 6.5.0 installed (optional, only needed if building Lucene indexes for Snaptron)
-* Custom supporting utility binaries need to be built ahead of time in `merge/`, `scripts/`, and `rejoin/`, cd into each and run `make all`
+* Custom supporting utility binaries need to be built ahead of time in `merge/`, `scripts/`, and `rejoin/`; cd into each and run `make all`, this requires a modern enough C++ compiler supporting C++11
  
 Also, the following files/information are needed to run the unifier, but are specific to your project:
 
