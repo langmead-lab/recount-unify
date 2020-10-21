@@ -112,8 +112,9 @@ where `sra_human_v3_41_in26354_att2` is the symlink to the actual recount-pump g
 
 `study_loworder` and `run_loworder` are *always* the last 2 characters of the study and run accessions/IDs respectively.
 
-## Running the Unifier Workflow
+## Running the Unifier Workflows
 
+### Gene and exon sums
 An semi-generic example of the unifier snakemake command for aggregatig gene and exon sums for a human SRA tranche:
 
 ```snakemake -j <#_threads> --stats ./stats.json --snakefile ../Snakefile -p --config input=links staging=unified sample_ids_file=project1.ids.tsv annotated_sjs=/path/to/annotated_junctions.tsv.gz existing_sums=/path/to/exons.bed.w_header.gz compilation=sra gene_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed exon_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed recount_pump_output=NOT_USED gene_mapping_final=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed exon_bitmasks=/path/to/srav3h.exon_counts.bitmasks.tsv exon_bitmasks_coords=/path/to/srav3h.exon_counts.bitmasks.coords annotation_list=G026,G029,R109,F006,ERCC,SIRV  num_samples=<#samples> num_exons=<#exons>```
@@ -126,6 +127,17 @@ It is imperaptive that the `num_samples=<#samples>` be set to *exactly* the numb
 Similarly for `num_exons=<#exons>`.
 
 `num_exons` was 1709834 for human and 710078 for mouse
+
+### Junction counts
+An semi-generic example of the unifier snakemake command for aggregating junction counts for a human SRA tranche:
+
+```snakemake -j <#_threads> --stats ./perstudy.jxs.stats.json --snakefile ../Snakefile.study_jxs -p --config input=links staging=unified_jxs annotated_sjs=/path/to/annotated_junctions.hg38.tsv.gz ref_sizes=/path/to/hg38.recount_pump.fa.new_sizes ref_fasta=/path/to/hg38.recount_pump.fa sample_ids_file=project1.ids.tsv  compilation_id=<compilation_id> study_dir=junction_counts_per_study build_sqlitedb=1```
+
+where you need to provide the `compilation_id` used previously to generate the `rail_id`s for this compilation (e.g. `project1.ids.tsv`).
+
+This will generate both the recount3 and Snaptron-ready junction matrices & indices.
+
+For Snaptron you will still need to build the Lucene indices for the sample metadata, please see the last section (Super merge...) for details on that which can be applied here.
 
 ## QC summary
 
