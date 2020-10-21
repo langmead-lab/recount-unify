@@ -76,7 +76,7 @@ cd project1
 python ../sample_ids/assign_compilation_ids.py --accessions-file project1.tsv --compilation-code <compilation_code> > project1.ids.tsv
 ```
 
-Where `<compilation_code>` needs to checked against the list of existing recount3/Snaptron2 compilations so it doesn't collide, https://github.com/langmead-lab/monorail-run-data/blob/master/recount-unify/sample_ids/all_compilation_codes.tsv
+Where `<compilation_code>` (a.k.a. `compilation_id`) needs to checked against the list of existing recount3/Snaptron2 compilations so it doesn't collide, https://github.com/langmead-lab/monorail-run-data/blob/master/recount-unify/sample_ids/all_compilation_codes.tsv
 
 Then, you need to create symlinks from the output of `recount-pump` (assumes the same filesystem):
 
