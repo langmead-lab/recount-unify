@@ -147,3 +147,19 @@ Will produce 3 final files for Snaptron:
 * `junctions.sqlite`
 
 You will still need a set of Lucene indexes of your metadata before you have a minimally viable Snaptron compilation.
+
+To do that, start with a tab-delimited file of sample metadata.  This file needs to have as the first column the `<rail_id>` generated as part of the unifier run above (typically in `ids.tsv` per tranche, which can be concatented together to form the full samples list).
+
+A useable `samples.tsv` file can be as simple as a list of:
+
+`<rail_id>TAB<sample_name>`s
+
+or can have hundreds of columns (e.g. TCGA).
+
+Once you have a `samples.tsv` file you're happy with:
+
+`snaptron/deploy/build_lucene_indexes.sh samples.tsv all`
+
+in the same directory `junctions.bgz` is located.
+
+NOTE: the Lucene builder script requires that PyLucene 6.5.0 be installed in the python2.7 instance in PATH.
