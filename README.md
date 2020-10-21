@@ -1,17 +1,32 @@
 # recount-unify
+These instructions are primarily aimed at those who are internal to the groups involved in maintaining recount and Snaptron, not for most external users.
+If you are an external user (not in that group), please start with:
+
+https://github.com/langmead-lab/monorail-external#getting-reference-indexes
+
+and
+
+https://github.com/langmead-lab/monorail-external#unifier-aggregation-over-per-sample-pump-outputs
+
+
 Next step after recount-pump in the Monorail pipeline
 
-This step summarizes the gene, exon, and junction level counts which are produced by the `recount-pump` workflow on a per-sequencing run basis.
+This step has two parts (2 Snakemake files) which both aggregate across the per-sample outputs produced by the `recount-pump` workflow:
 
-Gene and exon level counts are produced as full matrices per annotation, per study (if running on an SRA tranche of multiple studies and with multiple annotations, e.g. GencodeV26 & RefSeq). 
+* summarizing at the gene and exon
+* junnction level counts
 
-Junctions are produced currently as per the Snaptron format, i.e. multiple studies are kept in the same Snaptron compilation if doing SRA, also the annotations used to mark junctions as annotated (or novel) is a separate, and typically larger set, than the annotations used in the gene/exon counts.
+Gene and exon level counts are produced as full matrices per annotation, per study (if running on an SRA tranche of multiple studies and with multiple annotations, e.g. GencodeV26 & RefSeq).  These can be used directly with/in recount3.  
+
+Junctions are also produced per-study for recount3.
+
+But junctions are additionally produced for the Snaptron format, i.e. multiple studies are kept in the same Snaptron compilation if doing SRA, also the annotations used to mark junctions as annotated (or novel) is a separate, and typically larger set, than the annotations used in the gene/exon counts.
 
 ## Dependencies
 
 * `Snakemake` is needed for running unifying workflow
 * `python3` is used to run the main Snakemake workflow (though `python2` will probably work)
-* `pypy` is needed for certain steps within the workflow (jx merging and annotating)
+* `pypy` (for python 2.7) is needed for certain steps within the workflow (jx merging and annotating)
 * `zstd` is needed for decompressing `recount-pump` outputs
 * `pigz` is needed for compressing final outputs
 * `bgzip` is needed for compressing final, Snaptron-ready outputs (htslib >=1.9)
@@ -26,7 +41,7 @@ The following files/information are needed to run the unifier, but are specific 
 * compilation ID for your project that doesn't collide with existing recount3/Snaptron2 compilations IDs (`compilation_id`)
 * number of samples/runs in the project (`#_samples` below, should be exactly the set of runs/samples which successfully ran through `recount-pump`)
 
-The following are more generic files used across projects sharing the same reference genome (e.g. `hg38`) and set of annotations, e.g. `G026,G029,R109,ERCC,SIRV,F006`:
+The following are more generic files used across projects sharing the same reference genome (e.g. `hg38`, or `grcm38`) and set of annotations, e.g. `G026,G029,R109,ERCC,SIRV,F006`:
 
 * set of annotation short names used (e.g. `G026,G029,R109,ERCC,SIRV,F006`)
 * disjoint exon-to-gene mapping file (e.g. `G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed`)
@@ -38,7 +53,7 @@ The following are more generic files used across projects sharing the same refer
 * genome reference chromosome sizes file (e.g. `hg38.recount_pump.fa.sizes.tsv`)
 
 These files can all be downloaded from https://github.com/langmead-lab/monorail-run-data
-for recount3 human & mouse projects.
+for recount3 human & mouse projects.  They can also be obtained from https://recount-ref.s3.amazonaws.com/hg38
 
 And finally, also needed is the genome reference chromosome FASTA file (e.g. `hg38.recount_pump.fa`), which needs to be exactly the same as what's used in `recount-pump`, available from https://recount-ref.s3.amazonaws.com/hg38/fasta.tar.gz
 The chromosome names need to exactly match what's in genome reference chromosome sizes file above, or this file should be regenerated based on the FASTA file.
