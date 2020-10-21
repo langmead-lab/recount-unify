@@ -114,16 +114,18 @@ where `sra_human_v3_41_in26354_att2` is the symlink to the actual recount-pump g
 
 ## Running the Unifier Workflow
 
-An semi-generic example of the unifier command for a human SRA tranche:
+An semi-generic example of the unifier snakemake command for aggregatig gene and exon sums for a human SRA tranche:
 
-```
-snakemake -j <#_threads> --stats ./stats.json --snakefile ../Snakefile -p --config input=links staging=unified sample_ids_file=project1.ids.tsv annotated_sjs=/path/to/annotated_junctions.tsv.gz existing_sums=/path/to/exons.bed.w_header.gz compilation_id=<compilation_id> gene_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed exon_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed num_samples=<#_samples> ref_sizes=/path/to/hg38.recount_pump.fa.new_sizes ref_fasta=/path/to/hg38.recount_pump.fa recount_pump_output=/path/to/project_recount-pump_output gene_mapping_final=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed annotation_list=G026,G029,R109,ERCC,SIRV,F006
-```
+```snakemake -j <#_threads> --stats ./stats.json --snakefile ../Snakefile -p --config input=links staging=unified sample_ids_file=project1.ids.tsv annotated_sjs=/path/to/annotated_junctions.tsv.gz existing_sums=/path/to/exons.bed.w_header.gz compilation=sra gene_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed exon_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed recount_pump_output=NOT_USED gene_mapping_final=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed exon_bitmasks=/path/to/srav3h.exon_counts.bitmasks.tsv exon_bitmasks_coords=/path/to/srav3h.exon_counts.bitmasks.coords annotation_list=G026,G029,R109,F006,ERCC,SIRV  num_samples=<#samples> num_exons=<#exons>```
 
 `links` is the directory created in the prep step above which contains the symlinks to to all of recount-pump's ourput files.
 
 `unified` is a directory which will be created by the Snakemake workflow which contains intermediate files, once a run's final files have been produced and checked this directory can be removed.
 
+It is imperaptive that the `num_samples=<#samples>` be set to *exactly* the number of samples (sequencing runs) in the tranche/compilation/study being aggregated.
+Similarly for `num_exons=<#exons>`.
+
+`num_exons` was 1709834 for human and 710078 for mouse
 
 ## QC summary
 
