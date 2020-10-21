@@ -32,6 +32,7 @@ But junctions are additionally produced for the Snaptron format, i.e. multiple s
 * `bgzip` is needed for compressing final, Snaptron-ready outputs (htslib >=1.9)
 * `tabix` same as `bgzip` but can be ~any version of htslib
 * `sqlite3` same reason as for `bgzip/tabix`
+* Python 2.7 with PyLucene 6.5.0 installed (optional, only needed if building Lucene indexes for Snaptron)
  
 While the Snakemake file does most of the heavy lifting, there are a number of separate steps which are still outside the Snakemake workflow.
 
@@ -146,13 +147,16 @@ Will produce 3 final files for Snaptron:
 * `junctions.bgz.tbi`
 * `junctions.sqlite`
 
+`prefix` here is `srav3_human` which acts as the directory prefix for all the tranches, e.g. `srav3_human5` is the 6th human tranche (starts from 0).
+The script assumes it will be run in the parent directory where of all tranches' output from recount-unify in appropriately named subdirectories using that prefix (e.g. `srav3_human1`).
+
 You will still need a set of Lucene indexes of your metadata before you have a minimally viable Snaptron compilation.
 
 To do that, start with a tab-delimited file of sample metadata.  This file needs to have as the first column the `<rail_id>` generated as part of the unifier run above (typically in `ids.tsv` per tranche, which can be concatented together to form the full samples list).
 
 A useable `samples.tsv` file can be as simple as a list of:
 
-`<rail_id>TAB<sample_name>`s
+`<rail_id>TAB<sample_name>`
 
 or can have hundreds of columns (e.g. TCGA).
 
@@ -160,6 +164,6 @@ Once you have a `samples.tsv` file you're happy with:
 
 `snaptron/deploy/build_lucene_indexes.sh samples.tsv all`
 
-in the same directory `junctions.bgz` is located.
+in the same directory where `junctions.bgz` is located.
 
 NOTE: the Lucene builder script requires that PyLucene 6.5.0 be installed in the python2.7 instance in PATH.
