@@ -14,7 +14,10 @@ Junctions are produced currently as per the Snaptron format, i.e. multiple studi
 * `pypy` is needed for certain steps within the workflow (jx merging and annotating)
 * `zstd` is needed for decompressing `recount-pump` outputs
 * `pigz` is needed for compressing final outputs
-
+* `bgzip` is needed for compressing final, Snaptron-ready outputs (htslib >=1.9)
+* `tabix` same as `bgzip` but can be ~any version of htslib
+* `sqlite3` same reason as for `bgzip/tabix`
+ 
 While the Snakemake file does most of the heavy lifting, there are a number of separate steps which are still outside the Snakemake workflow.
 
 The following files/information are needed to run the unifier, but are specific to your project:
@@ -105,6 +108,13 @@ snakemake -j <#_threads> --stats ./stats.json --snakefile ../Snakefile -p --conf
 This is typically run after the unifier has been run on the project/tranche (if you want it to include the intron sums) in the unifier working subdirectory of the project/tranche:
 
 ```python3 ../log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping ids.tsv --intron-sums intron_counts_summed.tsv > qc.tsv 2> qc.err```
+
+## Super merge of junctions for Snaptron
+
+```merge/super_jx_merge_for_snaptron.sh <prefix> <set_of_annotated_jxs_file.gz> <compilation_id> <num_cpus_for_bgzip>```
+
+example:
+```merge/super_jx_merge_for_snaptron.sh srav3_human annotated_junctions.hg38.tsv.gz 11 8```
 
 
 ## [DEPRECATED] To run the patroller script:
