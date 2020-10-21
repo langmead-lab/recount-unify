@@ -24,6 +24,12 @@ But junctions are additionally produced for the Snaptron format, i.e. multiple s
 
 ## Dependencies
 
+The recount-unify Docker image:
+
+https://quay.io/repository/broadsword/recount-unify?tab=tags
+
+Alternatively, you can install/build the following dependencies:
+
 * `Snakemake` is needed for running unifying workflow
 * `python3` is used to run the main Snakemake workflow (though `python2` will probably work)
 * `pypy` (for python 2.7) is needed for certain steps within the workflow (jx merging and annotating)
@@ -33,10 +39,9 @@ But junctions are additionally produced for the Snaptron format, i.e. multiple s
 * `tabix` same as `bgzip` but can be ~any version of htslib
 * `sqlite3` same reason as for `bgzip/tabix`
 * Python 2.7 with PyLucene 6.5.0 installed (optional, only needed if building Lucene indexes for Snaptron)
+* binaries needs to be built ahead of time for supporting utilities in `merge/`, `scripts/`, and `rejoin/`, cd into each and run `make all`
  
-While the Snakemake file does most of the heavy lifting, there are a number of separate steps which are still outside the Snakemake workflow.
-
-The following files/information are needed to run the unifier, but are specific to your project:
+Also, the following files/information are needed to run the unifier, but are specific to your project:
 
 * a tab-delimited file of the project study(s) and sample/run ids used in the `recount-pump` run (e.g. `project1.tsv` below)
 * compilation ID for your project that doesn't collide with existing recount3/Snaptron2 compilations IDs (`compilation_id`)
@@ -66,6 +71,7 @@ With the exception of the genome FASTA file, the rest of these files can all be 
 for recount3 human & mouse projects.  They can also be obtained from https://recount-ref.s3.amazonaws.com/hg38
 
 ## Prep
+While the Snakemake files do most of the heavy lifting, there are a number of separate steps which are still outside the Snakemake workflows.
 
 This step assumes that all checking/filtering of `recount-pump` output has already been done previously.
 
@@ -92,7 +98,7 @@ This can be symlinked/copied from the directory where the refs/backing files wer
 
 ## Layout of links to recount-pump output
 
-Due to the importance of this part, this get its own section.
+Due to the critical nature of this part for the proper running of the unifier, this get its own section.
 
 The `scripts/find_done.sh` script mentioned in the previous section *should* organize the symlinks to the original recount-pump output directories correctly, however, it's worth checking given that the rest of the Unifier is critically sensitive to how the links are organized.
 
