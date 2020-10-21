@@ -167,3 +167,5 @@ Once you have a `samples.tsv` file you're happy with:
 in the same directory where `junctions.bgz` is located.
 
 NOTE: the Lucene builder script requires that PyLucene 6.5.0 be installed in the python2.7 instance in PATH.
+
+Gene, exon, and base-level Snaptron databases & indexes are not required for a minimally viable Snaptron server and are not covered here.
