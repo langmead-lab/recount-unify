@@ -165,7 +165,7 @@ Will produce 3 final files for Snaptron:
 * `junctions.sqlite`
 
 `prefix` here is `srav3_human` which acts as the directory prefix for all the tranches, e.g. `srav3_human5` is the 6th human tranche (starts from 0).
-The script assumes it will be run in the parent directory where of all tranches' output from recount-unify in appropriately named subdirectories using that prefix (e.g. `srav3_human1`).
+The script assumes it will be run in the parent directory where all of the tranches' output from recount-unify in appropriately named subdirectories using that prefix are present (e.g. `srav3_human1`).
 
 You will still need a set of Lucene indexes of your metadata before you have a minimally viable Snaptron compilation.  See the last section in this document for details.
 
@@ -177,6 +177,8 @@ A useable `samples.tsv` file can be as simple as a list of:
 `<rail_id>TAB<sample_name>`
 
 or can have hundreds of columns (e.g. TCGA).
+
+It *must* also have a header, e.g. `rail_id<TAB>external_id`!
 
 Once you have a `samples.tsv` file you're happy with:
 
