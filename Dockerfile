@@ -2,13 +2,9 @@ FROM continuumio/miniconda3:4.5.12
  
 RUN apt-get update -y && apt-get install -y gcc g++ make git python2.7 python-pip python-dev ant default-jdk sqlite3 wget curl parallel libz-dev
 
+WORKDIR /
 ## set Snaptron related up here
-RUN mkdir -p /recount-unify
-# clone master branch of Snaptron
-RUN git clone https://github.com/ChristopherWilks/snaptron.git /recount-unify/snaptron
 # cribbed from https://bitbucket.org/coady/docker/src/tip/pylucene/Dockerfile
-#RUN conda deactivate
-#RUN export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 RUN mkdir -p /usr/src/pylucene
 WORKDIR /usr/src/pylucene
 RUN which python
@@ -40,11 +36,14 @@ WORKDIR /
 
 #RUN /usr/bin/pip install numpy
 
+# clone master branch of Snaptron
+#RUN git clone https://github.com/ChristopherWilks/snaptron.git /recount-unify/snaptron
+# UPDATE just copy locally checked out submodule of unify
+RUN mkdir -p /recount-unify
+COPY snaptron/ /recount-unify/snaptron/
 RUN /usr/bin/pip install -r /recount-unify/snaptron/requirements.txt
 
 #now back to recount-unify
-#RUN export PATH=/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-#RUN conda activate
 WORKDIR /
 COPY rejoin/ /recount-unify/rejoin/
 COPY merge/ /recount-unify/merge/
