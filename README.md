@@ -83,6 +83,14 @@ python ../sample_ids/assign_compilation_ids.py --accessions-file project1.tsv --
 
 Where `<compilation_code>` (a.k.a. `compilation_id`) needs to checked against the list of existing recount3/Snaptron2 compilations so it doesn't collide, https://github.com/langmead-lab/monorail-run-data/blob/master/recount-unify/sample_ids/all_compilation_codes.tsv
 
+`project1.tsv` *must* have the following format including a header (it can have as many additional columns as desired):
+
+```
+study_id<TAB>sample_id...
+<study_id1>TAB<sample_id1>...
+...
+```
+
 Then, you need to create symlinks from the output of `recount-pump` (assumes the same filesystem):
 
 ```/bin/bash -x ../scripts/find_done.sh /path/to/project_recount-pump_output links project_recount-pump_file_prefix```
@@ -134,13 +142,12 @@ Similarly for `num_exons=<#exons>`.
 ### Junction counts
 An semi-generic example of the unifier snakemake command for aggregating junction counts for a human SRA tranche:
 
-```snakemake -j <#_threads> --stats ./perstudy.jxs.stats.json --snakefile ../Snakefile.study_jxs -p --config input=links staging=unified_jxs annotated_sjs=/path/to/annotated_junctions.hg38.tsv.gz ref_sizes=/path/to/hg38.recount_pump.fa.new_sizes ref_fasta=/path/to/hg38.recount_pump.fa sample_ids_file=project1.ids.tsv  compilation_id=<compilation_id> study_dir=junction_counts_per_study build_sqlitedb=1```
+```snakemake -j <#_threads> --stats ./perstudy.jxs.stats.json --snakefile ../Snakefile.study_jxs -p --config input=links staging=unified_jxs annotated_sjs=/path/to/annotated_junctions.hg38.tsv.gz ref_sizes=/path/to/hg38.recount_pump.fa.new_sizes ref_fasta=/path/to/hg38.recount_pump.fa sample_ids_file=project1.ids.tsv  compilation_id=<compilation_id> study_dir=junction_counts_per_study sample_original_metadata_file=project1.tsv build_sqlitedb=1 build_lucene=1```
 
 where you need to provide the `compilation_id` used previously to generate the `rail_id`s for this compilation (e.g. `project1.ids.tsv`).
 
-This will generate both the recount3 and Snaptron-ready junction matrices & indices.
-
-For Snaptron you will still need to build the Lucene indices for the sample metadata, please see the last section for details on that which can be applied here.
+This will generate both the recount3 and Snaptron-ready junction matrices & indices, additionally it will generate Lucene indices for the samples.
+For the Lucene indices, it's entirely based on whatever metadata was passed in via `sample_original_metadata_file` (e.g. `project1.tsv`).
 
 ## QC summary
 
