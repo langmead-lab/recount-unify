@@ -123,7 +123,9 @@ where `sra_human_v3_41_in26354_att2` is the symlink to the actual recount-pump g
 ### Gene and exon sums
 An semi-generic example of the unifier snakemake command for aggregatig gene and exon sums for a human SRA tranche:
 
-```snakemake -j <#_threads> --stats ./stats.json --snakefile ../Snakefile -p --config input=links staging=unified sample_ids_file=project1.ids.tsv annotated_sjs=/path/to/annotated_junctions.tsv.gz existing_sums=/path/to/exons.bed.w_header.gz compilation=sra gene_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed exon_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed recount_pump_output=NOT_USED gene_mapping_final=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed exon_bitmasks=/path/to/srav3h.exon_counts.bitmasks.tsv exon_bitmasks_coords=/path/to/srav3h.exon_counts.bitmasks.coords annotation_list=G026,G029,R109,F006,ERCC,SIRV  num_samples=<#samples> num_exons=<#exons>```
+```
+snakemake -j <#_threads> --stats ./stats.json --snakefile ../Snakefile -p --config input=links staging=unified sample_ids_file=project1.ids.tsv annotated_sjs=/path/to/annotated_junctions.tsv.gz existing_sums=/path/to/exons.bed.w_header.gz compilation=sra gene_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed exon_rejoin_mapping=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed recount_pump_output=NOT_USED gene_mapping_final=/path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed exon_bitmasks=/path/to/srav3h.exon_counts.bitmasks.tsv exon_bitmasks_coords=/path/to/srav3h.exon_counts.bitmasks.coords annotation_list=G026,G029,R109,F006,ERCC,SIRV  num_samples=<#samples> num_exons=<#exons>
+```
 
 `links` is the directory created in the prep step above which contains the symlinks to to all of recount-pump's ourput files.
 
@@ -137,7 +139,9 @@ Similarly for `num_exons=<#exons>`.
 ### Junction counts
 An semi-generic example of the unifier snakemake command for aggregating junction counts for a human SRA tranche:
 
-```snakemake -j <#_threads> --stats ./perstudy.jxs.stats.json --snakefile ../Snakefile.study_jxs -p --config input=links staging=unified_jxs annotated_sjs=/path/to/annotated_junctions.hg38.tsv.gz ref_sizes=/path/to/hg38.recount_pump.fa.new_sizes ref_fasta=/path/to/hg38.recount_pump.fa sample_ids_file=project1.ids.tsv  compilation_id=<compilation_id> study_dir=junction_counts_per_study sample_original_metadata_file=project1.tsv build_sqlitedb=1 build_lucene=1```
+```
+snakemake -j <#_threads> --stats ./perstudy.jxs.stats.json --snakefile ../Snakefile.study_jxs -p --config input=links staging=unified_jxs annotated_sjs=/path/to/annotated_junctions.hg38.tsv.gz ref_sizes=/path/to/hg38.recount_pump.fa.new_sizes ref_fasta=/path/to/hg38.recount_pump.fa sample_ids_file=project1.ids.tsv  compilation_id=<compilation_id> study_dir=junction_counts_per_study sample_original_metadata_file=project1.tsv build_sqlitedb=1 build_lucene=1
+```
 
 where you need to provide the `compilation_id` used previously to generate the `rail_id`s for this compilation (e.g. `project1.ids.tsv`).
 
@@ -148,7 +152,9 @@ For the Lucene indices, it's entirely based on whatever metadata was passed in v
 
 This is typically run after the unifier has been run on the project/tranche (if you want it to include the intron sums) in the unifier working subdirectory of the project/tranche:
 
-```python3 ../log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping ids.tsv --intron-sums intron_counts_summed.tsv > qc.tsv 2> qc.err```
+```
+python3 ../log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping ids.tsv --intron-sums intron_counts_summed.tsv > qc.tsv 2> qc.err
+```
 
 ## Super merge of junctions for Snaptron
 
@@ -158,7 +164,9 @@ But it can also be used to do other types of cross tranche/compilation merging o
 ```merge/super_jx_merge_for_snaptron.sh <prefix> <set_of_annotated_jxs_file.gz> <compilation_id> <num_cpus_for_bgzip>```
 
 example:
-```merge/super_jx_merge_for_snaptron.sh srav3_human annotated_junctions.hg38.tsv.gz 11 8```
+```
+merge/super_jx_merge_for_snaptron.sh srav3_human annotated_junctions.hg38.tsv.gz 11 8
+```
 
 Will produce 3 final files for Snaptron:
 
