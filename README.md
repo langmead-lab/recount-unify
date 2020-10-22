@@ -83,13 +83,8 @@ python ../sample_ids/assign_compilation_ids.py --accessions-file project1.tsv --
 
 Where `<compilation_code>` (a.k.a. `compilation_id`) needs to checked against the list of existing recount3/Snaptron2 compilations so it doesn't collide, https://github.com/langmead-lab/monorail-run-data/blob/master/recount-unify/sample_ids/all_compilation_codes.tsv
 
-`project1.tsv` *must* have a header line and at least the following first 2 columns in exactly this order (it can have as many additional columns as desired):
-
-```
-study_id<TAB>sample_id...
-<study_id1>TAB<sample_id1>...
-...
-```
+For the exact format for `project1.tsv`, please see the Unifier instructions in:
+https://github.com/langmead-lab/monorail-external/blob/master/README.md#unifier-aggregation-over-per-sample-pump-outputs
 
 Then, you need to create symlinks from the output of `recount-pump` (assumes the same filesystem):
 
