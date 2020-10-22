@@ -83,7 +83,7 @@ python ../sample_ids/assign_compilation_ids.py --accessions-file project1.tsv --
 
 Where `<compilation_code>` (a.k.a. `compilation_id`) needs to checked against the list of existing recount3/Snaptron2 compilations so it doesn't collide, https://github.com/langmead-lab/monorail-run-data/blob/master/recount-unify/sample_ids/all_compilation_codes.tsv
 
-`project1.tsv` *must* have the following format including a header (it can have as many additional columns as desired):
+`project1.tsv` *must* have a header line and at least the following first 2 columns in exactly this order (it can have as many additional columns as desired):
 
 ```
 study_id<TAB>sample_id...
