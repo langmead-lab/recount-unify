@@ -203,6 +203,11 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
         popd
         exit -1
     fi
+    #do a little clean up not part of recount-unify proper
+    mkdir -p temp_jxs
+    mv junction_counts_per_study/*.gz temp_jxs/
+    mv junction_counts_per_study junction_counts_per_study_run_files
+    mv temp_jxs junction_counts_per_study
     popd
 fi
 
