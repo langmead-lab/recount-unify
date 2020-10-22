@@ -173,6 +173,9 @@ fi
 #now do junctions if not skipping
 if [[ -z $SKIP_JUNCTIONS ]]; then
     echo "Unifying junction counts"
+    #need to override the default python path (conda python3)
+    #to get python2.7 with PyLucene installed, but only for build_lucene purposes
+    export PYPATH=/usr/bin/python
     snakemake \
     --snakefile /recount-unify/Snakefile.study_jxs \
     ${CONFIGFILE} \
@@ -184,11 +187,13 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
         staging=staging_jxs \
         compilation_id="${PROJECT_ID}" \
         sample_ids_file="${SAMPLE_ID_MANIFEST}" \
+        sample_original_metadata_file="${SAMPLE_ID_MANIFEST_ORIG}" \
         ref_sizes="${REF_SIZES}" \
         ref_fasta="${REF_FASTA}" \
         annotated_sjs="${ANNOTATED_JXS}" \
         study_dir="junction_counts_per_study" \
         build_sqlitedb=1 \
+        build_lucene=1 \
         2>&1 | tee recount-unify.output.jxs.txt
 
     done=`fgrep 'steps (100%) done' recount-unify.output.jxs.txt`

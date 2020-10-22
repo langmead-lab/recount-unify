@@ -28,7 +28,7 @@ FILES.extend(["%s/%s.unique.RR.gz" % (config['study_dir'], s) for s in studies])
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
-SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'mmformat':os.path.join(workflow.basedir, 'scripts', 'mmformat'),'snaptron_schema':os.path.join(workflow.basedir,'snaptron','deploy','snaptron_schema.sql'),'snaptron_index_schema':os.path.join(workflow.basedir,'snaptron','deploy','snaptron_schema_index.sql')}
+SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'mmformat':os.path.join(workflow.basedir, 'scripts', 'mmformat'),'snaptron_schema':os.path.join(workflow.basedir,'snaptron','deploy','snaptron_schema.sql'),'snaptron_index_schema':os.path.join(workflow.basedir,'snaptron','deploy','snaptron_schema_index.sql'),'build_lucene':os.path.join(workflow.basedir,'snaptron','deploy','build_lucene_indexes.sh'),'build_samples':os.path.join(workflow.basedir,'scripts','join_railID_to_sample_metadata.sh')}
 
 if 'annotated_sjs' not in config:
 	sys.stderr.write("need to pass a path to an annotation jx database!\n")
@@ -253,7 +253,12 @@ rule annotate_all_sjs:
 		compilation_id=config['compilation_id'],
 		snaptron_schema_file=SCRIPTS['snaptron_schema'],
 		snaptron_index_schema_file=SCRIPTS['snaptron_index_schema'],
-		build_sqlitedb=lambda wildcards: 'build_sqlitedb' in config
+		build_sqlitedb=lambda wildcards: 'build_sqlitedb' in config,
+		lucene_path=SCRIPTS['build_lucene'],
+		build_lucene=lambda wildcards: 'build_lucene' in config,
+		sample_ids_file=config['sample_ids_file'],
+		sample_original_metadata_file=config['sample_original_metadata_file'],
+		build_samples_script=SCRIPTS['build_samples']
 	shell:
 		"""
 		if [[ "{params.build_sqlitedb}" == "True" ]]; then
@@ -265,6 +270,11 @@ rule annotate_all_sjs:
             sqlite3 junctions.sqlite < {params.snaptron_index_schema_file}
         else
             cat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --motif-correct --compilation-id {params.compilation_id} | bgzip -@ {threads} > {output[0]}
+            touch junctions.sqlite
         fi
         tabix -s2 -b3 -e4 {output[0]}
+        if [[ "{params.build_lucene}" == "True" ]]; then
+            {params.build_samples_script} {params.sample_ids_file} {params.sample_original_metadata_file} > samples.tsv
+            {params.lucene_path} samples.tsv all
+        fi
         """
