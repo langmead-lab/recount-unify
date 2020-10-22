@@ -120,6 +120,9 @@ where `sra_human_v3_41_in26354_att2` is the symlink to the actual recount-pump g
 
 ## Running the Unifier Workflows
 
+Please see https://github.com/langmead-lab/monorail-external#unifier-aggregation-over-per-sample-pump-outputs
+for details on outputs.
+
 ### Gene and exon sums
 An semi-generic example of the unifier snakemake command for aggregatig gene and exon sums for a human SRA tranche:
 
