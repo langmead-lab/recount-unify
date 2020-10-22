@@ -185,6 +185,7 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     --config \
         input=links \
         staging=staging_jxs \
+        compilation="${PROJECT_SHORT_NAME}" \
         compilation_id="${PROJECT_ID}" \
         sample_ids_file="${SAMPLE_ID_MANIFEST}" \
         sample_original_metadata_file="${SAMPLE_ID_MANIFEST_ORIG}" \
