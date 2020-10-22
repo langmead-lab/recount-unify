@@ -19,12 +19,17 @@ if not os.path.exists(config['study_dir']):
 FILES=['all.sjs.motifs.merged.tsv', 'junctions.bgz', 'junctions.bgz.tbi']
 #setup the final set of target files
 studies = [f.split('/')[-1] for f in glob.glob(config['input']+'/??/*')]
-#FILES=["%s/%s.sj.merged.motifs.annotated" % (config['study_dir'], s) for s in studies]
 #add per study level jx files formatted for recount3
-FILES.extend(["%s/%s.all.MM.gz" % (config['study_dir'], s) for s in studies])
-FILES.extend(["%s/%s.all.RR.gz" % (config['study_dir'], s) for s in studies])
-FILES.extend(["%s/%s.unique.MM.gz" % (config['study_dir'], s) for s in studies])
-FILES.extend(["%s/%s.unique.RR.gz" % (config['study_dir'], s) for s in studies])
+additional_files = ["%s/%s.junctions.%s.all.%s.gz" % (config['study_dir'], config['compilation'], s, ft) for s in studies for ft in ['MM','RR','ID']]
+FILES.extend(additional_files)
+additional_files = ["%s/%s.junctions.%s.unique.%s.gz" % (config['study_dir'], config['compilation'], s, ft) for s in studies for ft in ['MM','RR','ID']]
+FILES.extend(additional_files)
+#FILES.extend(["%s/%s.junctions.%s.all.MM.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
+#FILES.extend(["%s/%s.junctions.%s.all.RR.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
+#FILES.extend(["%s/%s.junctions.%s.all.ID.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
+#FILES.extend(["%s/%s.junctions.%s.unique.MM.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
+#FILES.extend(["%s/%s.junctions.%s.unique.RR.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
+#FILES.extend(["%s/%s.junctions.%s.unique.ID.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
@@ -164,8 +169,9 @@ rule mmformat_sjs:
 	input:
 		config['study_dir'] + '/{study}.{type}.sj.merged.motifs.annotated'
 	output:
-		config['study_dir'] + '/{study}.{type}.MM.gz',
-		config['study_dir'] + '/{study}.{type}.RR.gz'
+		config['study_dir'] + '/' + config['compilation'] + '.junctions.{study}.{type}.MM.gz',
+		config['study_dir'] + '/' + config['compilation'] + '.junctions.{study}.{type}.RR.gz',
+		config['study_dir'] + '/' + config['compilation'] + '.junctions.{study}.{type}.ID.gz'
 	threads: 2
 	params:
 		study_dir=config['study_dir'],
@@ -181,6 +187,7 @@ rule mmformat_sjs:
 			mv {params.study}.{params.type}.mm {params.study}.{params.type}.MM
 			cat {params.study}.{params.type}.MM | pigz --fast -p {threads} > {output[0]}
 			cat {params.study}.{params.type}.RR | pigz --fast -p {threads} > {output[1]}
+			cat <(echo "rail_id") {input}.sids | pigz --fast -p {threads} > {output[2]}
 		else
 			touch {output[0]} {output[1]}
 		fi

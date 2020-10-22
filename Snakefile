@@ -61,10 +61,10 @@ if 'annotation_list' in config:
 	#create FILES targets for all per-study gene & exon sums
 	studies = [f.split('/')[-2:] for f in glob.glob(config['input']+'/??/*')]
 	#e.g gene_sums_per_study/99/SRP214699/sra.gene_sums.SRP214699.G026.gz
-	FILES.extend(["gene_sums_per_study/%s/%s/sra.gene_sums.%s.%s.gz" % (study[0], study[1], study[1], annotation) for study in studies for annotation in annotations_list])
-	gene_sum_per_study_files = ["gene_sums_per_study/%s/%s/sra.gene_sums.%s.{annotation}.gz" % (study[0], study[1], study[1]) for study in studies]
-	FILES.extend(["exon_sums_per_study/%s/%s/sra.exon_sums.%s.%s.gz" % (study[0], study[1], study[1], annotation) for study in studies for annotation in annotations_list])
-	exon_sum_per_study_files = ["exon_sums_per_study/%s/%s/sra.exon_sums.%s.%s.gz" % (study[0], study[1], study[1], annotation) for study in studies for annotation in annotations_list]
+	FILES.extend(["gene_sums_per_study/%s/%s/%s.gene_sums.%s.%s.gz" % (study[0], study[1], config['compilation'], study[1], annotation) for study in studies for annotation in annotations_list])
+	gene_sum_per_study_files = ["gene_sums_per_study/%s/%s/%s.gene_sums.%s.{annotation}.gz" % (study[0], study[1], config['compilation'], study[1]) for study in studies]
+	FILES.extend(["exon_sums_per_study/%s/%s/%s.exon_sums.%s.%s.gz" % (study[0], study[1], config['compilation'], study[1], annotation) for study in studies for annotation in annotations_list])
+	exon_sum_per_study_files = ["exon_sums_per_study/%s/%s/%s.exon_sums.%s.%s.gz" % (study[0], study[1], config['compilation'], study[1], annotation) for study in studies for annotation in annotations_list]
 else:
 	config['gene_mapping_final'] = None
 	config['annotation_list'] = None
