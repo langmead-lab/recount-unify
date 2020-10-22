@@ -264,7 +264,7 @@ rule annotate_all_sjs:
 		lucene_path=SCRIPTS['build_lucene'],
 		build_lucene=lambda wildcards: 'build_lucene' in config,
 		sample_ids_file=config['sample_ids_file'],
-		sample_original_metadata_file=config['sample_original_metadata_file'],
+		sample_original_metadata_file=config.get('sample_original_metadata_file',''),
 		build_samples_script=SCRIPTS['build_samples']
 	shell:
 		"""
