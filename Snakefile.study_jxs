@@ -21,18 +21,21 @@ FILES=['all.sjs.motifs.merged.tsv', 'junctions.bgz', 'junctions.bgz.tbi']
 studies = [f.split('/')[-2:] for f in glob.glob(config['input']+'/??/*')]
 #add per study level jx files formatted for recount3
 intermediate_recount_jx_files = []
-additional_files = ["%s/%s.junctions.%s.all.%s.gz" % (config['study_dir'], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
-intermediate_recount_jx_files.extend(additional_files)
-additional_files = ["%s/%s.junctions.%s.unique.%s.gz" % (config['study_dir'], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
-intermediate_recount_jx_files.extend(additional_files)
-
 final_recount_jx_files = []
-additional_files = ["%s/%s/%s/%s.junctions.%s.all.%s.gz" % (config['study_dir'], s[0], s[1], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
-final_recount_jx_files.extend(additional_files)
-FILES.extend(additional_files)
-additional_files = ["%s/%s/%s/%s.junctions.%s.unique.%s.gz" % (config['study_dir'], s[0], s[1], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
-final_recount_jx_files.extend(additional_files)
-FILES.extend(additional_files)
+if 'compilation' in config:
+	additional_files = ["%s/%s.junctions.%s.all.%s.gz" % (config['study_dir'], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+	intermediate_recount_jx_files.extend(additional_files)
+	additional_files = ["%s/%s.junctions.%s.unique.%s.gz" % (config['study_dir'], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+	intermediate_recount_jx_files.extend(additional_files)
+
+	additional_files = ["%s/%s/%s/%s.junctions.%s.all.%s.gz" % (config['study_dir'], s[0], s[1], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+	final_recount_jx_files.extend(additional_files)
+	FILES.extend(additional_files)
+	additional_files = ["%s/%s/%s/%s.junctions.%s.unique.%s.gz" % (config['study_dir'], s[0], s[1], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+	final_recount_jx_files.extend(additional_files)
+	FILES.extend(additional_files)
+else:
+    config['compilation']=''
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
@@ -57,6 +60,9 @@ if 'compilation_id' not in config:
 
 if 'build_sqlitedb' in config:
 	FILES.append("junctions.sqlite")
+
+if 'build_lucene' in config:
+	FILES.extend(["samples.tsv", "lucene_indexed_numeric_types.tsv", "lucene_full_standard", "lucene_full_ws", "samples.fields.tsv"])
 
 #used to choose the coverage column in the per-sample filtered jx files
 TYPE_COL_MAP={'all':4, 'unique':3}
@@ -271,7 +277,12 @@ rule annotate_all_sjs:
 	output:
 		'junctions.bgz',
 		'junctions.bgz.tbi',
-		'junctions.sqlite'
+		'junctions.sqlite',
+		'samples.tsv',
+		'lucene_indexed_numeric_types.tsv',
+		'lucene_full_standard',
+		'lucene_full_ws',
+		'samples.fields.tsv'
 	threads: 7
 	params:
 		annot_sjs=config['annotated_sjs'],
@@ -302,5 +313,7 @@ rule annotate_all_sjs:
         if [[ "{params.build_lucene}" == "True" ]]; then
             {params.build_samples_script} {params.sample_ids_file} {params.sample_original_metadata_file} > samples.tsv
             {params.lucene_path} samples.tsv all
+        else
+            touch samples.tsv lucene_indexed_numeric_types.tsv lucene_full_standard lucene_full_ws samples.fields.tsv
         fi
         """

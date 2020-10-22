@@ -28,13 +28,14 @@ SCRIPTS={'find_done':os.path.join(main_script_path,'find_done.sh'),'find':os.pat
 #sample_ids_file=ids.tsv
 #exon_bitmasks=srav3h.exon_counts.bitmasks.tsv
 #exon_bitmasks_coords=srav3h.exon_counts.bitmasks.coords
-if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'sample_ids_file' not in config or 'num_samples' not in config or 'exon_bitmasks' not in config or 'exon_bitmasks_coords' not in config or 'num_exons' not in config:
-	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and 'exon_rejoin_mapping' and 'sample_ids_file' and 'num_samples' and 'num_exons' and exon_bitmasks and exon_bitmasks_coords for the rejoining part of the pipeline!\n")
+if 'gene_rejoin_mapping' not in config or 'exon_rejoin_mapping' not in config or 'sample_ids_file' not in config or 'num_samples' not in config:
+	sys.stderr.write("need to pass values for 'gene_rejoin_mapping' and 'exon_rejoin_mapping' and 'sample_ids_file' and 'num_samples' for the initial rejoining part of the pipeline!\n")
 	sys.exit(-1)
 
 if 'compilation' not in config:
-	sys.stderr.write("need to pass in a compilation (e.g. \"sra\" for either human or mouse, \"gtex\", or \"tcga\")\n")
-	sys.exit(-1)
+	sys.stderr.write("doing single study run\n")
+	#sys.stderr.write("need to pass in a compilation (e.g. \"sra\" for either human or mouse, \"gtex\", or \"tcga\")\n")
+	#sys.exit(-1)
 
 #exons.bed.w_header.gz
 if 'existing_sums' not in config:
@@ -45,6 +46,7 @@ gene_annotations_uncompressed = ["DONT_USE"]
 main_annotation = None
 studies = []
 gene_sum_per_study_files = []
+exon_sum_per_study_files = []
 #order is critical, it *has* to be: "G026,G029,R109,F006,ERCC,SIRV"
 #for exon splits to work correctly (bitmasks file is a static ordering of the annotations)
 if 'annotation_list' in config:
@@ -60,11 +62,16 @@ if 'annotation_list' in config:
 	main_annotation=annotations_list[0]
 	#create FILES targets for all per-study gene & exon sums
 	studies = [f.split('/')[-2:] for f in glob.glob(config['input']+'/??/*')]
-	#e.g gene_sums_per_study/99/SRP214699/sra.gene_sums.SRP214699.G026.gz
-	FILES.extend(["gene_sums_per_study/%s/%s/%s.gene_sums.%s.%s.gz" % (study[0], study[1], config['compilation'], study[1], annotation) for study in studies for annotation in annotations_list])
-	gene_sum_per_study_files = ["gene_sums_per_study/%s/%s/%s.gene_sums.%s.{annotation}.gz" % (study[0], study[1], config['compilation'], study[1]) for study in studies]
-	FILES.extend(["exon_sums_per_study/%s/%s/%s.exon_sums.%s.%s.gz" % (study[0], study[1], config['compilation'], study[1], annotation) for study in studies for annotation in annotations_list])
-	exon_sum_per_study_files = ["exon_sums_per_study/%s/%s/%s.exon_sums.%s.%s.gz" % (study[0], study[1], config['compilation'], study[1], annotation) for study in studies for annotation in annotations_list]
+	#signals we're doing a multi-study run
+	if 'compilation' in config:
+		if 'exon_bitmasks' not in config or 'exon_bitmasks_coords' not in config or 'num_exons' not in config:
+			sys.stderr.write("need to pass values for 'num_exons' and exon_bitmasks and exon_bitmasks_coords for the final, per-study rejoining part of the pipeline!\n")
+			sys.exit(-1)
+		#e.g gene_sums_per_study/99/SRP214699/sra.gene_sums.SRP214699.G026.gz
+		FILES.extend(["gene_sums_per_study/%s/%s/%s.gene_sums.%s.%s.gz" % (study[0], study[1], config['compilation'], study[1], annotation) for study in studies for annotation in annotations_list])
+		gene_sum_per_study_files = ["gene_sums_per_study/%s/%s/%s.gene_sums.%s.{annotation}.gz" % (study[0], study[1], config['compilation'], study[1]) for study in studies]
+		FILES.extend(["exon_sums_per_study/%s/%s/%s.exon_sums.%s.%s.gz" % (study[0], study[1], config['compilation'], study[1], annotation) for study in studies for annotation in annotations_list])
+		exon_sum_per_study_files = ["exon_sums_per_study/%s/%s/%s.exon_sums.%s.%s.gz" % (study[0], study[1], config['compilation'], study[1], annotation) for study in studies for annotation in annotations_list]
 else:
 	config['gene_mapping_final'] = None
 	config['annotation_list'] = None
@@ -264,7 +271,7 @@ rule split_final_rejoined_genes:
 	threads: 40
 	params:
 		script_path=SCRIPTS['split_genes'],
-		compilation=config['compilation'],
+		compilation=config.get('compilation',''),
 		annotation=lambda wildcards: wildcards.annotation
 	shell:
 		"""
@@ -313,11 +320,11 @@ rule split_final_rejoined_exons:
 	threads: 40
 	params:
 		script_path=SCRIPTS['split_exons'],
-		compilation=config['compilation'],
+		compilation=config.get('compilation',''),
 		annotations=config['annotation_list'],
-		num_exons=config['num_exons'],
-		bitmasks_file=config['exon_bitmasks'],
-		bitmasks_coords_file=config['exon_bitmasks_coords']
+		num_exons=config.get('num_exons',''),
+		bitmasks_file=config.get('exon_bitmasks',''),
+		bitmasks_coords_file=config.get('exon_bitmasks_coords','')
 	shell:
 		"""
 		/bin/bash {params.script_path} {params.compilation} {params.annotations} {params.num_exons} {params.bitmasks_file} {params.bitmasks_coords_file} {input[0]} {threads}
