@@ -18,18 +18,21 @@ if not os.path.exists(config['study_dir']):
 #FILES=['all.sjs.motifs.merged.tsv', 'all.sjs.motifs.merged.annotated.tsv.bgz', 'all.sjs.motifs.merged.annotated.tsv.bgz.tbi']
 FILES=['all.sjs.motifs.merged.tsv', 'junctions.bgz', 'junctions.bgz.tbi']
 #setup the final set of target files
-studies = [f.split('/')[-1] for f in glob.glob(config['input']+'/??/*')]
+studies = [f.split('/')[-2:] for f in glob.glob(config['input']+'/??/*')]
 #add per study level jx files formatted for recount3
-additional_files = ["%s/%s.junctions.%s.all.%s.gz" % (config['study_dir'], config['compilation'], s, ft) for s in studies for ft in ['MM','RR','ID']]
+intermediate_recount_jx_files = []
+additional_files = ["%s/%s.junctions.%s.all.%s.gz" % (config['study_dir'], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+intermediate_recount_jx_files.extend(additional_files)
+additional_files = ["%s/%s.junctions.%s.unique.%s.gz" % (config['study_dir'], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+intermediate_recount_jx_files.extend(additional_files)
+
+final_recount_jx_files = []
+additional_files = ["%s/%s/%s/%s.junctions.%s.all.%s.gz" % (config['study_dir'], s[0], s[1], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+final_recount_jx_files.extend(additional_files)
 FILES.extend(additional_files)
-additional_files = ["%s/%s.junctions.%s.unique.%s.gz" % (config['study_dir'], config['compilation'], s, ft) for s in studies for ft in ['MM','RR','ID']]
+additional_files = ["%s/%s/%s/%s.junctions.%s.unique.%s.gz" % (config['study_dir'], s[0], s[1], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+final_recount_jx_files.extend(additional_files)
 FILES.extend(additional_files)
-#FILES.extend(["%s/%s.junctions.%s.all.MM.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
-#FILES.extend(["%s/%s.junctions.%s.all.RR.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
-#FILES.extend(["%s/%s.junctions.%s.all.ID.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
-#FILES.extend(["%s/%s.junctions.%s.unique.MM.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
-#FILES.extend(["%s/%s.junctions.%s.unique.RR.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
-#FILES.extend(["%s/%s.junctions.%s.unique.ID.gz" % (config['study_dir'], config['compilation'], s) for s in studies])
 
 main_script_path=os.path.join(workflow.basedir,'scripts')
 
@@ -165,6 +168,9 @@ rule annotate_study_sjs:
 	shell:
 		"cat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --compilation-id 0 | cut -f 2- > {output}"
 
+
+#			{params.study}=$(perl -e '$sd="'{params.study_dir}'"; $s="'{params.study}'"; $s=~/(..)$/; $lo=$1; print "$sd/$lo/$s/junctions\n";')
+
 rule mmformat_sjs:
 	input:
 		config['study_dir'] + '/{study}.{type}.sj.merged.motifs.annotated'
@@ -175,7 +181,7 @@ rule mmformat_sjs:
 	threads: 2
 	params:
 		study_dir=config['study_dir'],
-		study=lambda wildcards: config['study_dir'] + '/' + wildcards.study,
+		study=lambda wildcards: wildcards.study,
 		type=lambda wildcards: wildcards.type,
 		script_path=SCRIPTS['mmformat']
 	shell:
@@ -192,6 +198,20 @@ rule mmformat_sjs:
 			touch {output[0]} {output[1]}
 		fi
 		"""
+
+import os
+from pathlib import PurePath
+rule final_recount_output:
+	input:
+		intermediate_recount_jx_files
+	output:
+		final_recount_jx_files
+	run:
+		for (i,inputF) in enumerate(input):
+			cur_path = PurePath(output[i])
+			os.makedirs(cur_path.parent, exist_ok=True)
+			os.replace(inputF, output[i])
+
 
 def get_sj_merged_per_study_files(wildcards):
 	study_low_order = wildcards.study_low_order
@@ -217,7 +237,6 @@ rule merge_per_study_sjs:
 	threads: 8
 	params:
 		staging=config['staging'],
-		#manifest=lambda wildcards, input: '.'.join(input[0].split('.')[:-1]),
 		script_path=SCRIPTS['merge']
 	shell:
 		"pypy {params.script_path} --list-file {input} --motif-correction 6 --append-samples > {output}"
