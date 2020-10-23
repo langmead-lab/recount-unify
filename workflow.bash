@@ -93,6 +93,7 @@ if [[ -z $PROJECT_SHORT_NAME ]]; then
     PROJECT_SHORT_NAME="sra"
 fi
 
+
 echo "Sample ID manifest: ${SAMPLE_ID_MANIFEST}"
 test -n "${SAMPLE_ID_MANIFEST}"
 test -e "${SAMPLE_ID_MANIFEST}"
@@ -114,14 +115,18 @@ if [[ $num_cols -ne 3 ]]; then
 fi
 
 #default case is single study, with "<sample_id>_att" style sample output directories from recount-pump
+compilation_arg=""
 if [[ -z $MULTI_STUDY ]]; then
+    echo "Running single-study mode"
     /bin/bash -x /recount-unify/scripts/create_directory_hierarchy_for_one_study.sh $SAMPLE_ID_MANIFEST $INPUT_DIR ${WORKING_DIR}/intermediate_links > setup_intermediate_links.run 2>&1
     #need to create the directory structure we expect from the basic output of
     #recount-pump on one study (assumed)
     /bin/bash -x /recount-unify/scripts/find_done.sh ${WORKING_DIR}/intermediate_links links "*_att" > setup_links.run 2>&1
 else
+    echo "Running multi-study mode"
     #multi study, this assumes the input directory hierarchy/naming is correctly setup for running of find_done.sh external to recount-unify, e.g. study_loworder/study/run_loworder/run/run_inputID_att\d+
     /bin/bash -x /recount-unify/scripts/find_done.sh $INPUT_DIR links "*_att" > setup_links.run 2>&1
+    compilation_arg="compilation=$PROJECT_SHORT_NAME"
 fi
 
 #e.g. 40
@@ -149,7 +154,6 @@ if [[ -z $SKIP_SUMS ]]; then
     --config \
         input=links \
         staging=staging \
-        compilation="${PROJECT_SHORT_NAME}" \
         sample_ids_file="${SAMPLE_ID_MANIFEST}" \
         num_samples=${num_samples} \
         existing_sums="${EXON_COORDINATES_BED}" \
@@ -159,7 +163,7 @@ if [[ -z $SKIP_SUMS ]]; then
         annotation_list="${LIST_OF_ANNOTATIONS}" \
         exon_bitmasks="${EXON_BITMASKS}" \
         exon_bitmasks_coords="${EXON_BITMASK_COORDS}" \
-        num_exons=${num_exons} \
+        num_exons=${num_exons} ${compilation_arg} \
         2>&1 | tee recount-unify.output.sums.txt
 
     done=`fgrep 'steps (100%) done' recount-unify.output.sums.txt`
@@ -185,7 +189,6 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     --config \
         input=links \
         staging=staging_jxs \
-        compilation="${PROJECT_SHORT_NAME}" \
         compilation_id="${PROJECT_ID}" \
         sample_ids_file="${SAMPLE_ID_MANIFEST}" \
         sample_original_metadata_file="${SAMPLE_ID_MANIFEST_ORIG}" \
@@ -194,7 +197,7 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
         annotated_sjs="${ANNOTATED_JXS}" \
         study_dir="junction_counts_per_study" \
         build_sqlitedb=1 \
-        build_lucene=1 \
+        build_lucene=1 ${compilation_arg} \
         2>&1 | tee recount-unify.output.jxs.txt
 
     done=`fgrep 'steps (100%) done' recount-unify.output.jxs.txt`
@@ -204,10 +207,12 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
         exit -1
     fi
     #do a little clean up not part of recount-unify proper
-    mkdir -p temp_jxs
-    mv junction_counts_per_study/*.gz temp_jxs/
-    mv junction_counts_per_study junction_counts_per_study_run_files
-    mv temp_jxs junction_counts_per_study
+    if [[ ! -z $MULTI_STUDY ]]; then
+        mkdir -p temp_jxs
+        mv junction_counts_per_study/?? temp_jxs/
+        mv junction_counts_per_study junction_counts_per_study_run_files
+        mv temp_jxs junction_counts_per_study
+    fi
     popd
 fi
 
