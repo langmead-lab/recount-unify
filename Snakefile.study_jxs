@@ -280,8 +280,8 @@ rule annotate_all_sjs:
 		'junctions.sqlite',
 		'samples.tsv',
 		'lucene_indexed_numeric_types.tsv',
-		'lucene_full_standard',
-		'lucene_full_ws',
+		directory('lucene_full_standard'),
+		directory('lucene_full_ws'),
 		'samples.fields.tsv'
 	threads: 7
 	params:
@@ -314,6 +314,7 @@ rule annotate_all_sjs:
             {params.build_samples_script} {params.sample_ids_file} {params.sample_original_metadata_file} > samples.tsv
             {params.lucene_path} samples.tsv all
         else
-            touch samples.tsv lucene_indexed_numeric_types.tsv lucene_full_standard lucene_full_ws samples.fields.tsv
+            touch samples.tsv lucene_indexed_numeric_types.tsv samples.fields.tsv
+            mkdir -p lucene_full_standard lucene_full_ws
         fi
         """
