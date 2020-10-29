@@ -11,8 +11,8 @@ set -exo pipefail
 
 dir=$(dirname $0)
 
-SNAPTRON_SCHEMA_FILE='snaptron/deploy/snaptron_schema.sql'
-SNAPTRON_INDEX_SCHEMA_FILE='snaptron/deploy/snaptron_schema_index.sql'
+SNAPTRON_SCHEMA_FILE="$dir/../snaptron/deploy/snaptron_schema.sql"
+SNAPTRON_INDEX_SCHEMA_FILE="$dir/../snaptron/deploy/snaptron_schema_index.sql"
 
 #e.g. srav3_human or srav1_mouse
 #this is the prefix name of the directories where the tranches are stored,
