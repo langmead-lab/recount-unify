@@ -71,7 +71,7 @@ pushd $study_prefix
 REFS="$REFS/${orgn}_unify"
 
 #assume sra, but check if not
-comp=$(perl -e 'return "'$study_prefix'"=~/(gtex)|(tcga)/;')
+comp=`perl -e 'print "'$study_prefix'"=~/(gtex)|(tcga)/."\n";'`
 if [[ -z $comp ]]; then
     comp="sra"
 fi
