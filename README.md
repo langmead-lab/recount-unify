@@ -69,6 +69,15 @@ The genome FASTA and sizes are only needed for generating the dinucleotide splic
 With the exception of the genome FASTA file, the rest of these files can all be downloaded from https://github.com/langmead-lab/monorail-run-data
 for recount3 human & mouse projects.  They can also be obtained from https://recount-ref.s3.amazonaws.com/hg38
 
+## All-in-one command
+
+While the rest of the sections break out individual steps, there is a overall "runner" script, `run_unifier.sh` in the root of the repo, which you can use to run every step of the unifier for a specific tranche/compilation (e.g. srav3_human1, srav1_mouse7, gtex, or tcga).  This does not include cross-tranche merging (see below for the separate command for doing that for junctions).
+
+Example of a `run_unifier.sh` run on the supplemental ASCOT mouse tranche one of the IDIES elephant machines:
+```
+/bin/bash /home/cwilks3/langmead/recount-unify/run_unifier.sh 52 13865 40 /scratch/ceph/langmead/checked/mouse/srav1m_ascot sra_mouse_v1_ascot /home/cwilks3/langmead/checked/mouse/srav1m_ascot/tranche_ascot.txt.actual grcm38 "M023,ERCC,SIRV" /home/cwilks3/langmead/monorail-external/refs > srav1m_ascot.run 2>&1
+```
+
 ## Prep
 While the Snakemake files do most of the heavy lifting, there are a number of separate steps which are still outside the Snakemake workflows.
 
