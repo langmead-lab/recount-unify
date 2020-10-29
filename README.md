@@ -71,7 +71,7 @@ for recount3 human & mouse projects.  They can also be obtained from https://rec
 
 ## All-in-one command
 
-While the rest of the sections break out individual steps, there is a overall "runner" script, `run_unifier.sh` in the root of the repo, which you can use to run every step of the unifier for a specific tranche/compilation (e.g. srav3_human1, srav1_mouse7, gtex, or tcga).  This does not include cross-tranche merging (see below for the separate command for doing that for junctions. #super-merge-of-junctions-for-snaptron).
+While the rest of the sections break out individual steps, there is a overall "runner" script, `run_unifier.sh` in the root of the repo, which you can use to run every step of the unifier for a specific tranche/compilation (e.g. srav3_human1, srav1_mouse7, gtex, or tcga).  This does not include cross-tranche merging (see below for the separate command for doing that for [junctions](#super-merge-of-junctions-for-snaptron)).
 
 Example of a `run_unifier.sh` run on the supplemental ASCOT mouse tranche one of the IDIES elephant machines:
 ```
