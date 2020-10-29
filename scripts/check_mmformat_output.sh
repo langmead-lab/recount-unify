@@ -16,12 +16,16 @@ rrf=$2
 #tcga, gtex, sra
 comp=$3
 
-#works for gtex, not for tcga
+#works for gtex, not for tcga or sra
 sids=$(echo $mmf | perl -ne 'chomp; $f=$_; @f=split(/\./,$f); $d=shift(@f); $t=shift(@f); $r="$d.$t.sj.merged.motifs.annotated.$t.sids"; if($t eq "all") { $r=~s/.annotated.all.sids/.annotated.sids/; } print "$r\n";')
-if [[ "$comp" != "gtex" ]]; then
+if [[ "$comp" == "tcga" ]]; then
     sids=$(echo $mmf | perl -ne 'chomp; $f=$_; @f=split(/\./,$f); $d=shift(@f); $t=shift(@f); $r="$d.unique.sj.merged.motifs.annotated.unique.sids"; print "$r\n";')
 fi
+if [[ "$comp" == "sra" ]]; then
+    sids=$(echo $mmf | perl -ne 'chomp; $f=$_; @f=split(/\./,$f); $d=shift(@f); $t=shift(@f); $r="$d.sj.merged.motifs.annotated.sids"; print "$r\n";')
+fi
 
+#workaround for the head causing pcat to pipefail
 { pcat $mmf ||:; } | head -3 | tail -n1 | tr \\t \\n > ${mmf}.check
 
 num_rows=$(head -1 ${mmf}.check)
@@ -64,7 +68,7 @@ fi
 #max_col_id_in_file=$(pcat $mmf | fgrep -m2 "	$num_cols	" | wc -l)
 
 #if [[ $max_col_id_in_file -ne 2 ]]; then
-if [[ $num_max_cols -lt 2 ]]; then
+if [[ $num_max_cols -lt 1 ]]; then
     echo "ERROR	$mmf	max column ID not found in MM file: $num_max_cols" >> ${mmf}.check
     echo "ERROR	$mmf	max column ID not found in MM file: $num_max_cols"
     exit -1
