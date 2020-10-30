@@ -78,6 +78,8 @@ Example of a `run_unifier.sh` run on the supplemental ASCOT mouse tranche one of
 /bin/bash /home/cwilks3/langmead/recount-unify/run_unifier.sh 52 13865 40 /scratch/ceph/langmead/checked/mouse/srav1m_ascot sra_mouse_v1_ascot /home/cwilks3/langmead/checked/mouse/srav1m_ascot/tranche_ascot.txt.actual grcm38 "M023,ERCC,SIRV" /home/cwilks3/langmead/monorail-external/refs > srav1m_ascot.run 2>&1
 ```
 
+Potential gotcha in the command above, the `/home/cwilks3/langmead/checked/mouse/srav1m_ascot/tranche_ascot.txt.actual` file *MUST* have a header line!
+
 ## Prep
 While the Snakemake files do most of the heavy lifting, there are a number of separate steps which are still outside the Snakemake workflows.
 
@@ -94,6 +96,8 @@ Where `<compilation_code>` (a.k.a. `compilation_id`) needs to checked against th
 
 For the exact format for `project1.tsv`, please see the Unifier instructions in:
 https://github.com/langmead-lab/monorail-external/blob/master/README.md#unifier-aggregation-over-per-sample-pump-outputs
+
+in any case it *MUST* have a header line!
 
 Then, you need to create symlinks from the output of `recount-pump` (assumes the same filesystem):
 
