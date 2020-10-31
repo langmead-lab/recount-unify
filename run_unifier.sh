@@ -51,8 +51,8 @@ original_full_path=$4
 study_prefix=$5
 
 #this is the full path to the sample accessions in the project/tranche (used to generate the sample/rail_ids)
-#this is a space delimited file with the run accessions/uuids as the 2nd column, no header
-#format: <study_id> <sample_id>
+#this is a tab delimited file with the run accessions/uuids as the 2nd column, no header
+#format: <study_id>TAB<sample_id>
 accessions_file=$6
 
 #either "hg38" or "grcm38"
@@ -101,9 +101,11 @@ gene_rejoin_mapping="$REFS/disjoint2exons2genes.bed"
 exon_rejoin_mapping="$REFS/disjoint2exons.bed"
 gene_mapping_final="$REFS/disjoint2exons2genes.rejoin_genes.bed"
 
+#check for proper format of accessions file
+#cat $accessions_file | perl -ne 'BEGIN { $err=0; } chomp; $f=$_; @f=split(/\t/,$f); $i++; if($err != 1 && scalar (@f) < 2) { print STDERR "bad delimiter or number of fields in '$accessions_file' at line $i, delimiter MUST be a tab and there must be at least 2 lines in the file; terminating early\n"; $err=1; }'
 
 echo "Running rail_id generation"
-python2 $dir/sample_ids/assign_compilation_ids.py --sep ' ' --acc-col 1 --accessions-file $accessions_file --compilation-code $comp_id > sample_rail_ids.${comp_id}
+python2 $dir/sample_ids/assign_compilation_ids.py --acc-col 1 --accessions-file $accessions_file --compilation-code $comp_id > sample_rail_ids.${comp_id}
 
 ln -fs sample_rail_ids.${comp_id} ids.tsv
 
@@ -116,7 +118,7 @@ echo "Running initial link creation from pump outputs"
 timebin=`which time`
 
 echo "Running gene/exon sum aggregation"
-$timebin -v snakemake -j $threads --stats ./stats.json --snakefile $dir/Snakefile -p --config input=links staging=unified sample_ids_file=ids.tsv annotated_sjs=$annotated_sjs existing_sums=$existing_sums compilation=$comp gene_rejoin_mapping=$gene_rejoin_mapping exon_rejoin_mapping=$exon_rejoin_mapping gene_mapping_final=$gene_mapping_final num_samples=$num_runs num_exons=$num_exons annotation_list=$annotation_list > gene_exon_summarize.run 2>&1
+$timebin -v snakemake -j $threads --stats ./stats.json --snakefile $dir/Snakefile -p --config input=links staging=unified sample_ids_file=ids.tsv annotated_sjs=$annotated_sjs existing_sums=$existing_sums compilation=$comp gene_rejoin_mapping=$gene_rejoin_mapping exon_rejoin_mapping=$exon_rejoin_mapping gene_mapping_final=$gene_mapping_final num_samples=$num_runs num_exons=$num_exons exon_bitmasks=$exon_bitmasks exon_bitmasks_coords=$exon_bitmasks_coords annotation_list=$annotation_list > gene_exon_summarize.run 2>&1
 
 done=`fgrep 'steps (100%) done' gene_exon_summarize.run`
 if [[ -z $done ]]; then
