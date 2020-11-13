@@ -101,11 +101,29 @@ gene_rejoin_mapping="$REFS/disjoint2exons2genes.bed"
 exon_rejoin_mapping="$REFS/disjoint2exons.bed"
 gene_mapping_final="$REFS/disjoint2exons2genes.rejoin_genes.bed"
 
+extra=
 #check for proper format of accessions file
-#cat $accessions_file | perl -ne 'BEGIN { $err=0; } chomp; $f=$_; @f=split(/\t/,$f); $i++; if($err != 1 && scalar (@f) < 2) { print STDERR "bad delimiter or number of fields in '$accessions_file' at line $i, delimiter MUST be a tab and there must be at least 2 lines in the file; terminating early\n"; $err=1; }'
+num_lines_in_acc_file=$(cat $accessions_file | wc -l)
+num_runs_plus_header=$((num_runs + 1))
+if [[ $num_lines_in_acc_file -ne $num_runs && $num_lines_in_acc_file -ne $num_runs_plus_header ]]; then
+    echo "bad number of lines in $accessions_file, terminating early"
+    exit -1
+fi
+num_cols_in_acc_file=$(cat $accessions_file | tr \\t \\n | wc -l)
+if [[ $num_cols_in_acc_file -lt 2 ]]; then
+    echo "need >= 2 columns in $accessions_file and they must be TAB delimited, terminating early"
+    exit -1
+fi
+
+if [[ $num_lines_in_acc_file -eq $num_runs ]]; then
+    extra='--no-header'
+fi
+
+#work in progress
+#cat $accessions_file | perl -ne 'BEGIN { $err=0; } chomp; $f=$_; @f=split(/\t/,$f); $i++; if($err != 1 && scalar (@f) < 2) { print STDERR "bad delimiter or number of fields in '$accessions_file' at line $i, delimiter MUST be a tab and there must be >=2 columns in file; terminating early\n"; $err=1; } END { if($i < 2) { print STDERR "there must be at least 2 lines in the file; terminating early\n"; }}'
 
 echo "Running rail_id generation"
-python2 $dir/sample_ids/assign_compilation_ids.py --acc-col 1 --accessions-file $accessions_file --compilation-code $comp_id > sample_rail_ids.${comp_id}
+python2 $dir/sample_ids/assign_compilation_ids.py $extra --acc-col 1 --accessions-file $accessions_file --compilation-code $comp_id > sample_rail_ids.${comp_id}
 
 ln -fs sample_rail_ids.${comp_id} ids.tsv
 
