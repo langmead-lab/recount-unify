@@ -207,13 +207,14 @@ rule paste_sums_final:
 		config['staging'] + '/{type}.exon_bw_count.groups.pasted.files.list'
 	output:
 		'{type}.exon_bw_count.pasted.gz'
+	threads: 8
 	params:
 		staging=config['staging'],
 		script_path=SCRIPTS['paste'],
 		existing_sums=config['existing_sums'],
 		type=lambda wildcards: wildcards.type
 	shell:
-		"{params.script_path} {input} {output} dont_get_ids {params.existing_sums}"
+		"{params.script_path} {input} {output} dont_get_ids {params.existing_sums} {threads}"
 
 
 ###Rejoin of exon/gene coverage into original annotation rows
