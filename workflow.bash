@@ -172,6 +172,15 @@ if [[ -z $SKIP_SUMS ]]; then
         popd
         exit -1
     fi
+    echo "Running QC stats collection"
+    python3 /recount-unify/log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping "${SAMPLE_ID_MANIFEST}" --intron-sums intron_counts_summed.tsv > qc.tsv 2> qc.err
+    num_samples_qc=$(wc -l qc.tsv)
+    num_samples_qc=((num_samples_qc - 1))
+    if [[ $num_samples_qc -ne $num_samples ]]; then
+        echo "FAILURE in pump output QC stats collection (post gene/exon unify), # QC rows ($num_samples_qc) != # samples ($num_samples)"
+        popd
+        exit -1
+    fi
 fi
 
 #now do junctions if not skipping
@@ -215,5 +224,6 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     fi
     popd
 fi
+
 
 echo SUCCESS
