@@ -21,15 +21,10 @@ new_header_fields = ["star.number_of_input_reads_both",
 
 total_col = 0
 add_both = True
-#srav3h, srav1m fields
-#fields_to_add=[102,82,100,104,106,108,110,112,128]
-#gtexv2 fields
-#fields_to_add=[131, 111, 129, 133, 135, 137, 139, 141, 157]
-#tcgav2 fields
-#fields_to_add=[903, 893, 902, 904, 905, 906, 907, 908, 916]
 
 #just take original QC stats output file which just have run,study as extra columns
-fields_to_add=[63,43,61,65,67,69,71,73,89]
+#fields_to_add=[63,43,61,65,67,69,71,73,89]
+fields_to_add=[64,44,62,66,68,70,72,74,90]
 add_both = False
 
 with open(sys.argv[1],"r") as fin:
