@@ -116,10 +116,15 @@ def process_line(line, pattern, suffix, qc):
             if suffix == STAR_SUFFIX:
                 label = label.replace(' ','_')
                 key = "%s.%s" % (names[suffix],label)
+                #if STAR stat name is already present in the hash
+                #add it as a 2nd one
                 if key in qc[sample]:
-                    global STAR_twice
-                    STAR_twice = True
                     key = key + "2"
+                #go ahead and add a default value
+                else:
+                    key2 = key + "2"
+                    qc[sample][key2]=0; 
+                    keys.add(key2)
             else:
                 key = "%s.%s" % (names[suffix],label)
             qc[sample][key] = value
