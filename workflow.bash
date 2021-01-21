@@ -203,7 +203,7 @@ if [[ -z $SKIP_SUMS ]]; then
     fi
 
     echo "Running QC stats collection"
-    python3 /recount-unify/log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping "${SAMPLE_ID_MANIFEST}" --intron-sums intron_counts_summed.tsv > qc_1.tsv 2> qc_1.err
+    python3 /recount-unify/log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping "${SAMPLE_ID_MANIFEST}" --intron-sums intron_counts_summed.tsv > qc_1.tsv 2> qc.err
     num_samples_qc=$(cat qc_1.tsv | wc -l)
     num_samples_qc=$(( num_samples_qc - 1 ))
     if [[ $num_samples_qc -ne $num_samples ]]; then
@@ -260,9 +260,9 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     fi
 
     #add jx stats to QC stats
-    cat qc_1.tsv | perl /recount-unify/add_jx_stats2qc.pl samples.tsv > $qc_2.tsv 2>> qc.err
+    cat qc_1.tsv | perl /recount-unify/log_qc/add_jx_stats2qc.pl samples.tsv > qc_2.tsv 2>> qc.err
     #this step adds in the combined columns for the STAR stats in the case of 2-step alignment when there's a 3rd, unpaired FASTQ file
-    python3 /recount-unify/log_qc/add_together_qc_fields.py qc_2.tsv > qc.tsv 2>> qc_.err
+    python3 /recount-unify/log_qc/add_together_qc_fields.py qc_2.tsv > qc.tsv 2>> qc.err
     #do a 2nd check here at the end of the QC stats
     num_samples_qc=$(cat qc.tsv | wc -l)
     num_samples_qc=$(( num_samples_qc - 1 ))
