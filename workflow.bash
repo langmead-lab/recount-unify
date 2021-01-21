@@ -91,6 +91,10 @@ test -s "${EXON_BITMASK_COORDS}"
 echo "Annotation List: ${LIST_OF_ANNOTATIONS}"
 test -n "${LIST_OF_ANNOTATIONS}"
 
+#e.g. hg38 or grcm38
+echo "Organism reference short name: ${ORGANISM_REF}"
+test -n "${ORGANISM_REF}"
+
 if [[ -z $PROJECT_ID ]]; then
     PROJECT_ID=0
 fi
@@ -182,7 +186,7 @@ if [[ -z $SKIP_SUMS ]]; then
     
     #need to do smoke tests for proper outputs based on:
     #get number of samples per-study
-    #cut -f 1 $SAMPLE_ID_MANIFEST | sort | uniq -c | tr -s " " \\t | cut -f 2,3 > ${SAMPLE_ID_MANIFEST}.num_samples_per_study.tsv
+    cut -f 1 $SAMPLE_ID_MANIFEST | sort | uniq -c | tr -s " " \\t | cut -f 2,3 > ${SAMPLE_ID_MANIFEST}.num_samples_per_study.tsv
 
     #1) check counts per study file for genes/exons
     #find gene_sums_per_study -name "*.gz" -size +0c | perl /recount-unify/scripts/check_unifier_outputs.pl ${SAMPLE_ID_MANIFEST}.num_samples_per_study.tsv genes ${GENE_EXON_ANNOTATION_ROW_COUNTS}
@@ -271,6 +275,10 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
         popd
         exit -1
     fi
+
+    cut -f 3 qc.tsv | sort -u > qc.tsv.studies
+    for s in `cat qc.tsv.studies`; do /bin/bash -x /recount-unify/metadata/make_recount3_metadata_files.sh $s $ORGANISM_REF qc.tsv $PROJECT_SHORT_NAME ; done
+
     popd
 fi
 
