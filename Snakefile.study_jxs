@@ -311,7 +311,8 @@ rule annotate_all_sjs:
         fi
         tabix -s2 -b3 -e4 {output[0]}
         if [[ "{params.build_lucene}" == "True" ]]; then
-            {params.build_samples_script} {params.sample_ids_file} {params.sample_original_metadata_file} | sort -t'	' -k1,1n > samples.tsv
+            {params.build_samples_script} {params.sample_ids_file} {params.sample_original_metadata_file} | sort -t'	' -k1,1n > sorted_samples.tsv
+            cat {params.sample_ids_file}.new_header sorted_samples.tsv > samples.tsv
             {params.lucene_path} samples.tsv all
         else
             touch samples.tsv lucene_indexed_numeric_types.tsv samples.fields.tsv
