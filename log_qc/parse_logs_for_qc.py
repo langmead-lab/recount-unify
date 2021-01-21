@@ -33,7 +33,9 @@ def store_cpickle_file(filepath, ds, compress=False):
         return True
     return False
 
-STAR_twice = False
+#always double STAR columns to be consistent for those samples that have the 3rd FASTQ file from SRA
+#(which leads to having 2 columns for every STAR aligner stat)
+STAR_twice = True
 
 FILE_FIELD_SEP = '.'
 #FILE_PREFIX_SEP = '_'
