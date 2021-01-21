@@ -26,7 +26,10 @@ add_both = True
 #gtexv2 fields
 #fields_to_add=[131, 111, 129, 133, 135, 137, 139, 141, 157]
 #tcgav2 fields
-fields_to_add=[903, 893, 902, 904, 905, 906, 907, 908, 916]
+#fields_to_add=[903, 893, 902, 904, 905, 906, 907, 908, 916]
+
+#just take original QC stats output file which just have run,study as extra columns
+fields_to_add=[64,44,62,66,68,70,72,74,90]
 add_both = False
 
 with open(sys.argv[1],"r") as fin:
