@@ -1,0 +1,4 @@
+[submodule "snaptron"]
+	path = snaptron
+	url = https://github.com/ChristopherWilks/snaptron.git
+	branch = master
