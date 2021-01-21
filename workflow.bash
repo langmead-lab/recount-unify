@@ -61,6 +61,12 @@ echo "Exon rejoin mapping Path: ${EXON_REJOIN_MAPPING}"
 test -n "${EXON_REJOIN_MAPPING}"
 test -s "${EXON_REJOIN_MAPPING}"
 
+#TODO: use this for smoke tests
+#e.g. /path/to/gene_exon_row_counts_per_annotation.tsv
+#echo "Gene/exon annotation row counts file: ${GENE_EXON_ANNOTATION_ROW_COUNTS}"
+#test -n "${GENE_EXON_ANNOTATION_ROW_COUNTS}"
+#test -s "${GENE_EXON_ANNOTATION_ROW_COUNTS}"
+
 #e.g. /path/to/hg38.recount_pump.fa.new_sizes
 echo "Reference FASTA sizes Path: ${REF_SIZES}"
 test -n "${REF_SIZES}"
@@ -113,6 +119,7 @@ if [[ $num_cols -ne 3 ]]; then
     export SAMPLE_ID_MANIFEST=${WORKING_DIR}/ids.tsv
     popd
 fi
+
 
 #default case is single study, with "<sample_id>_att" style sample output directories from recount-pump
 compilation_arg=""
@@ -172,10 +179,33 @@ if [[ -z $SKIP_SUMS ]]; then
         popd
         exit -1
     fi
+    
+    #need to do smoke tests for proper outputs based on:
+    #get number of samples per-study
+    #cut -f 1 $SAMPLE_ID_MANIFEST | sort | uniq -c | tr -s " " \\t | cut -f 2,3 > ${SAMPLE_ID_MANIFEST}.num_samples_per_study.tsv
+
+    #1) check counts per study file for genes/exons
+    #find gene_sums_per_study -name "*.gz" -size +0c | perl /recount-unify/scripts/check_unifier_outputs.pl ${SAMPLE_ID_MANIFEST}.num_samples_per_study.tsv genes ${GENE_EXON_ANNOTATION_ROW_COUNTS}
+
+    #2) number of files * number of studies
+    num_expected=12
+    num_gene_files=$(find gene_sums_per_study -name "*.gz" -size +0c | wc -l)
+    if [[ $num_expected -ne $num_gene_files ]]; then
+        echo "FAILURE running gene/exon unify, unexpected # of gene sum files: $num_gene_files vs. $num_expected (expected)"
+        popd
+        exit -1
+    fi
+    num_exon_files=$(find exon_sums_per_study -name "*.gz" -size +0c | wc -l)
+    if [[ $num_expected -ne $num_exon_files ]]; then
+        echo "FAILURE running gene/exon unify, unexpected # of exon sum files: $num_exon_files vs. $num_expected (expected)"
+        popd
+        exit -1
+    fi
+
     echo "Running QC stats collection"
     python3 /recount-unify/log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping "${SAMPLE_ID_MANIFEST}" --intron-sums intron_counts_summed.tsv > qc.tsv 2> qc.err
-    num_samples_qc=$(wc -l qc.tsv)
-    num_samples_qc=((num_samples_qc - 1))
+    num_samples_qc=$(cat qc.tsv | wc -l)
+    num_samples_qc=$(( num_samples_qc - 1 ))
     if [[ $num_samples_qc -ne $num_samples ]]; then
         echo "FAILURE in pump output QC stats collection (post gene/exon unify), # QC rows ($num_samples_qc) != # samples ($num_samples)"
         popd
@@ -221,6 +251,12 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
         mv junction_counts_per_study/?? temp_jxs/
         mv junction_counts_per_study junction_counts_per_study_run_files
         mv temp_jxs junction_counts_per_study
+    fi
+    num_jx_files=$(find junction_counts_per_study -name "*.gz" -size +0c | wc -l)
+    if [[ $num_expected -ne $num_jx_files ]]; then
+        echo "FAILURE running gene/exon unify, unexpected # of gene sum files: $num_jx_files vs. $num_expected (expected)"
+        popd
+        exit -1
     fi
     popd
 fi
