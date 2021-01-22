@@ -31,6 +31,9 @@ set -exo pipefail
 #or SRA mouse tranche 7:
 #/bin/bash /path/to/recount-unify/run_unifier.sh 17 39622 40 /scratch/ceph/langmead/checked/mouse/sra_mouse_v1_7 sra_mouse_v1 grcm38 srav1_mouse7.txt "M023,ERCC,SIRV" ../refs
 
+#make sure snaptron submodule is checkedout
+git submodule update --init --recursive
+
 dir=$(dirname $0)
 
 #compilation ID used in rail_id generation (e.g. tcga is 3, sra_human_v3_8 is 18, sra_human_v3_2 is 12)
