@@ -2,3 +2,7 @@
 	path = snaptron
 	url = https://github.com/ChristopherWilks/snaptron.git
 	branch = master
+[submodule "recount-pump"]
+	path = recount-pump
+	url = https://github.com/langmead-lab/recount-pump.git
+	branch = master
