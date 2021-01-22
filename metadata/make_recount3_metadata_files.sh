@@ -36,15 +36,15 @@ proj_header='rail_id	external_id	study	project	organism	file_source	metadata_sou
 dsource_path="$data_source/$dsource"
 
 #create recount_project metadata file
-cat <(echo $proj_header) <(zcat $qc_file | tail -n+2 | fgrep "$study	" | cut -f 1-3 | perl -ne 'chomp; $f=$_; print "$f\t'$study'\t'$organism'\t'$dsource_path'\t'$dsource_path'\t'$date'\n";') | gzip > $dir/${dsource}.recount_project.${study}.MD.gz
+cat <(echo $proj_header) <(cat $qc_file | tail -n+2 | fgrep "$study	" | cut -f 1-3 | perl -ne 'chomp; $f=$_; print "$f\t'$study'\t'"$organism"'\t'$dsource_path'\t'$dsource_path'\t'$date'\n";') | gzip > $dir/${dsource}.recount_project.${study}.MD.gz
 
 #2) original sample metadata can be *any* tab delimited set of fields as long as it starts with these 3 columns for each row:
 #rail_id external_id     study
 num_cols=$(head -1 samples.tsv | sed 's/rail_id\trun\t/rail_id\texternal_id\t/' | tee samples.tsv.header | tr \\t \\n | wc -l)
 num_cols_minus_jxs=$(( num_cols - 3 ))
-cat <(cut -f 1-${num_cols_minus_jxs} samples.tsv.header) <(cut -f 1-${num_cols_minus_jxs} samples.tsv | fgrep "$study	") | gzip > $dir/${dsource}.${dsource}.${study}.MD.gz
+cat <(cut -f 1-${num_cols_minus_jxs} samples.tsv.header) <(fgrep "$study	" samples.tsv | cut -f 1-${num_cols_minus_jxs}) | gzip > $dir/${dsource}.${dsource}.${study}.MD.gz
 
-#3) just gzip the finalized QC file into place
-cat $qc_file | gzip > $dir/${dsource}.recount_qc.${study}.MD.gz
+#3) just grep out this study's samples & gzip the finalized QC file into place
+cat <(head -1 $qc_file) <(fgrep "$study	" $qc_file) | gzip > $dir/${dsource}.recount_qc.${study}.MD.gz
 
 rm ${study}.dir

@@ -276,7 +276,7 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
         exit -1
     fi
 
-    cut -f 3 qc.tsv | sort -u > qc.tsv.studies
+    cut -f 3 qc.tsv | tail -n+2 | sort -u > qc.tsv.studies
     for s in `cat qc.tsv.studies`; do /bin/bash -x /recount-unify/metadata/make_recount3_metadata_files.sh $s $ORGANISM_REF qc.tsv $PROJECT_SHORT_NAME ; done
 
     popd
