@@ -263,6 +263,9 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
         exit -1
     fi
 
+    ### Now wrangle per-sample metadata
+    #TODO: support custom/in-house sample metadata
+
     #add jx stats to QC stats
     cat qc_1.tsv | perl /recount-unify/log_qc/add_jx_stats2qc.pl samples.tsv > qc_2.tsv 2>> qc.err
     #this step adds in the combined columns for the STAR stats in the case of 2-step alignment when there's a 3rd, unpaired FASTQ file
@@ -277,8 +280,18 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     fi
 
     cut -f 3 qc.tsv | tail -n+2 | sort -u > qc.tsv.studies
-    for s in `cat qc.tsv.studies`; do /bin/bash -x /recount-unify/metadata/make_recount3_metadata_files.sh $s $ORGANISM_REF qc.tsv $PROJECT_SHORT_NAME ; done
-
+    DBGAP=0
+    if [[ -n $PROTECTED ]]; then
+        DBGAP=1
+    fi
+    for study in `cat qc.tsv.studies`; 
+    do 
+        #1) start with source metadata, for now just pull from SRA
+        #/recount-unify/recount-pump/metadata/scripts/fetch_sra_metadata.py --accession --orgn $ORGANISM_REF
+        /bin/bash -x /recount-unify/metadata/pull_source_metadata.sh $study $ORGANISM_REF $DBGAP
+        #2 now put it all together to create the 3+ final set of metadata files recount3 needs to load data
+        /bin/bash -x /recount-unify/metadata/make_recount3_metadata_files.sh $study $ORGANISM_REF qc.tsv $PROJECT_SHORT_NAME
+    done
     popd
 fi
 
