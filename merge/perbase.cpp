@@ -248,7 +248,7 @@ double summarize_region(int* cidx, long* start, long* end, char* strand, T** chr
     {
             //adjust for the base-0 array, assumes base-1 coordinates (not BED)
 			sprintf(*motif, "%c%c-%c%c", chrm_array[*cidx][(*start)-1], chrm_array[*cidx][*start], chrm_array[*cidx][(*end)-2], chrm_array[*cidx][(*end)-1]);
-            motif[5]='\0';
+            motif[5]="\0";
             return summary;
     }
 	//fprintf(stderr,"value: %d line: %c\n",strand_val,*strand);
