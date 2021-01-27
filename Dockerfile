@@ -51,6 +51,8 @@ COPY scripts/ /recount-unify/scripts/
 COPY log_qc/ /recount-unify/log_qc/
 COPY annotate/ /recount-unify/annotate/
 COPY sample_ids/ /recount-unify/sample_ids/
+COPY metadata/ /recount-unify/metadata/
+COPY recount-pump/metadata/scripts /recount-unify/recount-pump/metadata/scripts/
 
 WORKDIR /recount-unify/rejoin/
 RUN make all
