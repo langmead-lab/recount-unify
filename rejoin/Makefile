@@ -16,4 +16,4 @@ test: rejoin test/aexon_sums.tsv test/dexon2aexon_map.tsv
 	diff test/aexon.counts.dups exon.counts.dups
 
 clean: 
-	rm rejoin rejoin-debug split_exons
+	rm -f rejoin rejoin-debug split_exons

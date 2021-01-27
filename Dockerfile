@@ -55,12 +55,15 @@ COPY metadata/ /recount-unify/metadata/
 COPY recount-pump/metadata/scripts /recount-unify/recount-pump/metadata/scripts/
 
 WORKDIR /recount-unify/rejoin/
+RUN make clean
 RUN make all
 
 WORKDIR /recount-unify/merge/
+RUN make clean
 RUN make all
 
 WORKDIR /recount-unify/scripts/
+RUN make clean
 RUN make all
 
 WORKDIR /
