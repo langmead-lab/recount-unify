@@ -87,7 +87,7 @@ cat <(echo "external_id	study	sample_acc	experiment_acc	submission_acc	submissio
 cat all.runs.tsv.1 | cut -f 1-25,29-43 > all.runs.tsv
 
 #now map in rail_ids
-cat <(cut -f 1-3 ../$rc_project_file) all.runs.tsv | perl -ne 'chomp; $f=$_; @f=split(/\t/,$f,-1); if(scalar(@f) == 3) { $hmap{$f[1]."\t".$f[2]}=$f[0]; next; } $k=$f[0]."\t".$f[1]; $rail_id=$hmap{$k}; if(!defined($rail_id)) { print STDERR "couldnt map $k to a rail_id, skipping\n"; next; } print "$rail_id\t$f\n";' > all.runs.tsv.2
+cat <(gzip -cd ../$rc_project_file | cut -f 1-3) all.runs.tsv | perl -ne 'chomp; $f=$_; @f=split(/\t/,$f,-1); if(scalar(@f) == 3) { $hmap{$f[1]."\t".$f[2]}=$f[0]; next; } $k=$f[0]."\t".$f[1]; $rail_id=$hmap{$k}; if(!defined($rail_id)) { print STDERR "couldnt map $k to a rail_id, skipping\n"; next; } print "$rail_id\t$f\n";' > all.runs.tsv.2
 cat all.runs.tsv.2 | gzip > ../$sdir/${dsource}.${dsource}.${study}.MD.gz
 
 #cleanup
