@@ -16,9 +16,8 @@ protected=$5
 #skips if defined
 skip_nontranscriptomic=$6
 
-#assume that make_recount3_metadata_files.sh has already been run
 perl -e '$study="'$study'"; $study=~/(..)$/; $lo=$1; `mkdir -p metadata/$lo/$study`; print "metadata/$lo/$study\n";' > ${study}.dir
-dir=`cat ${study}.dir`
+sdir=`cat ${study}.dir`
 
 orgn="human"
 if [[ "$ref" == "grcm38" ]]; then
@@ -34,11 +33,21 @@ fi
 #replace spaces with "_" to allow for use in filenames
 orgn_orig=$orgn
 orgn=`echo -n "$orgn_orig" | perl -ne '$o=$_; $o=~s/\s+/_/g; print "$o";'`
+
+#change into study specific working directory
+working_dir=${study}_metadata_temp
+mkdir -p $working_dir
+pushd $working_dir
+
 #assumes write to the current working directory
 mkdir -p xml_out
 mkdir -p err_out
 
-python3 $dir/../recount-pump/metadata/scripts/fetch_sra_metadata.py --accession $study --orgn $orgn --xml-path xml_out --err-path err_out $extra > fetch_sra_${orgn}.txt 2>&1
+if [[ -z $PYTHON_PATH ]]; then
+    PYTHON_PATH=python3
+fi
+
+$PYTHON_PATH $dir/../recount-pump/metadata/scripts/fetch_sra_metadata.py --accession $study --orgn $orgn --xml-path xml_out --err-path err_out $extra > fetch_sra_${orgn}.txt 2>&1
 
 /bin/bash -x fetch_${orgn}.jobs > fetch_${orgn}.jobs.run 2>&1
 /bin/bash -x parse_${orgn}.sh > parse_${orgn}.sh.run 2>&1
@@ -46,12 +55,12 @@ python3 $dir/../recount-pump/metadata/scripts/fetch_sra_metadata.py --accession 
 #try to find non-transcriptomic runs from this study, if not skipped 
 if [[ -z $skip_nontranscriptomic ]]; then
     #pick up any runs which don't have "transcriptomic" as source but share a study with ones that do
-    mkdir nontranscriptomic
+    mkdir -p nontranscriptomic
     pushd nontranscriptomic
-    python $dir/../recount-pump/metadata/scripts/fetch_sra_metadata.py --accession $study --orgn $orgn --xml-path xml_out --err-path err_out $extra --non-transcriptomic > fetch_sra_${orgn}.txt 2>&1
+    $PYTHON_PATH $dir/../recount-pump/metadata/scripts/fetch_sra_metadata.py --accession $study --orgn $orgn --xml-path xml_out --err-path err_out $extra --non-transcriptomic > fetch_sra_${orgn}.txt 2>&1
     no_records=$(fgrep -m1 'Total # of records is 0 ' fetch_sra_${orgn}.txt)
 
-    if [[ -z $no_records ]]; then
+    if [[ -z "$no_records" ]]; then
         /bin/bash -x fetch_${orgn}.jobs > fetch_${orgn}.jobs.run 2>&1
         /bin/bash -x parse_${orgn}.sh > parse_${orgn}.sh.run 2>&1
         cut -f 2 all_${orgn}_sra.tsv | sort -u | sed -e 's/$/\t/' > all_${orgn}_sra.tsv.studies
@@ -79,7 +88,9 @@ cat all.runs.tsv.1 | cut -f 1-25,29-43 > all.runs.tsv
 
 #now map in rail_ids
 cat <(zcat $rc_project_file | cut -f 1-3) all.runs.tsv | perl -ne 'chomp; $f=$_; @f=split(/\t/,$f,-1); if(scalar(@f) == 3) { $hmap{$f[1]."\t".$f[2]}=$f[0]; next; } $rail_id=$hmap{$f[0]."\t".$f[1]}; if(!defined($rail_id)) { print STDERR "couldnt map $f to a rail_id, terminating\n"; exit(-1);} print "$rail_id\t$f\n";' > all.runs.tsv.2
-cat all.runs.tsv.2 | gzip > $dir/${dsource}.${dsource}.${study}.MD.gz
+cat all.runs.tsv.2 | gzip > ../$sdir/${dsource}.${dsource}.${study}.MD.gz
 
 #cleanup
-rm -f all.runs.tsv.1 all_${orgn}_sra.tsv all_${orgn}_sra.with_nontranscriptomic_runs.tsv all.runs.tsv.? ${study}.dir
+popd
+#rm -rf $working_dir ${study}.dir
+#rm -f all.runs.tsv.1 all_${orgn}_sra.tsv all_${orgn}_sra.with_nontranscriptomic_runs.tsv all.runs.tsv.? ../${study}.dir
