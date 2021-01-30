@@ -284,13 +284,16 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     if [[ -n $PROTECTED ]]; then
         DBGAP=1
     fi
+
+    #hack to get around conda env's python3 not finding libssl for the pull_source_metadata.sh script below
+    export PYTHON_PATH=/opt/conda/bin/python3
     for study in `cat qc.tsv.studies`; 
     do 
-        #1) start with source metadata, for now just pull from SRA
+        #1) start by creating 2+ final set of metadata files recount3 needs to load data
+        /bin/bash -x /recount-unify/metadata/make_recount3_metadata_files.sh $study $ORGANISM_REF qc.tsv $PROJECT_SHORT_NAME
+        #2) get source metadata, for now just pull from SRA
         #/recount-unify/recount-pump/metadata/scripts/fetch_sra_metadata.py --accession --orgn $ORGANISM_REF
         /bin/bash -x /recount-unify/metadata/pull_source_metadata.sh $study $ORGANISM_REF $DBGAP
-        #2 now put it all together to create the 3+ final set of metadata files recount3 needs to load data
-        /bin/bash -x /recount-unify/metadata/make_recount3_metadata_files.sh $study $ORGANISM_REF qc.tsv $PROJECT_SHORT_NAME
     done
     popd
 fi
