@@ -291,7 +291,7 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     do 
         #1) start by creating 2+ final set of metadata files recount3 needs to load data
         /bin/bash -x /recount-unify/metadata/make_recount3_metadata_files.sh $study $ORGANISM_REF qc.tsv $PROJECT_SHORT_NAME > make_recount3_metadata_files.sh.run 2>&1
-        RPROJ_LIST_FILE=$(grep "RC=" make_recount3_metadata_files.sh.run | cut -d'=' -f 2) 
+        RPROJ_LIST_FILE=$(grep "RC=" make_recount3_metadata_files.sh.run | grep -v "echo" | cut -d'=' -f 2) 
         #2) get source metadata, for now just pull from SRA
         /bin/bash -x /recount-unify/metadata/pull_source_metadata.sh $study $ORGANISM_REF $RPROJ_LIST_FILE $PROJECT_SHORT_NAME $DBGAP
     done
