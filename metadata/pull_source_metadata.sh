@@ -38,7 +38,7 @@ orgn=`echo -n "$orgn_orig" | perl -ne '$o=$_; $o=~s/\s+/_/g; print "$o";'`
 mkdir -p xml_out
 mkdir -p err_out
 
-python $dir/../recount-pump/metadata/scripts/fetch_sra_metadata.py --accession $study --orgn $orgn --xml-path xml_out --err-path err_out $extra > fetch_sra_${orgn}.txt 2>&1
+python3 $dir/../recount-pump/metadata/scripts/fetch_sra_metadata.py --accession $study --orgn $orgn --xml-path xml_out --err-path err_out $extra > fetch_sra_${orgn}.txt 2>&1
 
 /bin/bash -x fetch_${orgn}.jobs > fetch_${orgn}.jobs.run 2>&1
 /bin/bash -x parse_${orgn}.sh > parse_${orgn}.sh.run 2>&1

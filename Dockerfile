@@ -1,9 +1,9 @@
 FROM continuumio/miniconda3:4.5.12
  
-RUN apt-get update -y && apt-get install -y gcc g++ make git python2.7 python-pip python-dev ant default-jdk sqlite3 wget curl parallel libz-dev
+RUN apt-get update -y && apt-get install -y gcc g++ make git python2.7 python-pip python-dev ant default-jdk sqlite3 wget curl parallel libz-dev libreadline-gplv2-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev
 
 WORKDIR /
-## set Snaptron related up here
+## set Snaptron related up here due to how long it takes to recreate
 # cribbed from https://bitbucket.org/coady/docker/src/tip/pylucene/Dockerfile
 RUN mkdir -p /usr/src/pylucene
 WORKDIR /usr/src/pylucene
@@ -13,9 +13,9 @@ RUN cd jcc && JCC_JDK=/usr/lib/jvm/default-java /usr/bin/python setup.py install
 RUN mkdir -p /root/.ant/lib/
 RUN wget https://repo1.maven.org/maven2/org/apache/ivy/ivy/2.3.0/ivy-2.3.0.jar -O /root/.ant/lib/ivy-2.3.0.jar
 RUN make all install JCC='/usr/bin/python -m jcc' ANT=ant PYTHON=/usr/bin/python NUM_FILES=8
-
 WORKDIR ..
 RUN rm -rf pylucene
+
 WORKDIR /
 
 #get no compression version of bgzip/tabix
@@ -73,6 +73,8 @@ COPY env.yml /recount-unify/env-base.yml
 RUN chmod a+r /recount-unify/env-base.yml
 
 RUN conda env create -q -f /recount-unify/env-base.yml && conda clean -y -p -t
+#hack to get around conda env's python3 not finding libssl
+RUN pip install biopython==1.78
 
 #RUN apt-get remove --purge -y gcc g++ make
 
@@ -88,5 +90,6 @@ RUN chmod a+rx /recount-unify/workflow.bash
 
 RUN echo 'pigz --stdout -p2 -d $1' > /usr/bin/pcat
 RUN chmod a+rx /usr/bin/pcat
+
 
 CMD ["bash", "-c", "export PATH=/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && source activate recount-unify && /recount-unify/workflow.bash"]
