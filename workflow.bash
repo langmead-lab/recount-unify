@@ -193,8 +193,9 @@ if [[ -z $SKIP_SUMS ]]; then
     #find gene_sums_per_study -name "*.gz" -size +0c | perl /recount-unify/scripts/check_unifier_outputs.pl ${SAMPLE_ID_MANIFEST}.num_samples_per_study.tsv genes ${GENE_EXON_ANNOTATION_ROW_COUNTS}
 
     num_studies=$(cat ${SAMPLE_ID_MANIFEST}.studies | wc -l)
+    num_files=$(echo "$LIST_OF_ANNOTATIONS" | tr "," \\n | wc -l)
     #2) number of files * number of studies
-    num_expected=$(( num_studies * 6 ))
+    num_expected=$(( num_studies * num_files ))
     num_gene_files=$(find gene_sums_per_study -name "*.gz" -size +0c | wc -l)
     if [[ $num_expected -ne $num_gene_files ]]; then
         echo "FAILURE running gene/exon unify, unexpected # of gene sum files: $num_gene_files vs. $num_expected (expected)"
