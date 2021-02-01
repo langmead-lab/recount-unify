@@ -196,8 +196,7 @@ rule mmformat_sjs:
 			cut -f 11 {input} | tr , \\\\n | fgrep ':' | cut -d':' -f1 | sort -nu > {input}.sids
 			num_samples=`cat {input}.sids | wc -l`
 			cat {input} | {params.script_path} -n ${{num_samples}} -p "{params.study}.{params.type}" -s {input}.sids > {params.study}.{params.type}.RR 2> {output[0]}.run
-			mv {params.study}.{params.type}.mm {params.study}.{params.type}.MM
-			cat {params.study}.{params.type}.MM | pigz --fast -p {threads} > {output[0]}
+			cat {params.study}.{params.type}.mm | pigz --fast -p {threads} > {output[0]}
 			cat {params.study}.{params.type}.RR | pigz --fast -p {threads} > {output[1]}
 			cat <(echo "rail_id") {input}.sids | pigz --fast -p {threads} > {output[2]}
 		else
