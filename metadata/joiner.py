@@ -23,6 +23,7 @@ parser.add_argument('--output-sep', metavar='separator', type=str, default='\t',
 parser.add_argument('--join-field', metavar='fieldname_to_join_on', type=str, default=None, help='field needed to join across input files (e.g. the key)')
 parser.add_argument('--smaller-matching', action='store_const', const=True, default=False, help='don\'t print out unmated rows from the smaller file')
 parser.add_argument('--larger-matching', action='store_const', const=True, default=False, help='don\'t print out unmated rows from the larger file')
+parser.add_argument('--print-mulitple-join-fields', action='store_const', const=True, default=False, help='don\'t suppress the printingof additional (duplicate) join fields from all the files, default is to only print one of them (from --smaller file)')
 args = parser.parse_args()
 
 if args.smaller is None:
@@ -57,10 +58,14 @@ larger_fields = None
 with open(args.larger, newline='') as delimited_file:
     reader = csv.DictReader(delimited_file, restkey='EXTRAFIELDS', delimiter=args.larger_sep)
     larger_fields = reader.fieldnames
+    if not args.print_mulitple_join_fields:
+        larger_fields = [field for field in larger_fields if field != key]
     #write out joined header
     sys.stdout.write(args.output_sep.join(smaller_fields) + args.output_sep + args.output_sep.join(larger_fields) + '\n')
     for row in reader:
-        row_ = args.output_sep.join(row.values()) 
+        row_ = args.output_sep.join([row[k] for k in row.keys() if k != key])
+        if args.print_mulitple_join_fields:
+            row_ = args.output_sep.join(row.values())
         if row[key] not in smap:
             if args.larger_matching:
                 sys.stderr.write("WARNING: row in larger %s not in smaller %s: %s; skipping it\n" % (args.larger, args.smaller, row_))
@@ -77,6 +82,7 @@ with open(args.larger, newline='') as delimited_file:
 #now output all rows in smaller file which didn't match anything in larger
 num_larger_fields = len(larger_fields)
 larger_blanks_row = args.output_sep.join([""]*num_larger_fields)
+
 for k in smap.keys():
     if k in seen:
         continue
