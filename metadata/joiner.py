@@ -2,6 +2,8 @@
 #join between 2 files using a single field to join on
 #default behavior is to do a "outer join" on both sides (left & right)
 #i.e. if a key doesn't exist in the other file, print the existing line with blanks for the other file's fields
+#this will also do the cross-product join by default
+#(every row in each file which matches every row in the other file will get it's own line in the output)
 import sys
 import os
 import glob
@@ -19,7 +21,8 @@ parser.add_argument('--smaller-sep', metavar='separator', type=str, default='\t'
 parser.add_argument('--larger-sep', metavar='separator', type=str, default='\t', help='primary field separator for larger file [default: "\t"]')
 parser.add_argument('--output-sep', metavar='separator', type=str, default='\t', help='primary field sepaarator for output [default: "\t"]')
 parser.add_argument('--join-field', metavar='fieldname_to_join_on', type=str, default=None, help='field needed to join across input files (e.g. the key)')
-#parser.add_argument('--dont-use-patroller', action='store_const', const=True, default=False, help='if user has already filtered the attempts to be the correct set then they can skip using the patroller to find finished monorail runs')
+parser.add_argument('--smaller-matching', action='store_const', const=True, default=False, help='don\'t print out unmated rows from the smaller file')
+parser.add_argument('--larger-matching', action='store_const', const=True, default=False, help='don\'t print out unmated rows from the larger file')
 args = parser.parse_args()
 
 if args.smaller is None:
@@ -59,8 +62,11 @@ with open(args.larger, newline='') as delimited_file:
     for row in reader:
         row_ = args.output_sep.join(row.values()) 
         if row[key] not in smap:
-            sys.stderr.write("WARNING: row in larger %s not in smaller %s: %s; padding it\n" % (args.larger_file, args.smaller_file, row))
-            sys.stdout.write(smaller_blanks_row + args.output_sep + row_ + '\n')
+            if args.larger_matching:
+                sys.stderr.write("WARNING: row in larger %s not in smaller %s: %s; skipping it\n" % (args.larger, args.smaller, row_))
+            else:
+                sys.stderr.write("WARNING: row in larger %s not in smaller %s: %s; padding it\n" % (args.larger, args.smaller, row_))
+                sys.stdout.write(smaller_blanks_row + args.output_sep + row_ + '\n')
             continue
         smap_rows = smap[row[key]]
         for smap_row in smap_rows:
@@ -76,4 +82,8 @@ for k in smap.keys():
         continue
     smap_rows = smap[k]
     for smap_row in smap_rows:
-        sys.stdout.write(smap_row + args.output_sep + larger_blanks_row + '\n')
+        if args.smaller_matching:
+            sys.stderr.write("WARNING: row in smaller %s not in larger %s: %s; skipping it\n" % (args.smaller, args.larger, smap_row))
+        else:
+            sys.stderr.write("WARNING: row in smaller %s not in larger %s: %s; padding it\n" % (args.smaller, args.larger, smap_row))
+            sys.stdout.write(smap_row + args.output_sep + larger_blanks_row + '\n')
