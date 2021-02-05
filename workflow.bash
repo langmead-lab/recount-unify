@@ -259,6 +259,9 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
         mv junction_counts_per_study junction_counts_per_study_run_files
         mv temp_jxs junction_counts_per_study
     fi
+   
+    #6 jx files per study (all + unique ID, MM, RR files)
+    num_expected=$(( num_studies * 6 ))
     num_jx_files=$(find junction_counts_per_study -name "*.gz" -size +0c | wc -l)
     if [[ $num_expected -ne $num_jx_files ]]; then
         echo "FAILURE running gene/exon unify, unexpected # of gene sum files: $num_jx_files vs. $num_expected (expected)"
