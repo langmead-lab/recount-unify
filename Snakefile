@@ -307,9 +307,12 @@ rule rejoin_exons:
 		"""
 		set +o pipefail
 		{params.script_path} -a {params.exon_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p exon -h
-		cut -f 1-6 exon.counts > {output[0]}.coords
-		cat exon.counts | pigz --fast -p {threads} > {output[0]}
+		export LC_ALL=C
+		sort -t'	' -k2,2 -k3,3n -k4,4n -k6,6 --stable --parallel={threads} exon.counts > exon.counts.sorted
 		rm -f exon.counts exon.intron_counts
+		cut -f 1-6 exon.counts.sorted > {output[0]}.coords
+		cat exon.counts.sorted | pigz --fast -p {threads} > {output[0]}
+		rm -f exon.counts.sorted
 		"""
 
 rule split_final_rejoined_exons:
