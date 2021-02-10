@@ -113,32 +113,38 @@ test -e "${SAMPLE_ID_MANIFEST}"
 num_cols=$(head -1 ${SAMPLE_ID_MANIFEST} | tr \\t \\n | wc -l)
 #not getting the numeric IDs (3rd column)
 #so we'll need to generate them
-if [[ $num_cols -ne 3 ]]; then
-    if [[ $num_cols -ne 2 ]]; then
-        echo "${SAMPLE_ID_MANIFEST} needs to have either 2 or 3 columns, exiting"
-        exit -1
+if [[ -z $SKIP_PREP ]]; then
+    if [[ $num_cols -ne 3 ]]; then
+        if [[ $num_cols -ne 2 ]]; then
+            echo "${SAMPLE_ID_MANIFEST} needs to have either 2 or 3 columns, exiting"
+            exit -1
+        fi
+        pushd /recount-unify/sample_ids
+        /usr/bin/python2.7 assign_compilation_ids.py --accessions-file $SAMPLE_ID_MANIFEST --acc-col 1 --compilation-code $PROJECT_ID --no-header > ${WORKING_DIR}/ids.tsv 2> ${WORKING_DIR}/assign_compilation_ids.py.errs
+        popd
     fi
-    pushd /recount-unify/sample_ids
-    /usr/bin/python2.7 assign_compilation_ids.py --accessions-file $SAMPLE_ID_MANIFEST --acc-col 1 --compilation-code $PROJECT_ID --no-header > ${WORKING_DIR}/ids.tsv 2> ${WORKING_DIR}/assign_compilation_ids.py.errs
-    export SAMPLE_ID_MANIFEST=${WORKING_DIR}/ids.tsv
-    popd
+
+
+    #default case is single study, with "<sample_id>_att" style sample output directories from recount-pump
+    compilation_arg=""
+    if [[ -z $MULTI_STUDY ]]; then
+        echo "Running single-study mode"
+        /bin/bash -x /recount-unify/scripts/create_directory_hierarchy_for_one_study.sh $SAMPLE_ID_MANIFEST $INPUT_DIR ${WORKING_DIR}/intermediate_links > setup_intermediate_links.run 2>&1
+        #need to create the directory structure we expect from the basic output of
+        #recount-pump on one study (assumed)
+        /bin/bash -x /recount-unify/scripts/find_done.sh ${WORKING_DIR}/intermediate_links links "*_att" > setup_links.run 2>&1
+    else
+        echo "Running multi-study mode"
+        #multi study, this assumes the input directory hierarchy/naming is correctly setup for running of find_done.sh external to recount-unify, e.g. study_loworder/study/run_loworder/run/run_inputID_att\d+
+        /bin/bash -x /recount-unify/scripts/find_done.sh $INPUT_DIR links "*_att" > setup_links.run 2>&1
+        compilation_arg="compilation=$PROJECT_SHORT_NAME"
+    fi
 fi
-
-
-#default case is single study, with "<sample_id>_att" style sample output directories from recount-pump
-compilation_arg=""
-if [[ -z $MULTI_STUDY ]]; then
-    echo "Running single-study mode"
-    /bin/bash -x /recount-unify/scripts/create_directory_hierarchy_for_one_study.sh $SAMPLE_ID_MANIFEST $INPUT_DIR ${WORKING_DIR}/intermediate_links > setup_intermediate_links.run 2>&1
-    #need to create the directory structure we expect from the basic output of
-    #recount-pump on one study (assumed)
-    /bin/bash -x /recount-unify/scripts/find_done.sh ${WORKING_DIR}/intermediate_links links "*_att" > setup_links.run 2>&1
-else
-    echo "Running multi-study mode"
-    #multi study, this assumes the input directory hierarchy/naming is correctly setup for running of find_done.sh external to recount-unify, e.g. study_loworder/study/run_loworder/run/run_inputID_att\d+
-    /bin/bash -x /recount-unify/scripts/find_done.sh $INPUT_DIR links "*_att" > setup_links.run 2>&1
+        
+if [[ -n $MULTI_STUDY ]]; then
     compilation_arg="compilation=$PROJECT_SHORT_NAME"
 fi
+export SAMPLE_ID_MANIFEST=${WORKING_DIR}/ids.tsv
 
 #e.g. 40
 echo "CPUs: ${RECOUNT_CPUS}"
