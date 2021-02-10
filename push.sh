@@ -4,4 +4,4 @@ IMAGE="quay.io/broadsword/recount-unify"
 VER=$(cat ver.txt)
 
 docker push $* ${IMAGE}:${VER}
-#docker push $* ${IMAGE}:latest
+docker push $* ${IMAGE}:latest
