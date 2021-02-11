@@ -15,7 +15,8 @@ while(my $line = <FIN>)
     #837730	ERR188431	ERP001942...26821	141957	5.29275567652213
     my @fields=split(/\t/,$line);
     #run:study
-    $fields[1] = "external_id" if($fields[1] eq "run");
+    $fields[1] = "external_id" if($fields[1]=~/(sample)|(run)|(external)/);
+    $fields[2] = "study" if($fields[2]=~/study_id/);
     my $key=$fields[1]."\t".$fields[2];
     $rail_ids{$key} = $fields[0];
     my $javg=pop(@fields);
@@ -25,6 +26,9 @@ while(my $line = <FIN>)
 }
 close(FIN);
 
+my $num_keys = scalar(keys %jx_stats);
+die "no runs/samples in samples.tsv, terminating\n" if($num_keys < 2);
+
 while(my $line = <STDIN>)
 {
     chomp($line);
@@ -32,8 +36,8 @@ while(my $line = <STDIN>)
     my @fields = split(/\t/,$line);
     my $study = shift(@fields);
     my $run = shift(@fields);
-    $run = "external_id" if($run eq "sample");
     my $newline = join("\t",@fields);
+    $run = "external_id" if($run eq "sample");
     my $key = $run."\t".$study;
     die "couldnt find entry in $samples_file for $key, terminating\n" if(!defined($jx_stats{$key}));
     my $rail_id = $rail_ids{$key};
