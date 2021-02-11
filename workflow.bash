@@ -293,4 +293,25 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     done
 fi
 
+#now do a little genotyping for sample QC, if requested and there are BAMs
+if [[ -n $SNPS_FILE_FOR_GENOTYPING ]]; then
+    find ${INPUT_DIR} -name "*.bam" -size +0c | fgrep -v unmapped > all_bams
+    num_bams=$(cat all_bams | wc -l)
+    if [[ $num_bams -gt 0 ]]; then
+        echo "Running basic genotyping for sample QC"
+        find ${INPUT_DIR} -name "*.bam.bai" -size +0c | fgrep -v unmapped > all_bais
+        mkdir -p genotypes
+        pushd genotypes
+        cat ../all_bams | xargs -I {} ln -fs {}
+        rm ../all_bams
+        cat ../all_bais | xargs -I {} ln -fs {}
+        rm ../all_bais
+        ls *.bam > all_bams
+        cat all_bams | perl -ne 'chomp; print "/bin/bash /recount-unify/scripts/genotype.sh $_ '$SNPS_FILE_FOR_GENOTYPING' '$REF_DIR'/recount_pump.fa 1 > $_.genotype_run 2>&1\n";' > genotype.jobs
+        parallel -j $RECOUNT_CPUS < genotype.jobs
+        rm *.bam *.bai
+        popd
+    fi
+fi
+
 echo SUCCESS
