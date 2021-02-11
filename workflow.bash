@@ -186,34 +186,19 @@ if [[ -z $SKIP_SUMS ]]; then
     done=`fgrep 'steps (100%) done' recount-unify.output.sums.txt`
     if [[ -z $done ]]; then
         echo "FAILURE running gene/exon unify"
-        popd
         exit -1
     fi
     
-    #need to do smoke tests for proper outputs based on:
+    #use this number of studies for later smoke tests
     #get number of samples per-study
+    export LC_ALL=C
     cut -f 1 $SAMPLE_ID_MANIFEST | sort | uniq -c | tr -s " " \\t | cut -f 2,3 > ${SAMPLE_ID_MANIFEST}.num_samples_per_study.tsv
     cut -f 2 ${SAMPLE_ID_MANIFEST}.num_samples_per_study.tsv | sort -u > ${SAMPLE_ID_MANIFEST}.studies
-
-    #1) check counts per study file for genes/exons
-    #find gene_sums_per_study -name "*.gz" -size +0c | perl /recount-unify/scripts/check_unifier_outputs.pl ${SAMPLE_ID_MANIFEST}.num_samples_per_study.tsv genes ${GENE_EXON_ANNOTATION_ROW_COUNTS}
-
-    num_studies=$(cat ${SAMPLE_ID_MANIFEST}.studies | wc -l)
-    num_files=$(echo "$LIST_OF_ANNOTATIONS" | tr "," \\n | wc -l)
-    #2) number of files * number of studies
-    num_expected=$(( num_studies * num_files ))
-    num_gene_files=$(find gene_sums_per_study -name "*.gz" -size +0c | wc -l)
-    if [[ $num_expected -ne $num_gene_files ]]; then
-        echo "FAILURE running gene/exon unify, unexpected # of gene sum files: $num_gene_files vs. $num_expected (expected)"
-        popd
-        exit -1
-    fi
-    num_exon_files=$(find exon_sums_per_study -name "*.gz" -size +0c | wc -l)
-    if [[ $num_expected -ne $num_exon_files ]]; then
-        echo "FAILURE running gene/exon unify, unexpected # of exon sum files: $num_exon_files vs. $num_expected (expected)"
-        popd
-        exit -1
-    fi
+    export num_studies=$(cat ${SAMPLE_ID_MANIFEST}.studies | wc -l)
+    
+    #now do first set of smoke tests on output of gene/exon unification
+    export GENE_EXON_ANNOTATION_ROW_COUNTS_FILE=$REF_DIR/gene_exon_annotation_row_counts.tsv
+    /recount-unify/scripts/run_gene_exon_sum_checks.sh
 
     echo "Running QC stats collection"
     python3 /recount-unify/log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping "${SAMPLE_ID_MANIFEST}" --intron-sums intron_counts_summed.tsv > qc_1.tsv 2> qc.err
@@ -221,7 +206,6 @@ if [[ -z $SKIP_SUMS ]]; then
     num_samples_qc=$(( num_samples_qc - 1 ))
     if [[ $num_samples_qc -ne $num_samples ]]; then
         echo "FAILURE in pump output QC stats collection (post gene/exon unify), # QC rows ($num_samples_qc) != # samples ($num_samples)"
-        popd
         exit -1
     fi
 fi
@@ -255,7 +239,6 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     done=`fgrep 'steps (100%) done' recount-unify.output.jxs.txt`
     if [[ -z $done ]]; then
         echo "FAILURE running junction unify"
-        popd
         exit -1
     fi
     #do a little clean up not part of recount-unify proper
@@ -271,7 +254,6 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     num_jx_files=$(find junction_counts_per_study -name "*.gz" -size +0c | wc -l)
     if [[ $num_expected -ne $num_jx_files ]]; then
         echo "FAILURE running gene/exon unify, unexpected # of gene sum files: $num_jx_files vs. $num_expected (expected)"
-        popd
         exit -1
     fi
 
@@ -287,7 +269,6 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     num_samples_qc=$(( num_samples_qc - 1 ))
     if [[ $num_samples_qc -ne $num_samples ]]; then
         echo "FAILURE in pump output QC stats collection (post gene/exon unify), # QC rows ($num_samples_qc) != # samples ($num_samples)"
-        popd
         exit -1
     fi
 
@@ -310,7 +291,6 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
             /bin/bash -x /recount-unify/metadata/pull_source_metadata.sh $study $ORGANISM_REF $RPROJ_LIST_FILE $PROJECT_SHORT_NAME $DBGAP
         fi
     done
-    popd
 fi
 
 echo SUCCESS
