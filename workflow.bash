@@ -291,6 +291,9 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
             /bin/bash -x /recount-unify/metadata/pull_source_metadata.sh $study $ORGANISM_REF $RPROJ_LIST_FILE $PROJECT_SHORT_NAME $DBGAP
         fi
     done
+    #fix junction file names to be the case recount3 expects:
+    find junction_counts_per_study -name "*.all.*.gz" | perl -ne 'chomp; $f=$_; $f1=$f; $f1=~s/.all./.ALL./; `mv $f $f1`;'
+    find junction_counts_per_study -name "*.unique.*.gz" | perl -ne 'chomp; $f=$_; $f1=$f; $f1=~s/.unique./.UNIQUE./; `mv $f $f1`;'
 fi
 
 #now do a little genotyping for sample QC, if requested and there are BAMs
