@@ -72,6 +72,7 @@ WORKDIR /
 COPY env.yml /recount-unify/env-base.yml
 RUN chmod a+r /recount-unify/env-base.yml
 
+RUN conda upgrade -n base -c defaults --override-channels conda
 RUN conda env create -q -f /recount-unify/env-base.yml && conda clean -y -p -t
 #hack to get around conda env's python3 not finding libssl
 RUN pip install biopython==1.78
