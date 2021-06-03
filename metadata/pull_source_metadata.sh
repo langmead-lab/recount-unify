@@ -10,11 +10,6 @@ ref=$2
 rc_project_file=$3
 #e.g. sra
 dsource=$4
-#0 (no) or 1 (yes) to include dbGaP in the query
-protected=$5
-#optional, if set we only for query for runs from the the study which are labeled as "transcriptomic"
-#skips if defined
-skip_nontranscriptomic=$6
 
 perl -e '$study="'$study'"; $study=~/(..)$/; $lo=$1; `mkdir -p metadata/$lo/$study`; print "metadata/$lo/$study\n";' > ${study}.dir
 sdir=`cat ${study}.dir`
@@ -25,10 +20,6 @@ if [[ "$ref" == "grcm38" ]]; then
 fi
 
 dir=$(dirname $0)
-extra=
-if [[ -n $protected && $protected -gt 0 ]]; then
-    extra="--include-protected"
-fi
 
 #replace spaces with "_" to allow for use in filenames
 orgn_orig=$orgn
@@ -47,35 +38,13 @@ if [[ -z $PYTHON_PATH ]]; then
     PYTHON_PATH=python3
 fi
 
-$PYTHON_PATH $dir/../recount-pump/metadata/scripts/fetch_sra_metadata.py --accession $study --orgn $orgn --xml-path xml_out --err-path err_out $extra > fetch_sra_${orgn}.txt 2>&1
+#want as relaxed a query pattern as possible, we'll filter in only those runs we are actually processing, the rest will be discarded
+$PYTHON_PATH $dir/../recount-pump/metadata/scripts/fetch_sra_metadata.py --base-query "${study}[Accession]" --orgn $orgn --xml-path xml_out --err-path err_out > fetch_sra_${orgn}.txt 2>&1
 
 /bin/bash -x fetch_${orgn}.jobs > fetch_${orgn}.jobs.run 2>&1
 /bin/bash -x parse_${orgn}.sh > parse_${orgn}.sh.run 2>&1
 
-#try to find non-transcriptomic runs from this study, if not skipped 
-if [[ -z $skip_nontranscriptomic ]]; then
-    #pick up any runs which don't have "transcriptomic" as source but share a study with ones that do
-    mkdir -p nontranscriptomic
-    pushd nontranscriptomic
-    $PYTHON_PATH $dir/../recount-pump/metadata/scripts/fetch_sra_metadata.py --accession $study --orgn $orgn --xml-path xml_out --err-path err_out $extra --non-transcriptomic > fetch_sra_${orgn}.txt 2>&1
-    no_records=$(fgrep -m1 'Total # of records is 0 ' fetch_sra_${orgn}.txt)
-
-    if [[ -z "$no_records" ]]; then
-        /bin/bash -x fetch_${orgn}.jobs > fetch_${orgn}.jobs.run 2>&1
-        /bin/bash -x parse_${orgn}.sh > parse_${orgn}.sh.run 2>&1
-        cut -f 2 all_${orgn}_sra.tsv | sort -u | sed -e 's/$/\t/' > all_${orgn}_sra.tsv.studies
-        fgrep -f all_${orgn}_sra.tsv.studies ../all_${orgn}_sra.tsv | cut -f 2 | sed -e 's/$/\t/' | sort -u > studies_found_in_transcriptomic
-        fgrep -f studies_found_in_transcriptomic all_${orgn}_sra.tsv > all_${orgn}_sra.tsv.in_transcriptomic
-        cat ../all_${orgn}_sra.tsv all_${orgn}_sra.tsv.in_transcriptomic | sort -u > ../all_${orgn}_sra.with_nontranscriptomic_runs.tsv
-        popd
-        ln -fs all_${orgn}_sra.with_nontranscriptomic_runs.tsv all.runs.tsv
-    else
-        popd
-        ln -fs all_${orgn}_sra.tsv all.runs.tsv
-    fi
-else
-    ln -fs all_${orgn}_sra.tsv all.runs.tsv
-fi
+ln -fs all_${orgn}_sra.tsv all.runs.tsv
 
 #get study level info
 cut -f 2,8-10 all.runs.tsv | sort -u > all.runs.tsv.study_level
