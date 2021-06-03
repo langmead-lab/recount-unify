@@ -15,7 +15,7 @@ while(my $line = <FIN>)
     #837730	ERR188431	ERP001942...26821	141957	5.29275567652213
     my @fields=split(/\t/,$line);
     #run:study
-    $fields[1] = "external_id" if($fields[1]=~/(sample)|(run)|(external)/);
+    $fields[1] = "external_id" if($fields[1]=~/^((sample_id)|(run)|(external_id))$/);
     $fields[2] = "study" if($fields[2]=~/study_id/);
     my $key=$fields[1]."\t".$fields[2];
     $rail_ids{$key} = $fields[0];
