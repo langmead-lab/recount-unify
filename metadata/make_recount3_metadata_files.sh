@@ -43,7 +43,7 @@ echo "RC=$dir/${dsource}.recount_project.${study}.MD.gz"
 
 #2) original sample metadata can be *any* tab delimited set of fields as long as it starts with these 3 columns for each row:
 #rail_id external_id     study
-num_cols=$(head -1 samples.tsv | sed 's/rail_id\trun\t/rail_id\texternal_id\t/' | tee samples.tsv.header | tr \\t \\n | wc -l)
+num_cols=$(head -1 samples.tsv | sed 's/rail_id\tsample_id\tstudy_id/rail_id\texternal_id\tstudy/' | tee samples.tsv.header | tr \\t \\n | wc -l)
 num_cols_minus_jxs=$(( num_cols - 3 ))
 cat <(cut -f 1-${num_cols_minus_jxs} samples.tsv.header) <(fgrep "$study	" samples.tsv | cut -f 1-${num_cols_minus_jxs}) | gzip > $dir/${dsource}.${dsource}.${study}.MD.gz
 
