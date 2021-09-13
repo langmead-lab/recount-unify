@@ -98,7 +98,7 @@ def alphaParsePrefix(string):
 	spline = re.split('\W+|_', noEnds)
 	
 	#if SRRID then spline will have only one group and be numeric
-	if len(spline)==1:
+	if len(spline)==1 and (spline[0].startswith('SRR') or spline[0].startswith('ERR') or spline[0].startswith('DRR')):
 		parse=spline[0]
 		parse=parse[3:]
 
@@ -135,7 +135,7 @@ def alphaParseSuffix(string):
 	spline = re.split('\W+|_', noEnds)
 	
 	#if SRRID then spline will have only one group and be numeric
-	if len(spline)==1:
+	if len(spline)==1 and (spline[0].startswith('SRR') or spline[0].startswith('ERR') or spline[0].startswith('DRR')):
 		parse=spline[-1]
 		parse=parse[3:]
 		
