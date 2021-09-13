@@ -172,6 +172,8 @@ This is typically run after the unifier has been run on the project/tranche (if 
 python3 ../log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping ids.tsv --intron-sums intron_counts_summed.tsv > qc.tsv 2> qc.err
 ```
 
+These are useful stats, per-sample, for downstream analyses.
+
 ## Super merge of junctions for Snaptron
 
 The super merge of junctions is primarily useful as an input to the srav3h and srav1m Snaptron compilations.
