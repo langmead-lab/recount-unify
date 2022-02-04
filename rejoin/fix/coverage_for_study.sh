@@ -3,7 +3,7 @@ set -exo pipefail
 dir=$(dirname $0)
 orgn="human"
 ddir=$PWD/../
-ROOT=#SET THIS#
+ROOT=/datascope/recount03
 rejoin=$ROOT/recount-unify/rejoin/rejoin.postfix
 bed=$ddir/disjoint2exons2genes.fix.bed.disjoint_exons.sorted
 sanity_check=$ddir/good_genes_sanity_check.txt
@@ -38,7 +38,13 @@ if [[ -z $SKIP_MD ]]; then
     for sample in `cat G026.samples`; do
         n=$((n + 1))
         slo=${sample: -2}
-        bw=$BPP/$slo/$sample/${src}.base_sums.${study}_${sample}.ALL.bw
+        #bw=$BPP/$slo/$sample/${src}.base_sums.${study}_${sample}.ALL.bw
+        bw=$BPP/$slo/${src}.base_sums.${study}_${sample}.ALL.bw
+        if [[ $src == "gtex" ]]; then
+            slo=${sample: -4}
+            slo=$(echo "$slo" | sed 's#..$##')
+            bw=$BPP/$slo/${src}.base_sums.${study}_${sample}.ALL.bw
+        fi
         echo "/usr/bin/time -v /bin/bash -x $dir/bigwig_coverage.sh $bw $bed ${sample}.md > ${sample}.md.run 2>&1" >> md.jobs
         echo "${sample}.md.notsummed " >> list_of_output.files
         echo -n "	$n" >> header.1
