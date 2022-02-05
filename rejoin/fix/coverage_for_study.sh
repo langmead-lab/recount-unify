@@ -1,5 +1,6 @@
 #!/usr/bin/env
 set -exo pipefail
+#ulimit -n 25000
 dir=$(dirname $0)
 orgn="human"
 ddir=$PWD/../
@@ -43,6 +44,10 @@ if [[ -z $SKIP_MD ]]; then
         if [[ $src == "gtex" ]]; then
             slo=${sample: -4}
             slo=$(echo "$slo" | sed 's#..$##')
+            bw=$BPP/$slo/${src}.base_sums.${study}_${sample}.ALL.bw
+        fi
+        if [[ $src == "tcga" ]]; then
+            slo=${slo^^}
             bw=$BPP/$slo/${src}.base_sums.${study}_${sample}.ALL.bw
         fi
         echo "/usr/bin/time -v /bin/bash -x $dir/bigwig_coverage.sh $bw $bed ${sample}.md > ${sample}.md.run 2>&1" >> md.jobs
