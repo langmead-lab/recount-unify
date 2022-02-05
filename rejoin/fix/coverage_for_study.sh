@@ -9,6 +9,7 @@ rejoin=$ROOT/recount-unify/rejoin/rejoin.postfix
 bed=$ddir/disjoint2exons2genes.fix.bed.disjoint_exons.sorted
 sanity_check=$ddir/good_genes_sanity_check.txt
 #bed=$dir/recount3.exons.bed
+threads=20
 
 study=$1
 src=$2
@@ -55,22 +56,29 @@ if [[ -z $SKIP_MD ]]; then
         echo -n "	$n" >> header.1
     done
     echo "" >> header.1
-    /usr/bin/time -v parallel -j20 < md.jobs > md.jobs.run 2>&1
+    /usr/bin/time -v parallel -j$threads < md.jobs > md.jobs.run 2>&1
 fi
 
 set +o pipefail
 pcat $GP/${src}.gene_sums.${study}.${annot}.gz | head -3 > ${src}.gene_sums.${study}.${annot}
 set -o pipefail
-list=$(cat list_of_output.files)
+
+MAX_FILES_PER_PASTE=500
+num_files=$(cat list_of_output.files | wc -l)
+cat list_of_output.files | perl -ne 'BEGIN { $max='$MAX_FILES_PER_PASTE'; } chomp; $f=$_; $i++; $files.="$f "; if($i % $max == 0) { print "paste $files > pasted.$i.files\n"; print STDERR "pasted.$i.files\n"; $files=""; } END { if(length($files) > 0) { $i++; print "paste $files > pasted.$i.files\n"; print STDERR "pasted.$i.files\n"; }}' > paste.jobs 2>pasted.outputs
+/usr/bin/time -v parallel -j$threads < paste.jobs > paste.jobs.run 2>&1
+#list=$(cat list_of_output.files)
+list=$(cat pasted.outputs)
 cat <(echo -n $'gene\tstart\tend\tname\tscore\tstrand') <(cat header.1) > ${study}.genes.pasted.tsv
+paste $bed $list >> ${study}.genes.pasted.tsv
+
 #alternate approach to pasting to get around number of files open/too long command line
 #from https://unix.stackexchange.com/questions/205642/combining-large-amount-of-files
-cat $bed > ${study}.genes.pasted.tsv_
-set +e
-for f in $list; do cat ${study}.genes.pasted.tsv_ | paste - $f >temp; cp temp ${study}.genes.pasted.tsv_; done; rm temp
-cat ${study}.genes.pasted.tsv_ >> ${study}.genes.pasted.tsv ; rm ${study}.genes.pasted.tsv_
-set -e
-#paste $bed $list >> ${study}.genes.pasted.tsv
+#cat $bed > ${study}.genes.pasted.tsv_
+#set +e
+#for f in $list; do cat ${study}.genes.pasted.tsv_ | paste - $f >temp; cp temp ${study}.genes.pasted.tsv_; done; rm temp
+#cat ${study}.genes.pasted.tsv_ >> ${study}.genes.pasted.tsv ; rm ${study}.genes.pasted.tsv_
+#set -e
 
 $rejoin -a $ddir/disjoint2exons2genes.fix.sorted.bed -d ${study}.genes.pasted.tsv -s $num_samples -p gene -h
 
