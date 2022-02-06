@@ -50,4 +50,4 @@ for line in sys.stdin:
             sys.stderr.write("sanity_check_gene_counts_changed\t"+sanity_gene+"\n")
             sys.exit(-1)
         sys.stderr.write("gene_counts_no_match\t"+gene_id+"\n")
-        sys.stdout.write(gene_id+"\t"+new_counts+"\n")
+        sys.stdout.write(gene_id+new_counts+"\n")
