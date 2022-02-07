@@ -61,15 +61,15 @@ if [[ -z $SKIP_MD ]]; then
 fi
 
 wc -l *.md.notsummed  > line_checks
-num_good_files=$(fgrep "$num_bed_lines" line_checks | wc -l)
+num_good_files=$(fgrep "$num_bed_lines" line_checks | egrep -v -e " total$" | wc -l)
 if [[ $num_good_files -ne $num_samples ]]; then
     echo "not all samples have required number of lines, terminating early!"
     exit -1
 fi 
 
-set +o pipefail
-pcat $GP/${src}.gene_sums.${study}.${annot}.gz | head -3 > ${src}.gene_sums.${study}.${annot}
-set -o pipefail
+#set +o pipefail
+#pcat $GP/${src}.gene_sums.${study}.${annot}.gz | head -3 > ${src}.gene_sums.${study}.${annot}
+#set -o pipefail
 
 MAX_FILES_PER_PASTE=500
 num_files=$(cat list_of_output.files | wc -l)
@@ -89,20 +89,33 @@ for annot in G026 G029 R109 F006; do
     set +e
     diff <(pcat ${src}.gene_sums.${study}.${annot}.gz) <(pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz) > ${annot}.diff
     set -e
-    total_num_fields=$(fgrep "<" ${annot}.diff | cut -f2- | tr $'\t' $'\n' | wc -l)
+    set +o pipefail
     num_diff_lines=$(fgrep "<" ${annot}.diff | wc -l)
-    expected_total_num_fields=$((num_samples * num_diff_lines)) 
-    if [[ $total_num_fields -ne $expected_total_num_fields ]]; then
-        echo "bad number of fields in new part of diff, terminating early!"
-        exit -1
+    set -o pipefail
+    if [[ $num_diff_lines -gt 0 ]]; then
+        expected_total_num_fields=$((num_samples * num_diff_lines)) 
+        total_num_fields=$(fgrep "<" ${annot}.diff | cut -f2- | tr $'\t' $'\n' | wc -l)
+        if [[ $total_num_fields -ne $expected_total_num_fields ]]; then
+            echo "bad number of fields in new part of diff, terminating early!"
+            exit -1
+        fi
+        echo "$num_diff_lines" > ${annot}.diff.check
+        fgrep ">" ${annot}.diff | wc -l >> ${annot}.diff.check
     fi
-    echo "$num_diff_lines" > ${annot}.diff.check
-    fgrep ">" ${annot}.diff | wc -l >> ${annot}.diff.check
 done
 #check that we get expected number of diffs and that they agree between the two files
-cat G026.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G026\n" if($n1 != $n2 || $n1 > 1797);'
-cat G029.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G029\n" if($n1 != $n2 || $n1 > 1364);'
-cat F006.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for F006\n" if($n1 != $n2 || $n1 > 74);'
-cat R109.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for R109\n" if($n1 != $n2 || $n1 > 2589);'
+if [[ -f G026.diff.check ]]; then
+    cat G026.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G026\n" if($n1 != $n2 || $n1 > 1797);'
+fi
+if [[ -f G029.diff.check ]]; then
+    cat G029.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G029\n" if($n1 != $n2 || $n1 > 1364);'
+fi
+#was 74
+if [[ -f F006.diff.check ]]; then
+    cat F006.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for F006\n" if($n1 != $n2 || $n1 > 80);'
+fi
+if [[ -f R109.diff.check ]]; then
+    cat R109.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for R109\n" if($n1 != $n2 || $n1 > 2589);'
+fi
 
 popd
