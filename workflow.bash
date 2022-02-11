@@ -188,7 +188,24 @@ if [[ -z $SKIP_SUMS ]]; then
         echo "FAILURE running gene/exon unify"
         exit -1
     fi
-    
+   
+    #need to reorder gene counts to match recount3 gene annotation GTF/GFF order
+    LIST_OF_ANNOTATIONS_SPACES=$(echo "$LIST_OF_ANNOTATIONS" | sed 's#,# #g') 
+    for a in $LIST_OF_ANNOTATIONS_SPACES ;
+    do
+        for f in `find gene_sums_per_study -name "*.${a}.gz"`; do
+            wc1=$(pcat $f | wc -l)
+            output="${f}.reordered"
+            cat $REF_DIR/${a}.gene_sums.gene_order.tsv | python3 /recount-unify/rejoin/enforce_gene_order.py <(pigz --stdout -p 2 -d $f) | pigz --fast -p2 > $output
+            wc2=$(pcat $output | wc -l)
+            if [[ $wc1 -ne $wc2 ]]; then
+                echo "bad line count after gene order enforcement for $f, terminating early!"
+                exit -1
+            fi
+            mv $output $f
+        done
+    done
+ 
     #use this number of studies for later smoke tests
     #get number of samples per-study
     export LC_ALL=C
