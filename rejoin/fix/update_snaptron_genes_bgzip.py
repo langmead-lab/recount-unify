@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 import sys
+#run like:
+#/usr/bin/time -v pcat genes.bgz.pre_rejoin_fix 2> genes.updated.run | python3 ../update_snaptron_genes_bgzip.py gtex.studies.snaptron.pasted.recalulated_stats2 > genes.updated &
+
+#then, if successful, run this to update the sqlite3 db:
+#cat gene_updatesF.wsnapids | perl -ne 'chomp; $f=$_; ($snap_id,$gid,$samples,$slen,$ssum,$savg,$smedian,$src)=split(/\t/,$f,-1); print "UPDATE intron SET samples=\"$samples\",samples_count=$slen,coverage_sum=$ssum,coverage_avg=$savg,coverage_median=$smedian,source_dataset_id=$src WHERE snaptron_id=$snap_id;\n";' > genes.updates.sql
+#takes ~21s on snaptron01 on nvme2 to do gtexv2:
+#/usr/bin/time -v sqlite3 genes.sqlite3 < genes.updates.sql > genes.updates.sql.run 2>&1
 
 gene_updatesF=sys.argv[1]
 update_map = {}
