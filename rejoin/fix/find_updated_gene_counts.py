@@ -30,4 +30,4 @@ for line in sys.stdin:
     if len(snaptron_counts) > 0:
         sys.stdout.write(fields[0]+'\t'+','+','.join(snaptron_counts)+'\n')
     else:
-        sys.stdout.write(fields[0]+'\n')
+        sys.stdout.write(fields[0]+'\t\n')
