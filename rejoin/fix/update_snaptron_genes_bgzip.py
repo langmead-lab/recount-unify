@@ -10,6 +10,7 @@ with open(gene_updatesF,"r") as fin:
         newline = '\t'.join(fields[1:])
         update_map[gid] = newline
 
+wsnap_ids = open("gene_updatesF"+".wsnapids","w")
 for line in sys.stdin:
     first_comma_pos = line.find(',')
     #if there's no sample list, we just write it out
@@ -30,5 +31,8 @@ for line in sys.stdin:
         sys.stdout.write(line)
         continue
     newline = update_map[gene_id]
+    wsnap_ids.write(ffields[0] + '\t' + gene_id + '\t' + newline)
     #replace previous samples + summary stats + datasource id with new version 
     sys.stdout.write(prefix + '\t' + newline) 
+
+wsnap_ids.close()
