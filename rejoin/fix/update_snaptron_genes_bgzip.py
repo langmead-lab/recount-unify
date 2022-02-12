@@ -12,6 +12,10 @@ with open(gene_updatesF,"r") as fin:
 
 for line in sys.stdin:
     first_comma_pos = line.find(',')
+    #if there's no sample list, we just write it out
+    if first_comma_pos == -1:
+        sys.stdout.write(line)
+        continue
     #split up to, but not incuding tab before first comma
     ffields = line[:first_comma_pos-1].split('\t')
     if len(ffields) != 11:
@@ -22,6 +26,9 @@ for line in sys.stdin:
     gene_colon_pos = prefix.find(':')
     gene_id = prefix[gene_tab_pos+1:gene_colon_pos]
 
+    if gene_id not in update_map:
+        sys.stdout.write(line)
+        continue
     newline = update_map[gene_id]
     #replace previous samples + summary stats + datasource id with new version 
-    sys.stderr.write(prefix + '\t' + newline) 
+    sys.stdout.write(prefix + '\t' + newline) 
