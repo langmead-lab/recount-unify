@@ -25,7 +25,11 @@ set +o pipefail
 pcat $updated_gene_sums | tail -n+3 | head -1 | cut -f 2- | tr '\t' '\n' > ${updated_gene_sums}.samples
 set -o pipefail
 
-/usr/bin/time -v pcat $updated_gene_sums | tail -n+4 | fgrep -f $genes | python3 $dir/find_updated_gene_counts.py ${updated_gene_sums}.samples <(fgrep $'\t'"$study"$'\t' $ids | cut -f 1-3) | LC_ALL=C sort -k1,1 | cut -f2- > ${annot}.snaptron
+if [[ $cwd == "gtex." ]]; then
+    /usr/bin/time -v pcat $updated_gene_sums | tail -n+4 | fgrep -f $genes | python3 $dir/find_updated_gene_counts.py ${updated_gene_sums}.samples <(fgrep $'\t'"$study"$'\t' $ids | cut -f 1,3-4) | LC_ALL=C sort -k1,1 | cut -f2- > ${annot}.snaptron
+else
+    /usr/bin/time -v pcat $updated_gene_sums | tail -n+4 | fgrep -f $genes | python3 $dir/find_updated_gene_counts.py ${updated_gene_sums}.samples <(fgrep $'\t'"$study"$'\t' $ids | cut -f 1-3) | LC_ALL=C sort -k1,1 | cut -f2- > ${annot}.snaptron
+fi
 
 echo "DONE"
 popd
