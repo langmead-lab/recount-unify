@@ -7,6 +7,7 @@ ddir=$PWD/../
 ROOT=/datascope/recount03
 rejoin=$ROOT/recount-unify/rejoin/rejoin.postfix
 bed=$ddir/disjoint2exons2genes.fix.bed.disjoint_exons.sorted
+disjoin_bed=$ddir/disjoint2exons2genes.fix.sorted.bed
 num_bed_lines=146725
 sanity_check=$ddir/good_genes_sanity_check.txt
 #bed=$dir/recount3.exons.bed
@@ -80,7 +81,7 @@ list=$(cat pasted.outputs)
 cat <(echo -n $'gene\tstart\tend\tname\tscore\tstrand') <(cat header.1) > ${study}.genes.pasted.tsv
 paste $bed $list >> ${study}.genes.pasted.tsv
 
-$rejoin -a $ddir/disjoint2exons2genes.fix.sorted.bed -d ${study}.genes.pasted.tsv -s $num_samples -p gene -h
+$rejoin -a $disjoin_bed -d ${study}.genes.pasted.tsv -s $num_samples -p gene -h
 
 for annot in G026 G029 R109 F006; do
     fgrep ".${annot}	" gene.counts | cut -f 1,7- > gene.counts.${annot}
@@ -104,9 +105,11 @@ for annot in G026 G029 R109 F006; do
     fi
 done
 #check that we get expected number of diffs and that they agree between the two files
+#really 1798
 if [[ -f G026.diff.check ]]; then
     cat G026.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G026\n" if($n1 != $n2 || $n1 > 1797);'
 fi
+#really 1365
 if [[ -f G029.diff.check ]]; then
     cat G029.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G029\n" if($n1 != $n2 || $n1 > 1364);'
 fi
@@ -114,6 +117,7 @@ fi
 if [[ -f F006.diff.check ]]; then
     cat F006.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for F006\n" if($n1 != $n2 || $n1 > 80);'
 fi
+#really 2590
 if [[ -f R109.diff.check ]]; then
     cat R109.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for R109\n" if($n1 != $n2 || $n1 > 2589);'
 fi
