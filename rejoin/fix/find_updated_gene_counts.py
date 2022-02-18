@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 import sys
 
-#does 2 things:
-#1) reports for each study every gene which was affected (had a positive diff)
-#2) produced a snaptron-compatbile list of a) sample IDs (rail ids) and b) counts for each gene affected to be used to update Snaptron
+#produces a snaptron-compatbile list of a) sample IDs (rail ids) and b) counts for each gene affected to be used to update Snaptron
 
 #NO HEADER
 study_samplesF=sys.argv[1]
