@@ -122,11 +122,11 @@ done
 #check that we get expected number of diffs and that they agree between the two files
 #really 1798
 if [[ -f G026.diff.check ]]; then
-    cat G026.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G026\n" if($n1 != $n2 || $n1 > 1797);'
+    cat G026.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G026\n" if($n1 != $n2 || $n1 > 1798);'
 fi
 #really 1365
 if [[ -f G029.diff.check ]]; then
-    cat G029.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G029\n" if($n1 != $n2 || $n1 > 1364);'
+    cat G029.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G029\n" if($n1 != $n2 || $n1 > 1365);'
 fi
 #was 74
 if [[ -f F006.diff.check ]]; then
@@ -134,7 +134,7 @@ if [[ -f F006.diff.check ]]; then
 fi
 #really 2590
 if [[ -f R109.diff.check ]]; then
-    cat R109.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for R109\n" if($n1 != $n2 || $n1 > 2589);'
+    cat R109.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for R109\n" if($n1 != $n2 || $n1 > 2590);'
 fi
 
 popd
