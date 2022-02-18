@@ -47,7 +47,7 @@ done
 /usr/bin/time -v parallel -j${threads} < resum.md.jobs > resum.md.jobs.run 2>&1
 fi
 
- 
+BAD= 
 for idx_name in $samples2check ; do
     idx=$(echo $idx_name | cut -d':' -f1)
     sample=$(echo $idx_name | cut -d':' -f2)
@@ -60,10 +60,13 @@ for idx_name in $samples2check ; do
 
     if [[ $check_count -ne $new_count ]]; then
         echo "BAD_COUNT $sample $idx $study $src"
-        exit -1
+        export BAD=1
     else
         echo "GOOD_COUNT $sample $idx $study $src"
     fi 
 done
+if [[ -n $BAD ]]; then
+    exit -1
+fi
 echo "ALL_"$num_samples2check"_COUNT_CHECKS_GOOD $study $src"
 popd
