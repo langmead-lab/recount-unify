@@ -17,6 +17,10 @@ study=$1
 src=$2
 
 GP=$ROOT/release/${orgn}/data_sources/${src}/gene_sums
+#for TCGA NA
+if [[ $src == "tcga" && $study == "NA" ]]; then
+    GP=$ROOT/release/${orgn}/data_sources/${src}/prep/$study
+fi
 BP=$ROOT/release/${orgn}/data_sources/${src}/base_sums
 
 mkdir -p $study
@@ -28,7 +32,11 @@ lo=${study: -2}
 
 for annot in G026 G029 R109 F006; do
 set +o pipefail
-    pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz | head -3 | tail -n1 | tr $'\t' $'\n' | tail -n+2 > ${annot}.samples
+    if [[ $src == "tcga" && $study == "NA" ]]; then
+        pcat $GP/${src}.gene_sums.${study}.${annot}.gz | head -3 | tail -n1 | tr $'\t' $'\n' | tail -n+2 > ${annot}.samples
+    else
+        pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz | head -3 | tail -n1 | tr $'\t' $'\n' | tail -n+2 > ${annot}.samples
+    fi
 set -o pipefail
 done
 
@@ -86,10 +94,17 @@ $rejoin -a $disjoin_bed -d ${study}.genes.pasted.tsv -s $num_samples -p gene -h
 for annot in G026 G029 R109 F006; do
     fgrep ".${annot}	" gene.counts | cut -f 1,7- > gene.counts.${annot}
     #then do update python3 script of original gene counts
-    pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz | python3 $dir/update_counts.py <(cat gene.counts.${annot} | sed 's#\.'$annot'##') <(fgrep ".${annot}" $sanity_check | sed 's#\.'$annot'##' | sed 's#\t#|#g') 2> ${src}.gene_sums.${study}.${annot}.gz.update | pigz --fast -p2 > ${src}.gene_sums.${study}.${annot}.gz
-    set +e
-    diff <(pcat ${src}.gene_sums.${study}.${annot}.gz) <(pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz) > ${annot}.diff
-    set -e
+    if [[ $src == "tcga" && $study == "NA" ]]; then
+        pcat $GP/${src}.gene_sums.${study}.${annot}.gz | python3 $dir/update_counts.py <(cat gene.counts.${annot} | sed 's#\.'$annot'##') <(fgrep ".${annot}" $sanity_check | sed 's#\.'$annot'##' | sed 's#\t#|#g') 2> ${src}.gene_sums.${study}.${annot}.gz.update | pigz --fast -p2 > ${src}.gene_sums.${study}.${annot}.gz
+        set +e
+        diff <(pcat ${src}.gene_sums.${study}.${annot}.gz) <(pcat $GP/${src}.gene_sums.${study}.${annot}.gz) > ${annot}.diff
+        set -e
+    else
+        pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz | python3 $dir/update_counts.py <(cat gene.counts.${annot} | sed 's#\.'$annot'##') <(fgrep ".${annot}" $sanity_check | sed 's#\.'$annot'##' | sed 's#\t#|#g') 2> ${src}.gene_sums.${study}.${annot}.gz.update | pigz --fast -p2 > ${src}.gene_sums.${study}.${annot}.gz
+        set +e
+        diff <(pcat ${src}.gene_sums.${study}.${annot}.gz) <(pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz) > ${annot}.diff
+        set -e
+    fi
     set +o pipefail
     num_diff_lines=$(fgrep "<" ${annot}.diff | wc -l)
     set -o pipefail
