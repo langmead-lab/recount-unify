@@ -3,24 +3,20 @@ set -exo pipefail
 #ulimit -n 25000
 dir=$(dirname $0)
 orgn="human"
-ddir=$PWD/../
+ddir=$PWD/../../
 ROOT=/datascope/recount03
 rejoin=$ROOT/recount-unify/rejoin/rejoin.postfix
-bed=$ddir/disjoint2exons2genes.fix.bed.disjoint_exons.sorted
-disjoin_bed=$ddir/disjoint2exons2genes.fix.sorted.bed
-num_bed_lines=146725
+#bed=$ddir/disjoint2exons2genes.fix.bed.disjoint_exons.sorted
+bed=$ddir/recount3.exons.bed
+disjoin_bed=$ddir/disjoint2exons2genes.bed
+num_bed_lines=2158139
 sanity_check=$ddir/good_genes_sanity_check.txt
-#bed=$dir/recount3.exons.bed
-threads=20
+threads=30
 
 study=$1
 src=$2
 
 GP=$ROOT/release/${orgn}/data_sources/${src}/gene_sums
-#for TCGA NA
-if [[ $src == "tcga" && $study == "NA" ]]; then
-    GP=$ROOT/release/${orgn}/data_sources/${src}/prep/$study
-fi
 BP=$ROOT/release/${orgn}/data_sources/${src}/base_sums
 
 mkdir -p $study
@@ -32,11 +28,7 @@ lo=${study: -2}
 
 for annot in G026 G029 R109 F006; do
 set +o pipefail
-    if [[ $src == "tcga" && $study == "NA" ]]; then
-        pcat $GP/${src}.gene_sums.${study}.${annot}.gz | head -3 | tail -n1 | tr $'\t' $'\n' | tail -n+2 > ${annot}.samples
-    else
-        pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz | head -3 | tail -n1 | tr $'\t' $'\n' | tail -n+2 > ${annot}.samples
-    fi
+    pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz | head -3 | tail -n1 | tr $'\t' $'\n' | tail -n+2 > ${annot}.samples
 set -o pipefail
 done
 
@@ -82,7 +74,7 @@ fi
 
 MAX_FILES_PER_PASTE=500
 num_files=$(cat list_of_output.files | wc -l)
-cat list_of_output.files | perl -ne 'BEGIN { $max='$MAX_FILES_PER_PASTE'; } chomp; $f=$_; $i++; $files.="$f "; if($i % $max == 0) { print "paste $files > pasted.$i.files\n"; print STDERR "pasted.$i.files\n"; $files=""; } END { if(length($files) > 0) { $i++; print "paste $files > pasted.$i.files\n"; print STDERR "pasted.$i.files\n"; }}' > paste.jobs 2>pasted.outputs
+cat list_of_output.files | perl -ne 'BEGIN { $max='$MAX_FILES_PER_PASTE'; } chomp; $f=$_; $i++; $files.="$f "; if($i % $max == 0) { print "paste $files > pasted.$i.files 2>pasted.$i.err\n"; print STDERR "pasted.$i.files\n"; $files=""; } END { if(length($files) > 0) { $i++; print "paste $files > pasted.$i.files\n"; print STDERR "pasted.$i.files\n"; }}' > paste.jobs 2>pasted.outputs
 /usr/bin/time -v parallel -j$threads < paste.jobs > paste.jobs.run 2>&1
 #list=$(cat list_of_output.files)
 list=$(cat pasted.outputs)
@@ -94,17 +86,10 @@ $rejoin -a $disjoin_bed -d ${study}.genes.pasted.tsv -s $num_samples -p gene -h
 for annot in G026 G029 R109 F006; do
     fgrep ".${annot}	" gene.counts | cut -f 1,7- > gene.counts.${annot}
     #then do update python3 script of original gene counts
-    if [[ $src == "tcga" && $study == "NA" ]]; then
-        pcat $GP/${src}.gene_sums.${study}.${annot}.gz | python3 $dir/update_counts.py <(cat gene.counts.${annot} | sed 's#\.'$annot'##') <(fgrep ".${annot}" $sanity_check | sed 's#\.'$annot'##' | sed 's#\t#|#g') 2> ${src}.gene_sums.${study}.${annot}.gz.update | pigz --fast -p2 > ${src}.gene_sums.${study}.${annot}.gz
-        set +e
-        diff <(pcat ${src}.gene_sums.${study}.${annot}.gz) <(pcat $GP/${src}.gene_sums.${study}.${annot}.gz) > ${annot}.diff
-        set -e
-    else
-        pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz | python3 $dir/update_counts.py <(cat gene.counts.${annot} | sed 's#\.'$annot'##') <(fgrep ".${annot}" $sanity_check | sed 's#\.'$annot'##' | sed 's#\t#|#g') 2> ${src}.gene_sums.${study}.${annot}.gz.update | pigz --fast -p2 > ${src}.gene_sums.${study}.${annot}.gz
-        set +e
-        diff <(pcat ${src}.gene_sums.${study}.${annot}.gz) <(pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz) > ${annot}.diff
-        set -e
-    fi
+    pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz | python3 $dir/update_counts.py <(cat gene.counts.${annot} | sed 's#\.'$annot'##') <(fgrep ".${annot}" $sanity_check | sed 's#\.'$annot'##' | sed 's#\t#|#g') 2> ${src}.gene_sums.${study}.${annot}.gz.update | pigz --fast -p2 > ${src}.gene_sums.${study}.${annot}.gz
+    set +e
+    diff <(pcat ${src}.gene_sums.${study}.${annot}.gz) <(pcat $GP/$lo/$study/${src}.gene_sums.${study}.${annot}.gz) > ${annot}.diff
+    set -e
     set +o pipefail
     num_diff_lines=$(fgrep "<" ${annot}.diff | wc -l)
     set -o pipefail
@@ -122,11 +107,11 @@ done
 #check that we get expected number of diffs and that they agree between the two files
 #really 1798
 if [[ -f G026.diff.check ]]; then
-    cat G026.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G026\n" if($n1 != $n2 || $n1 > 1798);'
+    cat G026.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G026\n" if($n1 != $n2 || $n1 > 1797);'
 fi
 #really 1365
 if [[ -f G029.diff.check ]]; then
-    cat G029.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G029\n" if($n1 != $n2 || $n1 > 1365);'
+    cat G029.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for G029\n" if($n1 != $n2 || $n1 > 1364);'
 fi
 #was 74
 if [[ -f F006.diff.check ]]; then
@@ -134,7 +119,7 @@ if [[ -f F006.diff.check ]]; then
 fi
 #really 2590
 if [[ -f R109.diff.check ]]; then
-    cat R109.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for R109\n" if($n1 != $n2 || $n1 > 2590);'
+    cat R109.diff.check | tr $'\n' ':' | perl -ne 'chomp; ($n1,$n2)=split(/:/,$_,-1); die "bad diff count $n1 for R109\n" if($n1 != $n2 || $n1 > 2589);'
 fi
 
 popd
