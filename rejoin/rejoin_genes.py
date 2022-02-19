@@ -118,6 +118,7 @@ for line in sys.stdin:
     else:
         for gname in gnames.split(';'): 
             (gene_id, annot_src) = determine_annotation_source(gname)
+            #print "annot_src determination "+str(gname)+":"+str(annot_src)
             if annot_src is None:
                 continue
             genes_and_annotations.append([gene_id, annot_src])
