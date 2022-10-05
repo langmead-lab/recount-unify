@@ -217,13 +217,14 @@ if [[ -z $SKIP_SUMS ]]; then
     export GENE_EXON_ANNOTATION_ROW_COUNTS_FILE=$REF_DIR/gene_exon_annotation_row_counts.tsv
     /recount-unify/scripts/run_gene_exon_sum_checks.sh
 
-    #do AUC check of gene sums for G026
+    #do AUC check of gene sums for G026 or M023 if mouse
+    annotation2check=$(echo "$LIST_OF_ANNOTATIONS" | cut -d',' -f 1)
     for study_ in `cat ${SAMPLE_ID_MANIFEST}.studies`;
     do
         #assume REF_DIR is set to unif ref dir
         #e.g. /container-mounts/recount/ref/hg38_unify
         #pass number of CPUS as the number of samples to check
-        /recount-unify/rejoin/check_against_megadepth_resum.sh $PROJECT_SHORT_NAME $study_ $INPUT_DIR `pwd` $RECOUNT_CPUS $RECOUNT_CPUS > auc_resum_check.run 2>&1
+        /recount-unify/rejoin/check_against_megadepth_resum.sh $PROJECT_SHORT_NAME $study_ $INPUT_DIR `pwd` $RECOUNT_CPUS $RECOUNT_CPUS $annotation2check > auc_resum_check.run 2>&1
     done
 
     echo "Running QC stats collection"

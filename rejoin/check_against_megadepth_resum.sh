@@ -4,8 +4,6 @@ set -exo pipefail
 #REF_DIR=/container-mounts/recount/ref/hg38_unify /shared-data/research/genomics/software/monorail/recount-unify/rejoin/check_against_megadepth_resum.sh sra SRP141364 /container-mounts/recount/output/SRP141364_20220209_203246 `pwd` 3
 
 dir=$(dirname $0)
-#only check default annotation
-annot="G026"
 
 #e.g. "sra"
 src=$1
@@ -18,6 +16,11 @@ root=$4
 #optional
 num_samples2check=$5
 threads=$6
+#G026, M023, whatever rat is
+annot=$7
+if [[ -z $annot ]];
+    then annot="G026"
+fi
 
 pushd $root
 
