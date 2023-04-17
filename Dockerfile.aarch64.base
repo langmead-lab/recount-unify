@@ -1,0 +1,63 @@
+FROM ubuntu:20.04
+
+USER root
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -y && apt-get install cmake curl wget git gcc g++ make bzip2 -y
+RUN apt install parallel libbz2-dev liblzma-dev zlib1g-dev libcurl4-openssl-dev -yy
+RUN apt install python3 python3-pip rsync -yy
+
+RUN mkdir /monorail_bin
+ENV PATH="/monorail_bin:$PATH"
+RUN mkdir /temp
+WORKDIR /temp
+
+RUN wget https://downloads.python.org/pypy/pypy2.7-v7.3.11-aarch64.tar.bz2
+RUN bunzip2 pypy2.7-v7.3.11-aarch64.tar.bz2
+RUN tar -xvf pypy2.7-v7.3.11-aarch64.tar
+RUN rsync -av pypy2.7-v7.3.11-aarch64/* /monorail_bin/
+
+RUN wget https://github.com/madler/pigz/archive/refs/tags/v2.4.tar.gz -O pigz-v2.4.tar.gz
+RUN tar -zxvf pigz-v2.4.tar.gz
+WORKDIR /temp/pigz-2.4 
+RUN make
+RUN rsync -av pigz unpigz /monorail_bin/
+WORKDIR /temp
+
+RUN apt install -yy snakemake=5.10.0-2
+
+# install samtools
+RUN apt-get install -y autoconf gcc make
+ENV SM_VER=1.11
+RUN curl -OL https://github.com/samtools/samtools/releases/download/${SM_VER}/samtools-${SM_VER}.tar.bz2 && \
+    bzip2 -dc samtools-${SM_VER}.tar.bz2 | tar xvf - && \
+    rm -f samtools-${SM_VER}.tar.bz2 && \
+    cd samtools-${SM_VER} && \
+    autoheader && \
+    autoconf && \
+    ./configure --disable-bz2 --disable-lzma --disable-libcurl --without-libdeflate --without-curses && \
+    make && \
+    make install
+
+WORKDIR /temp/samtools-${SM_VER}/htslib-${SM_VER}
+RUN make
+RUN rsync -av tabix bgzip /monorail_bin/
+WORKDIR /temp
+
+RUN wget https://github.com/samtools/bcftools/archive/refs/tags/1.11.tar.gz -O bcftools-1.11.tar.gz
+RUN tar -zxvf bcftools-1.11.tar.gz && \
+    rm -f bcftools-1.11.tar.gz && \
+    cd bcftools-${SM_VER} && \
+    autoheader && \
+    autoconf && \
+    ./configure --with-htslib=/temp/samtools-${SM_VER}/htslib-${SM_VER} --disable-bz2 --disable-lzma --disable-libcurl --without-libdeflate --without-curses && \
+    make && \
+    make install
+
+#zstd
+#ZVER=1.4.2 
+#faster than 1.3.3
+ENV ZVER=1.3.3
+RUN wget https://github.com/facebook/zstd/archive/refs/tags/v${ZVER}.tar.gz
+RUN tar -zxvf v${ZVER}.tar.gz
+RUN cd zstd-${ZVER} && make && rsync -av zstd /monorail_bin/

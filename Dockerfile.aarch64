@@ -1,0 +1,53 @@
+#FROM quay.io/broadsword/recount-unify-aarch64-base:1.0.0
+FROM recount-unify-aarch64:1.0.0base
+
+WORKDIR /
+
+RUN pip install biopython==1.78
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -y && apt-get install python2.7 python-dev -y
+RUN curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py && /usr/bin/python2.7 get-pip.py
+RUN /usr/local/bin/pip install numpy
+
+COPY rejoin/ /recount-unify/rejoin/
+COPY merge/ /recount-unify/merge/
+COPY scripts/ /recount-unify/scripts/
+COPY log_qc/ /recount-unify/log_qc/
+COPY annotate/ /recount-unify/annotate/
+COPY sample_ids/ /recount-unify/sample_ids/
+COPY metadata/ /recount-unify/metadata/
+COPY recount-pump/metadata/scripts /recount-unify/recount-pump/metadata/scripts/
+
+# install Snakefile
+COPY Snakefile /recount-unify/Snakefile
+COPY Snakefile.study_jxs.recount_only /recount-unify/Snakefile.study_jxs.recount_only
+RUN chmod a+r /recount-unify/Snakefile
+RUN chmod a+r /recount-unify/Snakefile.study_jxs.recount_only
+
+# install generic workflow wrapper script
+COPY workflow.bash.recount_jxns_only /recount-unify/workflow.bash.recount_jxns_only
+RUN chmod a+rx /recount-unify/workflow.bash.recount_jxns_only
+
+RUN echo 'pigz --stdout -p2 -d $1' > /usr/bin/pcat
+RUN chmod a+rx /usr/bin/pcat
+
+WORKDIR /recount-unify/rejoin/
+RUN make clean
+RUN make all
+
+#need latest megadepth to do fast summing across samples BigWigs for AUC check against what was rejoined
+RUN wget https://github.com/ChristopherWilks/megadepth/releases/download/1.2.0/megadepth_dynamic.aarch64 -O /recount-unify/rejoin/megadepth120
+RUN chmod a+rx /recount-unify/rejoin/megadepth120
+
+WORKDIR /recount-unify/merge/
+RUN make clean
+RUN make all
+
+WORKDIR /recount-unify/scripts/
+RUN make clean
+RUN make all
+
+ENV PATH="/monorail_bin/bin:$PATH"
+
+CMD ["bash", "-c", "export PATH=/monorail_bin:/monorail_bin/bin:/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && /recount-unify/workflow.bash.recount_jxns_only"]

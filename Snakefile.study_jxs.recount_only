@@ -1,0 +1,202 @@
+#start
+import sys
+import os
+import glob
+
+## This snakemake will produce:
+#a set of per-study, recount3 formatted jx sample coverage (MM), row ranges (RR), and sample IDs (ID) files
+
+if 'study_dir' not in config:
+	config['study_dir'] = 'study'
+if not os.path.exists(config['study_dir']):
+	os.makedirs(config['study_dir'])
+
+#overall tranches level jx files, formatted for input to Snaptron indexing
+#FILES=['all.sjs.motifs.merged.tsv', 'junctions.bgz', 'junctions.bgz.tbi']
+FILES=[]
+#setup the final set of target files
+studies = [f.split('/')[-2:] for f in glob.glob(config['input']+'/??/*')]
+#add per study level jx files formatted for recount3
+intermediate_recount_jx_files = []
+final_recount_jx_files = []
+if 'compilation' in config:
+	additional_files = ["%s/%s.junctions.%s.all.%s.gz" % (config['study_dir'], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+	intermediate_recount_jx_files.extend(additional_files)
+	additional_files = ["%s/%s.junctions.%s.unique.%s.gz" % (config['study_dir'], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+	intermediate_recount_jx_files.extend(additional_files)
+
+	additional_files = ["%s/%s/%s/%s.junctions.%s.all.%s.gz" % (config['study_dir'], s[0], s[1], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+	final_recount_jx_files.extend(additional_files)
+	FILES.extend(additional_files)
+	additional_files = ["%s/%s/%s/%s.junctions.%s.unique.%s.gz" % (config['study_dir'], s[0], s[1], config['compilation'], s[1], ft) for s in studies for ft in ['MM','RR','ID']]
+	final_recount_jx_files.extend(additional_files)
+	FILES.extend(additional_files)
+else:
+    config['compilation']=''
+
+main_script_path=os.path.join(workflow.basedir,'scripts')
+
+SCRIPTS={'find':os.path.join(main_script_path,'find_new_files.sh'),'filter':os.path.join(main_script_path,'filter_new_sjs.sh'),'merge':os.path.join(workflow.basedir, 'merge', 'merge.py'),'annotate':os.path.join(workflow.basedir, 'annotate', 'annotate_sjs.py'),'perbase':os.path.join(workflow.basedir, 'merge', 'perbase'),'mmformat':os.path.join(workflow.basedir, 'scripts', 'mmformat')}
+
+if 'annotated_sjs' not in config:
+	sys.stderr.write("need to pass a path to an annotation jx database!\n")
+	sys.exit(-1)
+
+#ref_sizes=hg38.recount_pump.fa.new_sizes
+#ref_fasta=hg38.recount_pump.fa
+if 'ref_sizes' not in config or 'ref_fasta' not in config:
+	sys.stderr.write("need to pass values for 'ref_sizes' and/or 'ref_fasta' the jx motif extraction part of the pipeline!\n")
+	sys.exit(-1)
+
+#used to choose the coverage column in the per-sample filtered jx files
+TYPE_COL_MAP={'all':4, 'unique':3}
+wildcard_constraints:
+	study_group_num="[0-9a-zA-Z]{2}",
+	run_group_num="[0-9a-zA-Z]{2}",
+	type="(all)|(unique)"
+
+rule all:
+	input:
+		expand("{file}", file=FILES)
+
+###Splice junction merging rules
+rule find_sjs:
+	input: 
+		config['input'],
+		config['sample_ids_file']
+	output:
+		config['staging'] + '/sj.groups.manifest'
+	params:
+		staging=config['staging'],
+		wildc='"*.zst"',
+		script_path=SCRIPTS['find']
+	shell:
+		"{params.script_path}  {input[0]} {input[1]} {params.staging} sj {params.wildc} per_study"
+
+rule filter_sjs:
+	input:
+		config['staging'] + '/sj.groups.manifest'
+	output:
+		config['staging'] + '/sj.{study}.{run_group_num}.manifest.filtered'
+	params:
+		study=lambda wildcards: wildcards.study,
+		run_group_num=lambda wildcards: wildcards.run_group_num,
+		staging=config['staging'],
+		script_path=SCRIPTS['filter']
+	shell:
+		"{params.script_path} {params.staging}/sj.{params.study}.{params.run_group_num}.manifest -1"
+
+#merge at the group level, uses sample_ids
+rule merge_sjs:
+	input:
+		config['staging'] + '/sj.{study}.{run_group_num}.manifest.filtered'
+	output:
+		config['staging'] + '/sj.{study}.{run_group_num}.{type}.merged'
+	threads: 8
+	params:
+		staging=config['staging'],
+		filtered_manifest=lambda wildcards, input: '.'.join(input[0].split('.')[:-1]),
+		script_path=SCRIPTS['merge'],
+		cov_col=lambda wildcards: TYPE_COL_MAP[wildcards.type]
+	shell:
+		"""
+		pypy {params.script_path} --list-file {params.filtered_manifest} --coverage-col {params.cov_col} > {output}
+		"""
+
+#gets  study + run loworder groupings, e.g. unified/sj.SRP005401.42.manifest.sj_sample_files.merged.tsv.gz
+#where "42" is the loworder digits for the run, e.g. SRR8733242 in SRP005401
+def get_sj_merged_files(wildcards):
+	study = wildcards.study
+	study_low_order = study[-2:]
+	return [config['staging']+"/sj.%s.%s.%s.merged" % (study,f.split('/')[-1],wildcards.type) for f in glob.glob(config['input']+'/%s/%s/??' % (study_low_order,study))]
+
+rule collect_merged_sjs:
+	input:
+		get_sj_merged_files
+	output:
+		config['staging'] + '/sj.{study}.{type}.groups.merged.files.list'
+	params:
+		staging=config['staging'],
+		study=lambda wildcards: wildcards.study,
+		type=lambda wildcards: wildcards.type
+	shell:
+		"ls {params.staging}/sj.{params.study}.??.{params.type}.merged > {output}"
+
+rule merge_study_sjs:
+	input: 
+		config['staging'] + '/sj.{study}.{type}.groups.merged.files.list'
+	output:
+		config['staging'] + '/all.{study}.{type}.sjs.merged'
+	threads: 8
+	params:
+		script_path=SCRIPTS['merge']
+	shell:
+		"pypy {params.script_path} --list-file {input} --append-samples > {output}"
+
+rule extract_motifs_for_sjs:
+	input:
+		config['staging'] + '/all.{study}.{type}.sjs.merged',
+		config['ref_sizes'],
+		config['ref_fasta']
+	output:
+		config['staging'] + '/all.{study}.{type}.sjs.merged.motifs'
+	params:
+		script_path=SCRIPTS['perbase'],
+	shell:
+		"""
+		cat {input[0]} | {params.script_path} -c {input[1]} -g {input[2]} -f {input[1]} > {output} 2>{output}.errs
+		"""
+
+rule annotate_study_sjs:
+	input:
+		config['staging'] + '/all.{study}.{type}.sjs.merged.motifs'
+	output:
+		config['study_dir'] + '/{study}.{type}.sj.merged.motifs.annotated'
+	params:
+		annot_sjs=config['annotated_sjs'],
+		script_path=SCRIPTS['annotate']
+	shell:
+		"cat {input} | pypy {params.script_path} --compiled-annotations {params.annot_sjs} --compilation-id 0 | cut -f 2- > {output}"
+
+
+#			{params.study}=$(perl -e '$sd="'{params.study_dir}'"; $s="'{params.study}'"; $s=~/(..)$/; $lo=$1; print "$sd/$lo/$s/junctions\n";')
+
+rule mmformat_sjs:
+	input:
+		config['study_dir'] + '/{study}.{type}.sj.merged.motifs.annotated'
+	output:
+		config['study_dir'] + '/' + config['compilation'] + '.junctions.{study}.{type}.MM.gz',
+		config['study_dir'] + '/' + config['compilation'] + '.junctions.{study}.{type}.RR.gz',
+		config['study_dir'] + '/' + config['compilation'] + '.junctions.{study}.{type}.ID.gz'
+	threads: 2
+	params:
+		study_dir=config['study_dir'],
+		study=lambda wildcards: wildcards.study,
+		type=lambda wildcards: wildcards.type,
+		script_path=SCRIPTS['mmformat']
+	shell:
+		"""
+		if [[ -s {input} ]]; then
+			cut -f 11 {input} | tr , \\\\n | fgrep ':' | cut -d':' -f1 | sort -nu > {input}.sids
+			num_samples=`cat {input}.sids | wc -l`
+			cat {input} | {params.script_path} -n ${{num_samples}} -p "{params.study}.{params.type}" -s {input}.sids > {params.study}.{params.type}.RR 2> {output[0]}.run
+			cat {params.study}.{params.type}.mm | pigz --fast -p {threads} > {output[0]}
+			cat {params.study}.{params.type}.RR | pigz --fast -p {threads} > {output[1]}
+			cat <(echo "rail_id") {input}.sids | pigz --fast -p {threads} > {output[2]}
+		else
+			touch {output[0]} {output[1]}
+		fi
+		"""
+
+import os
+from pathlib import PurePath
+rule final_recount_output:
+	input:
+		intermediate_recount_jx_files
+	output:
+		final_recount_jx_files
+	run:
+		for (i,inputF) in enumerate(input):
+			cur_path = PurePath(output[i])
+			os.makedirs(cur_path.parent, exist_ok=True)
+			os.replace(inputF, output[i])
