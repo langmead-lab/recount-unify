@@ -25,9 +25,18 @@ COPY Snakefile.study_jxs.recount_only /recount-unify/Snakefile.study_jxs.recount
 RUN chmod a+r /recount-unify/Snakefile
 RUN chmod a+r /recount-unify/Snakefile.study_jxs.recount_only
 
-# install generic workflow wrapper script
+# install Unifier main run scripts
 COPY workflow.bash.recount_jxns_only /recount-unify/workflow.bash.recount_jxns_only
 RUN chmod a+rx /recount-unify/workflow.bash.recount_jxns_only
+COPY run_recount_unify_within_container.sh /recount-unify/
+RUN chmod a+rx /recount-unify/run_recount_unify_within_container.sh
+COPY worker.sh /recount-unify/
+RUN chmod a+rx /recount-unify/worker.sh
+COPY run_workers.sh /recount-unify/
+RUN chmod a+rx /recount-unify/run_workers.sh
+
+COPY monorail-external/get_unify_refs.sh /recount-unify/
+RUN chmod a+rx /recount-unify/get_unify_refs.sh
 
 RUN echo 'pigz --stdout -p2 -d $1' > /usr/bin/pcat
 RUN chmod a+rx /usr/bin/pcat
