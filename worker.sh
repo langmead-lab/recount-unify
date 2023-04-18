@@ -53,7 +53,7 @@ while [[ -n $msg_json ]]; do
     if [[ -z $handle || -z $study_s3 ]]; then
         echo "ERROR: didn't find either a handle or a study in SQS message: $msg_json.  skipping"
         aws sqs delete-message --queue-url $queue --receipt-handle $handle
-        msg_json=$(aws sqs receive-message --queue-url $queue)
+        msg_json=$(aws sqs receive-message --queue-url $Q)
         continue
     fi
     date=$(date +%Y%m%d_%s)
@@ -69,11 +69,12 @@ while [[ -n $msg_json ]]; do
     #/usr/bin/time -v aws s3 cp --recursive $study_s3 $study/
     echo -n "" > ${study}.s3dnload.jobs
     echo $'study_id\tsample_id' > samples4study.tsv
+    for f in `aws s3 ls --recursive $study_s3 | fgrep "manifest" | tr -s " " $'\t' | cut -f4`; do f0=$(basename $f | cut -d'!' -f1); study_=$(basename $f | cut -d'!' -f 2); echo "$study_	$f0"; done | LC_ALL=C sort -u >> samples4study.tsv
     mkdir -p runs
     mkdir -p unify
     for s in `aws s3 ls $study_s3/ | tr -s " " $'\t' | cut -f 3`; do
         sample=$(basename $s)
-        echo "$study	$sample" >> samples4study.tsv
+        #echo "$study	$sample" >> samples4study.tsv
         echo "/usr/bin/time -v aws s3 cp --recursive $study_s3/$sample/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
     done
     if [[ ! -d pump ]]; then
@@ -86,7 +87,7 @@ while [[ -n $msg_json ]]; do
     num_downloaded=$(fgrep "Exit " runs/*.s3dnload | fgrep 'Exit status: 0' | wc -l)
     if [[ $num_downloaded -ne $num_samples ]]; then
         echo "not all were able to download, skipping study $study"
-        msg_json=$(aws sqs receive-message --queue-url $queue)
+        msg_json=$(aws sqs receive-message --queue-url $Q)
         continue
     fi
     #3) Run Unifier
@@ -95,7 +96,7 @@ while [[ -n $msg_json ]]; do
     success=$(egrep -e '^SUCCESS$' run_recount_unify_within_container.sh.run)
     if [[ -z $success ]]; then
         echo "unifier failed for $study, skipping"
-        msg_json=$(aws sqs receive-message --queue-url $queue)
+        msg_json=$(aws sqs receive-message --queue-url $Q)
         continue
     fi
     #4) copy unifier results back to S3
@@ -105,6 +106,6 @@ while [[ -n $msg_json ]]; do
     popd
     /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/ $S3_OUTPUT/$lo/$study.${date}/ > s3upload.run 2>&1
     #get next message repeat
-    aws sqs delete-message --queue-url $queue --receipt-handle $handle
-    msg_json=$(aws sqs receive-message --queue-url $queue)
+    aws sqs delete-message --queue-url $Q --receipt-handle $handle
+    msg_json=$(aws sqs receive-message --queue-url $Q)
 done
