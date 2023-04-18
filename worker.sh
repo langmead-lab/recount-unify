@@ -99,6 +99,10 @@ while [[ -n $msg_json ]]; do
         continue
     fi
     #4) copy unifier results back to S3
+    pushd `pwd`/unifier/run_files
+    mv all.logs.tar.gz ../
+    rm -rf staging_jxs staging input_from_pump links *.pre_existing *.gz blank_exon_sums *.annotation.tsv *.gene_sums.tsv intron_counts_summed.tsv *.RR *.mm *.coords ../junction_counts_per_study_run_files
+    popd
     /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/ $S3_OUTPUT/$lo/$study.${date}/ > s3upload.run 2>&1
     #get next message repeat
     aws sqs delete-message --queue-url $queue --receipt-handle $handle
