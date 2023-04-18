@@ -34,8 +34,8 @@ if [[ -z $df ]]; then
 fi
 
 #2) download Unifier references to SSD
-if [[ ! -d /work1/ref ]]; then
-    mkdir /work1/ref
+if [[ ! -d /work1/ref/${REF}_unify ]]; then
+    mkdir -p /work1/ref
     pushd /work1/ref
     /usr/bin/time -v $dir/../get_unify_refs.sh $REF > get_unify_refs.sh.${REF}.run 2>&1
     popd
@@ -48,4 +48,4 @@ mkdir -p /work1/runs
 echo -n "" > worker.jobs
 for i in $( seq 1 $NUM_WORKERS ); do echo "/usr/bin/time -v /bin/bash -x $dir/worker.sh > /work1/runs/w${i}.run 2>&1" >> worker.jobs ; done
 cat worker.jobs
-#/usr/bin/time -v parallel -j${NUM_WORKERS} < worker.jobs > worker.jobs.run 2>&1
+/usr/bin/time -v parallel -j${NUM_WORKERS} < worker.jobs > worker.jobs.run 2>&1
