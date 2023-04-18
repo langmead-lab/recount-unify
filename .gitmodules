@@ -6,3 +6,6 @@
 	path = recount-pump
 	url = https://github.com/langmead-lab/recount-pump.git
 	branch = master
+[submodule "monorail-external"]
+	path = monorail-external
+	url = https://github.com/langmead-lab/monorail-external.git
