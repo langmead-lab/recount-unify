@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -exo pipefail
+dir=$(dirname $0)
 
 #For dbGaP runs, define PROTECTED=1 in the running environment (e.g. in bash "export PROTECTED=1")
 #To do genotyping with QC, define SNPS_FILE_FOR_GENOTYPING=$REF_DIR_HOST/path/to/snps.vcf
@@ -115,7 +116,7 @@ export ORGANISM_REF=$REF
 #perl -e 'print "SAMPLE_ID_MANIFEST\nREF_DIR\nSAMPLE_ID_MANIFEST_ORIG\nRECOUNT_CPUS\nWORKING_DIR\nINPUT_DIR\nEXON_BITMASK_COORDS\nEXON_BITMASKS\nREF_SIZES\nREF_FASTA\nGENE_ANNOTATION_MAPPING\nGENE_REJOIN_MAPPING\nEXON_REJOIN_MAPPING\nEXON_COORDINATES_BED\nANNOTATED_JXS\nLIST_OF_ANNOTATIONS\nPROJECT_SHORT_NAME\nPROJECT_ID\nORGANISM_REF\nMULTI_STUDY\nSNPS_FILE_FOR_GENOTYPING\nPROTECTED";' > $WORKING_DIR/env.list
 
 #docker run --rm --user $RU_UID --name runifer --env-file $WORKING_DIR/env.list --volume $INPUT_DIR:$INPUT_DIR --volume $WORKING_DIR:${WORKING_DIR}:rw --volume $REF_DIR_HOST:${REF_DIR}:rw $image_name /bin/bash -c "/recount-unify/workflow.bash.recount_jxns_only"
-/usr/bin/time -v /bin/bash -x /recount-unify/workflow.bash.recount_jxns_only
+/usr/bin/time -v /bin/bash -x $dir/workflow.bash.recount_jxns_only
 
 #putting all relevant final output files in one directory
 mkdir -p $WORKING_DIR/run_files

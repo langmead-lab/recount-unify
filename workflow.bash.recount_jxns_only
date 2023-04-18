@@ -9,6 +9,7 @@
 # multiple samples in a study, project, or compilation
 
 set -exo pipefail
+sdir=$(dirname $0)
 
 SNPS_FILE_FOR_GENOTYPING=
 
@@ -121,8 +122,8 @@ if [[ -z $SKIP_PREP ]]; then
             echo "${SAMPLE_ID_MANIFEST} needs to have either 2 or 3 columns, exiting"
             exit -1
         fi
-        pushd /recount-unify/sample_ids
-        /usr/bin/python2.7 assign_compilation_ids.py --accessions-file $SAMPLE_ID_MANIFEST --acc-col 1 --compilation-code $PROJECT_ID --no-header > ${WORKING_DIR}/ids.tsv 2> ${WORKING_DIR}/assign_compilation_ids.py.errs
+        pushd $sdir/sample_ids
+        /usr/bin/time -v /usr/bin/python2.7 assign_compilation_ids.py --accessions-file $SAMPLE_ID_MANIFEST --acc-col 1 --compilation-code $PROJECT_ID --no-header > ${WORKING_DIR}/ids.tsv 2> ${WORKING_DIR}/assign_compilation_ids.py.errs
         popd
     fi
 
@@ -131,14 +132,14 @@ if [[ -z $SKIP_PREP ]]; then
     compilation_arg=""
     if [[ -z $MULTI_STUDY ]]; then
         echo "Running single-study mode"
-        /bin/bash -x /recount-unify/scripts/create_directory_hierarchy_for_one_study.sh $SAMPLE_ID_MANIFEST $INPUT_DIR ${WORKING_DIR}/intermediate_links > setup_intermediate_links.run 2>&1
+        /usr/bin/time -v /bin/bash -x $sdir/scripts/create_directory_hierarchy_for_one_study.sh $SAMPLE_ID_MANIFEST $INPUT_DIR ${WORKING_DIR}/intermediate_links > setup_intermediate_links.run 2>&1
         #need to create the directory structure we expect from the basic output of
         #recount-pump on one study (assumed)
-        /bin/bash -x /recount-unify/scripts/find_done.sh ${WORKING_DIR}/intermediate_links links "*_att" > setup_links.run 2>&1
+        /usr/bin/time -v /bin/bash -x $sdir/scripts/find_done.sh ${WORKING_DIR}/intermediate_links links "*_att" > setup_links.run 2>&1
     else
         echo "Running multi-study mode"
         #multi study, this assumes the input directory hierarchy/naming is correctly setup for running of find_done.sh external to recount-unify, e.g. study_loworder/study/run_loworder/run/run_inputID_att\d+
-        /bin/bash -x /recount-unify/scripts/find_done.sh $INPUT_DIR links "*_att" > setup_links.run 2>&1
+        /usr/bin/time -v /bin/bash -x $sdir/scripts/find_done.sh $INPUT_DIR links "*_att" > setup_links.run 2>&1
         compilation_arg="compilation=$PROJECT_SHORT_NAME"
     fi
 fi
@@ -164,8 +165,8 @@ fi
 #first do exon/gene sums Snakemake not skipping
 if [[ -z $SKIP_SUMS ]]; then
     echo "Unifying gene and exon sums"
-    snakemake \
-    --snakefile /recount-unify/Snakefile \
+    /usr/bin/time -v snakemake \
+    --snakefile $sdir/Snakefile \
     ${CONFIGFILE} \
     -j "${RECOUNT_CPUS}" \
     --stats recount-unify.sums.stats.json \
@@ -198,7 +199,7 @@ if [[ -z $SKIP_SUMS ]]; then
         for f in `find gene_sums_per_study -name "*.${a}.gz"`; do
             wc1=$(pcat $f | wc -l)
             output="${f}.reordered"
-            cat $REF_DIR/${a}.gene_sums.gene_order.tsv | python3 /recount-unify/rejoin/enforce_gene_order.py <(pigz --stdout -p 2 -d $f) | pigz --fast -p2 > $output
+            /usr/bin/time -v cat $REF_DIR/${a}.gene_sums.gene_order.tsv 2> enforce_gene_order.py.${a}_timing | python3 $sdir/rejoin/enforce_gene_order.py <(pigz --stdout -p 2 -d $f) | pigz --fast -p2 > $output
             wc2=$(pcat $output | wc -l)
             if [[ $wc1 -ne $wc2 ]]; then
                 echo "bad line count after gene order enforcement for $f, terminating early!"
@@ -217,7 +218,7 @@ if [[ -z $SKIP_SUMS ]]; then
     
     #now do first set of smoke tests on output of gene/exon unification
     export GENE_EXON_ANNOTATION_ROW_COUNTS_FILE=$REF_DIR/gene_exon_annotation_row_counts.tsv
-    /recount-unify/scripts/run_gene_exon_sum_checks.sh
+    /usr/bin/time -v $sdir/scripts/run_gene_exon_sum_checks.sh
 
     #do AUC check of gene sums for G026 or M023 if mouse
     annotation2check=$(echo "$LIST_OF_ANNOTATIONS" | cut -d',' -f 1)
@@ -226,11 +227,11 @@ if [[ -z $SKIP_SUMS ]]; then
         #assume REF_DIR is set to unif ref dir
         #e.g. /container-mounts/recount/ref/hg38_unify
         #pass number of CPUS as the number of samples to check
-        /recount-unify/rejoin/check_against_megadepth_resum.sh $PROJECT_SHORT_NAME $study_ $INPUT_DIR `pwd` $RECOUNT_CPUS $RECOUNT_CPUS $annotation2check > auc_resum_check.run 2>&1
+        /usr/bin/time -v $sdir/rejoin/check_against_megadepth_resum.sh $PROJECT_SHORT_NAME $study_ $INPUT_DIR `pwd` $RECOUNT_CPUS $RECOUNT_CPUS $annotation2check > auc_resum_check.run 2>&1
     done
 
     echo "Running QC stats collection"
-    python3 /recount-unify/log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping "${SAMPLE_ID_MANIFEST}" --intron-sums intron_counts_summed.tsv > qc_1.tsv 2> qc.err
+    /usr/bin/time -v python3 $sdir/log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping "${SAMPLE_ID_MANIFEST}" --intron-sums intron_counts_summed.tsv > qc_1.tsv 2> qc.err
     num_samples_qc=$(cat qc_1.tsv | wc -l)
     num_samples_qc=$(( num_samples_qc - 1 ))
     if [[ $num_samples_qc -ne $num_samples ]]; then
@@ -244,9 +245,9 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     echo "Unifying junction counts"
     #need to override the default python path (conda python3)
     #to get python2.7 with PyLucene installed, but only for build_lucene purposes
-    export PYPATH=/usr/bin/python
-    snakemake \
-    --snakefile /recount-unify/Snakefile.study_jxs.recount_only \
+    #export PYPATH=/usr/bin/python
+    /usr/bin/time -v snakemake \
+    --snakefile $sdir/Snakefile.study_jxs.recount_only \
     ${CONFIGFILE} \
     -j "${RECOUNT_CPUS}" \
     --stats recount-unify.jxs.stats.json \
@@ -268,7 +269,7 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     fi
 
     #calculate jxn stats 
-    /bin/bash /recount-unify/scripts/join_railID_to_sample_metadata.sh ${SAMPLE_ID_MANIFEST} ${SAMPLE_ID_MANIFEST_ORIG} | sort -t$'\t' -k1,1n > sorted_samples.tsv
+    /usr/bin/time -v /bin/bash $sdir/scripts/join_railID_to_sample_metadata.sh ${SAMPLE_ID_MANIFEST} ${SAMPLE_ID_MANIFEST_ORIG} | sort -t$'\t' -k1,1n > sorted_samples.tsv
     cat ${SAMPLE_ID_MANIFEST}.new_header sorted_samples.tsv > samples.tsv
     perl -e 'print "rail_id\tjunction_count\tjunction_coverage\tjunction_avg_coverage\n";' > jx_stats_per_sample.tsv
     echo -n "" > jx_stats_per_sample.tsv.1
@@ -298,9 +299,9 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     ### Now wrangle per-sample metadata
 
     #add jx stats to QC stats
-    cat qc_1.tsv | perl /recount-unify/log_qc/add_jx_stats2qc.pl samples.tsv > qc_2.tsv 2>> qc.err
+    cat qc_1.tsv | perl $sdir/log_qc/add_jx_stats2qc.pl samples.tsv > qc_2.tsv 2>> qc.err
     #this step adds in the combined columns for the STAR stats in the case of 2-step alignment when there's a 3rd, unpaired FASTQ file
-    python3 /recount-unify/log_qc/add_together_qc_fields.py qc_2.tsv > qc.tsv 2>> qc.err
+    /usr/bin/time -v python3 $sdir/log_qc/add_together_qc_fields.py qc_2.tsv > qc.tsv 2>> qc.err
     #do a 2nd check here at the end of the QC stats
     num_samples_qc=$(cat qc.tsv | wc -l)
     num_samples_qc=$(( num_samples_qc - 1 ))
@@ -320,17 +321,17 @@ if [[ -z $SKIP_JUNCTIONS ]]; then
     for study in `cat qc.tsv.studies`; 
     do 
         #1) start by creating 2+ final set of metadata files recount3 needs to load data
-        /bin/bash -x /recount-unify/metadata/make_recount3_metadata_files.sh $study $ORGANISM_REF qc.tsv $PROJECT_SHORT_NAME > make_recount3_metadata_files.sh.run 2>&1
+        /usr/bin/time -v /bin/bash -x $sdir/metadata/make_recount3_metadata_files.sh $study $ORGANISM_REF qc.tsv $PROJECT_SHORT_NAME > make_recount3_metadata_files.sh.run 2>&1
         #only do this additional source metadata wrangling if the project is "sra"
         if [[ "$PROJECT_SHORT_NAME" == "sra" ]]; then
             RPROJ_LIST_FILE=$(grep "RC=" make_recount3_metadata_files.sh.run | grep -v "echo" | cut -d'=' -f 2) 
             #2) get source metadata, for now just pull from SRA
-            /bin/bash -x /recount-unify/metadata/pull_source_metadata.sh $study $ORGANISM_REF $RPROJ_LIST_FILE $PROJECT_SHORT_NAME $DBGAP
+            /usr/bin/time -v /bin/bash -x $sdir/metadata/pull_source_metadata.sh $study $ORGANISM_REF $RPROJ_LIST_FILE $PROJECT_SHORT_NAME $DBGAP
         fi
     done
     #fix junction file names to be the case recount3 expects:
-    find junction_counts_per_study -name "*.all.*.gz" | perl -ne 'chomp; $f=$_; $f1=$f; $f1=~s/.all./.ALL./; `mv $f $f1`;'
-    find junction_counts_per_study -name "*.unique.*.gz" | perl -ne 'chomp; $f=$_; $f1=$f; $f1=~s/.unique./.UNIQUE./; `mv $f $f1`;'
+    /usr/bin/time -v find junction_counts_per_study -name "*.all.*.gz" | perl -ne 'chomp; $f=$_; $f1=$f; $f1=~s/.all./.ALL./; `mv $f $f1`;'
+    /usr/bin/time -v find junction_counts_per_study -name "*.unique.*.gz" | perl -ne 'chomp; $f=$_; $f1=$f; $f1=~s/.unique./.UNIQUE./; `mv $f $f1`;'
 fi
 
 #now do a little genotyping for sample QC, if requested and there are BAMs
@@ -347,7 +348,7 @@ if [[ -n $SNPS_FILE_FOR_GENOTYPING ]]; then
         cat ../all_bais | xargs -I {} ln -fs {}
         rm ../all_bais
         ls *.bam > all_bams
-        cat all_bams | perl -ne 'chomp; print "/bin/bash /recount-unify/scripts/genotype.sh $_ '$SNPS_FILE_FOR_GENOTYPING' '$REF_DIR'/recount_pump.fa 1 > $_.genotype_run 2>&1\n";' > genotype.jobs
+        cat all_bams | perl -ne 'chomp; print "/bin/bash '$sdir'/scripts/genotype.sh $_ '$SNPS_FILE_FOR_GENOTYPING' '$REF_DIR'/recount_pump.fa 1 > $_.genotype_run 2>&1\n";' > genotype.jobs
         parallel -j $RECOUNT_CPUS < genotype.jobs
         rm *.bam *.bai
         popd
