@@ -59,8 +59,10 @@ while [[ -n $msg_json ]]; do
     date=$(date +%Y%m%d_%s)
     study=$(basename $study_s3)
     lo=${study: -2}
-    export OUTPUT_DIR=$OUTPUT_DIR_GLOBAL/$study.${date}
-    mkdir -p $OUTPUT_DIR
+    if [[ -z $OUTPUT_DIR ]]; then
+        export OUTPUT_DIR=$OUTPUT_DIR_GLOBAL/$study.${date}
+        mkdir -p $OUTPUT_DIR
+    fi
     pushd $OUTPUT_DIR
     #TODO: start a unifier job on the study
     #2) download from S3 pump outputs for study
@@ -68,16 +70,18 @@ while [[ -n $msg_json ]]; do
     echo -n "" > ${study}.s3dnload.jobs
     echo $'study_id\tsample_id' > samples4study.tsv
     mkdir -p runs
-    mkdir -p pump
     mkdir -p unify
-    for s in `aws s3 ls $sudy_s3/ | tr -s " " $'\t' | cut -f 4`; do
+    for s in `aws s3 ls $study_s3/ | tr -s " " $'\t' | cut -f 3`; do
         sample=$(basename $s)
         echo "$study	$sample" >> samples4study.tsv
         echo "/usr/bin/time -v aws s3 cp --recursive $study_s3/$sample/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
     done
-    pushd pump
-    /usr/bin/time -v parallel -j${NUM_CORES} < ../${study}.s3dnload.jobs > ../${study}.s3dnload.jobs.run 2>&1
-    popd
+    if [[ ! -d pump ]]; then
+        mkdir pump	
+        pushd pump
+        /usr/bin/time -v parallel -j${NUM_CORES} < ../${study}.s3dnload.jobs > ../${study}.s3dnload.jobs.run 2>&1
+        popd
+    fi
     num_samples=$(cat ${study}.s3dnload.jobs | wc -l)
     num_downloaded=$(fgrep "Exit " runs/*.s3dnload | fgrep 'Exit status: 0' | wc -l)
     if [[ $num_downloaded -ne $num_samples ]]; then
@@ -88,7 +92,8 @@ while [[ -n $msg_json ]]; do
     #3) Run Unifier
     #TODO: double check params
     /usr/bin/time -v /bin/bash -x $dir/run_recount_unify_within_container.sh $REF $REF_DIR `pwd`/unifier `pwd`/pump `pwd`/samples4study.tsv $NUM_CORES > run_recount_unify_within_container.sh.run 2>&1
-    if [[ ! egrep -e '^SUCCESS$' run_recount_unify_within_container.sh.run ]]; then
+    success=$(egrep -e '^SUCCESS$' run_recount_unify_within_container.sh.run)
+    if [[ -z $success ]]; then
         echo "unifier failed for $study, skipping"
         msg_json=$(aws sqs receive-message --queue-url $queue)
         continue
