@@ -36,7 +36,7 @@ if [[ -z $NUM_CORES ]]; then
     export NUM_CORES=8
 fi
 if [[ -z $OUTPUT_DIR_GLOBAL ]]; then
-    export OUTPUT_DIR_GLOBAL=/work1/unifier
+    export OUTPUT_DIR_GLOBAL=/work2/unifier
 fi
 if [[ -z $S3_OUTPUT ]]; then
     export S3_OUTPUT="s3://neuro-datalake-ds/research/genomics/raw_data/monorail_temp_input/unifier_outputs"
@@ -68,17 +68,23 @@ while [[ -n $msg_json ]]; do
     #2) download from S3 pump outputs for study
     #/usr/bin/time -v aws s3 cp --recursive $study_s3 $study/
     echo -n "" > ${study}.s3dnload.jobs
+    echo -n "" > samples4study.tsv.temp
+    bucket=$(echo "$study_s3" | cut -d'/' -f 3)
+    for f in `aws s3 ls --recursive $study_s3 | fgrep "manifest" | tr -s " " $'\t' | cut -f4`; do
+        f0=$(basename $f | cut -d'!' -f1)
+        study_=$(basename $f | cut -d'!' -f 2)
+        echo "$study_	$f0" >> samples4study.tsv.temp
+        s3path=$(dirname $f)
+        sample=$(basename $s3path) 
+        echo "/usr/bin/time -v aws s3 cp --recursive s3://$bucket/$s3path/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
+    done
     echo $'study_id\tsample_id' > samples4study.tsv
-    for f in `aws s3 ls --recursive $study_s3 | fgrep "manifest" | tr -s " " $'\t' | cut -f4`; do f0=$(basename $f | cut -d'!' -f1); study_=$(basename $f | cut -d'!' -f 2); echo "$study_	$f0"; done | LC_ALL=C sort -u >> samples4study.tsv
+    LC_ALL=C sort -u samples4study.tsv.temp >> samples4study.tsv
+    rm -f samples4study.tsv.temp
     mkdir -p runs
     mkdir -p unify
-    for s in `aws s3 ls $study_s3/ | tr -s " " $'\t' | cut -f 3`; do
-        sample=$(basename $s)
-        #echo "$study	$sample" >> samples4study.tsv
-        echo "/usr/bin/time -v aws s3 cp --recursive $study_s3/$sample/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
-    done
     if [[ ! -d pump ]]; then
-        mkdir pump	
+        mkdir pump
         pushd pump
         /usr/bin/time -v parallel -j${NUM_CORES} < ../${study}.s3dnload.jobs > ../${study}.s3dnload.jobs.run 2>&1
         popd
