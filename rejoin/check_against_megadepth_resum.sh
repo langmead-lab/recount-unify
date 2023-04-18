@@ -50,10 +50,10 @@ for bw in $bws; do
     bwb=$(basename $bw)
     sample=$(echo "$bwb" | cut -d'!' -f 1)
     slo=${sample: -2}
-    echo "$dir/megadepth120 $bw --annotation $REF_DIR/disjoint2exons2genes.${annot}.sorted.cut.bed --no-annotation-stdout --prefix $sample" >> resum.md.${study}.jobs
+    echo "/usr/bin/time -v $dir/megadepth120 $bw --annotation $REF_DIR/disjoint2exons2genes.${annot}.sorted.cut.bed --no-annotation-stdout --prefix $sample > ${sample}.md_run 2>&1" >> resum.md.${study}.jobs
     echo "$sample" >> samples_checked.txt
 done
-parallel -j${threads} < resum.md.${study}.jobs > resum.md.${study}.jobs.run 2>&1
+/usr/bin/time -v parallel -j${threads} < resum.md.${study}.jobs > resum.md.${study}.jobs.run 2>&1
 
 BAD=
 for sample in `cat samples_checked.txt` ; do
