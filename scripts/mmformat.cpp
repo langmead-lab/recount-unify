@@ -83,9 +83,9 @@ ssize_t read_to_end_of_line(FILE* fin, char* buf)
 {
     int i = 0;
     char c = getc(fin);
-    //use feof instead of checking directly for c == EOF
-    //since feof is more portable (other way doesn't work on aarch64)
-    while(!feof(fin))
+    //use feof and check directly for c == EOF
+    //since feof is more portable (EOF check alone doens't appear to work on aarch64)
+    while(c != EOF && !feof(fin))
     {
         buf[i++] = c;
         if(c == '\n')
