@@ -59,10 +59,9 @@ while [[ -n $msg_json ]]; do
     date=$(date +%Y%m%d_%s)
     study=$(basename $study_s3)
     lo=${study: -2}
-    if [[ -z $OUTPUT_DIR ]]; then
-        export OUTPUT_DIR=$OUTPUT_DIR_GLOBAL/$study.${date}
-        mkdir -p $OUTPUT_DIR
-    fi
+    export OUTPUT_DIR=$OUTPUT_DIR_GLOBAL/$study.${date}
+    rm -rf $OUTPUT_DIR
+    mkdir $OUTPUT_DIR
     pushd $OUTPUT_DIR
     #TODO: start a unifier job on the study
     #2) download from S3 pump outputs for study
@@ -84,7 +83,7 @@ while [[ -n $msg_json ]]; do
     mkdir -p runs
     mkdir -p unify
     if [[ ! -d pump ]]; then
-        mkdir pump
+        mkdir -p pump
         pushd pump
         /usr/bin/time -v parallel -j${NUM_CORES} < ../${study}.s3dnload.jobs > ../${study}.s3dnload.jobs.run 2>&1
         popd
