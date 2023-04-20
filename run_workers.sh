@@ -10,14 +10,12 @@
 #d) SSD_MIN_SIZE (minimum size of local SSDs, default: 600GBs)
 set -exo pipefail
 dir=$(dirname $0)
-#export ROOT=/shared-data/research/genomics/software/monorail
 if [[ -z $REF ]]; then
     echo "no REF set, terminating early!"
     exit -1
 fi
 if [[ -z $NUM_WORKERS ]]; then
-    #export NUM_WORKERS=16
-    export NUM_WORKERS=2
+    export NUM_WORKERS=16
 fi
 if [[ -z $NUM_CORES ]]; then
     export NUM_CORES=8
