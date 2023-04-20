@@ -15,7 +15,7 @@
 #d) REF_DIR (references directory, default: /work1/ref)
 #e) NUM_CORES (maximum number of CPUs to use per worker, default: 8)
 #f) OUTPUT_DIR_GLOBAL (where to write the unifier outputs temporarily, before copying back to S3, default: /work1/unifier/$study)
-#g) S3_OUTPUT (where to upload the unifier results to on S3, default: s3://neuro-datalake-ds/research/genomics/raw_data/monorail_temp_input/unifier_outputs/)
+#g) S3_OUTPUT (where to upload the unifier results to on S3, default: s3://monorail-batch/unifier_outputs/)
 set -exo pipefail
 dir=$(dirname $0)
 
@@ -39,7 +39,7 @@ if [[ -z $OUTPUT_DIR_GLOBAL ]]; then
     export OUTPUT_DIR_GLOBAL=/work2/unifier
 fi
 if [[ -z $S3_OUTPUT ]]; then
-    export S3_OUTPUT="s3://neuro-datalake-ds/research/genomics/raw_data/monorail_temp_input/unifier_outputs"
+    export S3_OUTPUT="s3://monorail-batch/unifier_outputs"
 fi
 
 #1) check for new studies on the queue
@@ -47,7 +47,7 @@ msg_json=$(aws sqs receive-message --queue-url $Q)
 while [[ -n $msg_json ]]; do
     set +eo pipefail
     handle=$(echo "$msg_json" | fgrep '"ReceiptHandle":' | cut -d'"' -f 4)
-    #e.g. s3://neuro-datalake-ds/research/genomics/raw_data/monorail_temp_input/pump_outputs/10/SRP277410
+    #e.g. s3://monorail-batch/pump_outputs/<lo>/<study>
     study_s3=$(echo "$msg_json" | fgrep '"Body":' | cut -d'"' -f 4)
     set -eo pipefail
     if [[ -z $handle || -z $study_s3 ]]; then
