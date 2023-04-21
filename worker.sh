@@ -19,6 +19,14 @@
 set -exo pipefail
 dir=$(dirname $0)
 
+#filesystem to write temporary output to
+#e.g. /work2
+fs=$1
+
+if [[ -z $fs ]]; then
+    export fs="/work1"
+fi
+
 if [[ -z $REF ]]; then
     echo "no REF set, terminating early!"
     exit -1
@@ -36,7 +44,7 @@ if [[ -z $NUM_CORES ]]; then
     export NUM_CORES=8
 fi
 if [[ -z $OUTPUT_DIR_GLOBAL ]]; then
-    export OUTPUT_DIR_GLOBAL=/work2/unifier
+    export OUTPUT_DIR_GLOBAL="$fs/unifier"
 fi
 if [[ -z $S3_OUTPUT ]]; then
     export S3_OUTPUT="s3://monorail-batch/unifier_outputs"
@@ -61,7 +69,7 @@ while [[ -n $msg_json ]]; do
     lo=${study: -2}
     export OUTPUT_DIR=$OUTPUT_DIR_GLOBAL/$study.${date}
     rm -rf $OUTPUT_DIR
-    mkdir $OUTPUT_DIR
+    mkdir -p $OUTPUT_DIR
     pushd $OUTPUT_DIR
     #TODO: start a unifier job on the study
     #2) download from S3 pump outputs for study
@@ -81,7 +89,6 @@ while [[ -n $msg_json ]]; do
     LC_ALL=C sort -u samples4study.tsv.temp >> samples4study.tsv
     rm -f samples4study.tsv.temp
     mkdir -p runs
-    mkdir -p unify
     if [[ ! -d pump ]]; then
         mkdir -p pump
         pushd pump
