@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 my $samples_file=shift;
+my $skip_jxns=shift;
 
 my %jx_stats;
 my %rail_ids;
@@ -19,6 +20,7 @@ while(my $line = <FIN>)
     $fields[2] = "study" if($fields[2]=~/study_id/);
     my $key=$fields[1]."\t".$fields[2];
     $rail_ids{$key} = $fields[0];
+    next if(defined($skip_jxns) && $skip_jxns == 1);
     my $javg=pop(@fields);
     my $jcov=pop(@fields);
     my $jcnt=pop(@fields);
@@ -26,7 +28,7 @@ while(my $line = <FIN>)
 }
 close(FIN);
 
-my $num_keys = scalar(keys %jx_stats);
+my $num_keys = scalar(keys %rail_ids);
 die "no runs/samples in samples.tsv, terminating\n" if($num_keys < 2);
 
 while(my $line = <STDIN>)
@@ -39,8 +41,12 @@ while(my $line = <STDIN>)
     my $newline = join("\t",@fields);
     $run = "external_id" if($run eq "sample");
     my $key = $run."\t".$study;
-    die "couldnt find entry in $samples_file for $key, terminating\n" if(!defined($jx_stats{$key}));
+    die "couldnt find entry in $samples_file for $key, terminating\n" if(!defined($rail_ids{$key}));
     my $rail_id = $rail_ids{$key};
+    if(defined($skip_jxns) && $skip_jxns == 1) {
+        print "$rail_id\t$run\t$study\t$newline\n";
+        next;
+    }
     my $jxs = $jx_stats{$key};
     print "$rail_id\t$run\t$study\t$newline\t$jxs\n";
 }

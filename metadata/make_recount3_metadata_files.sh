@@ -8,6 +8,10 @@
 date=$(date +%Y-%m-%d)
 data_source="data_sources"
 organism="Homo sapiens"
+jxn_offset=3
+if [[ -n $SKIP_JXNS ]]; then
+    jxn_offset=0
+fi
 
 sdir=$(dirname $0)
 
@@ -44,7 +48,7 @@ echo "RC=$dir/${dsource}.recount_project.${study}.MD.gz"
 #2) original sample metadata can be *any* tab delimited set of fields as long as it starts with these 3 columns for each row:
 #rail_id external_id     study
 num_cols=$(head -1 samples.tsv | sed 's/rail_id\tsample_id\tstudy_id/rail_id\texternal_id\tstudy/' | tee samples.tsv.header | tr \\t \\n | wc -l)
-num_cols_minus_jxs=$(( num_cols - 3 ))
+num_cols_minus_jxs=$(( num_cols - jxn_offset ))
 cat <(cut -f 1-${num_cols_minus_jxs} samples.tsv.header) <(fgrep "$study	" samples.tsv | cut -f 1-${num_cols_minus_jxs}) | gzip > $dir/${dsource}.${dsource}.${study}.MD.gz
 
 echo "RPROJ=$dir/${dsource}.${dsource}.${study}.MD.gz"
