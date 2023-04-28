@@ -1,0 +1,266 @@
+#!/usr/bin/env bash
+
+# Author: Chris Wilks & Ben Langmead
+#  Email: broadsword@gmail.com
+#   Date: 4/28/2023
+
+# Designed to run the aggregator step (recount-unify)
+# in the Monorail workflow.  This aggregates across
+# multiple samples in a study, project, or compilation
+
+set -exo pipefail
+sdir=$(dirname $0)
+
+#assumes we're in a container where the project-specific
+#working directory has been bind mounted and we've entered it
+
+# Ensure directories/paths
+echo "Working dir: ${WORKING_DIR}"
+test -n "${WORKING_DIR}"
+test -d "${WORKING_DIR}"
+
+pushd ${WORKING_DIR}
+
+#needed for blank sums file copy
+echo "Ref dir: ${REF_DIR}"
+test -n "${REF_DIR}"
+test -d "${REF_DIR}"
+
+cp ${REF_DIR}/blank_exon_sums ${WORKING_DIR}/
+
+#original root directory of recount-pump output
+#OR
+#path to symbolic links of all input files/directory structure
+#to recount-unify, e.g. ./links
+#this needs to be created/populated ahead of running this script
+echo "Input dir: ${INPUT_DIR}"
+test -n "${INPUT_DIR}"
+test -d "${INPUT_DIR}"
+
+#e.g. /path/to/exons.bed.w_header.gz
+echo "Disjoint Exons BED Path (w/ header): ${EXON_COORDINATES_BED}"
+test -n "${EXON_COORDINATES_BED}"
+test -s "${EXON_COORDINATES_BED}"
+
+#e.g. /path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.bed
+echo "Gene rejoin mapping Path: ${GENE_REJOIN_MAPPING}"
+test -n "${GENE_REJOIN_MAPPING}"
+test -s "${GENE_REJOIN_MAPPING}"
+
+#e.g. /path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons2genes.rejoin_genes.bed
+echo "Gene annotation mapping Path: ${GENE_ANNOTATION_MAPPING}"
+test -n "${GENE_ANNOTATION_MAPPING}"
+test -s "${GENE_ANNOTATION_MAPPING}"
+
+#e.g. /path/to/G029.G026.R109.F006.20190220.gtf.disjoint2exons.bed
+echo "Exon rejoin mapping Path: ${EXON_REJOIN_MAPPING}"
+test -n "${EXON_REJOIN_MAPPING}"
+test -s "${EXON_REJOIN_MAPPING}"
+
+#e.g. /path/to/hg38.recount_pump.fa.new_sizes
+echo "Reference FASTA sizes Path: ${REF_SIZES}"
+test -n "${REF_SIZES}"
+test -s "${REF_SIZES}"
+
+#e.g. /path/to/hg38.recount_pump.fa
+echo "Reference FASTA Path: ${REF_FASTA}"
+test -n "${REF_FASTA}"
+test -s "${REF_FASTA}"
+
+#e.g. srav3h.exon_counts.bitmasks.tsv
+echo "Exon Bitmasks Path: ${EXON_BITMASKS}"
+test -n "${EXON_BITMASKS}"
+test -s "${EXON_BITMASKS}"
+
+#e.g. srav3h.exon_counts.bitmasks.coords
+echo "Exon Bitmask Coordinates Path: ${EXON_BITMASK_COORDS}"
+test -n "${EXON_BITMASK_COORDS}"
+test -s "${EXON_BITMASK_COORDS}"
+
+#e.g. G026,G029,R109,F006,ERCC,SIRV
+echo "Annotation List: ${LIST_OF_ANNOTATIONS}"
+test -n "${LIST_OF_ANNOTATIONS}"
+
+#e.g. hg38 or grcm38
+echo "Organism reference short name: ${ORGANISM_REF}"
+test -n "${ORGANISM_REF}"
+
+if [[ -z $PROJECT_ID ]]; then
+    PROJECT_ID=0
+fi
+
+if [[ -z $PROJECT_SHORT_NAME ]]; then
+    PROJECT_SHORT_NAME="sra"
+fi
+
+
+echo "Sample ID manifest: ${SAMPLE_ID_MANIFEST}"
+test -n "${SAMPLE_ID_MANIFEST}"
+test -e "${SAMPLE_ID_MANIFEST}"
+
+
+#check passed in sample ID file for number of fields (no header)
+num_cols=$(head -1 ${SAMPLE_ID_MANIFEST} | tr \\t \\n | wc -l)
+#not getting the numeric IDs (3rd column)
+#so we'll need to generate them
+if [[ -z $SKIP_PREP ]]; then
+    if [[ $num_cols -ne 3 ]]; then
+        if [[ $num_cols -ne 2 ]]; then
+            echo "${SAMPLE_ID_MANIFEST} needs to have either 2 or 3 columns, exiting"
+            exit -1
+        fi
+        pushd $sdir/sample_ids
+        /usr/bin/time -v /usr/bin/python2.7 assign_compilation_ids.py --accessions-file $SAMPLE_ID_MANIFEST --acc-col 1 --compilation-code $PROJECT_ID --no-header > ${WORKING_DIR}/ids.tsv 2> ${WORKING_DIR}/assign_compilation_ids.py.errs
+        popd
+    fi
+
+
+    #default case is single study, with "<sample_id>_att" style sample output directories from recount-pump
+    compilation_arg=""
+    if [[ -z $MULTI_STUDY ]]; then
+        echo "Running single-study mode"
+        /usr/bin/time -v /bin/bash -x $sdir/scripts/create_directory_hierarchy_for_one_study.sh $SAMPLE_ID_MANIFEST $INPUT_DIR ${WORKING_DIR}/intermediate_links > setup_intermediate_links.run 2>&1
+        #need to create the directory structure we expect from the basic output of
+        #recount-pump on one study (assumed)
+        /usr/bin/time -v /bin/bash -x $sdir/scripts/find_done.sh ${WORKING_DIR}/intermediate_links links "*_att" > setup_links.run 2>&1
+    else
+        echo "Running multi-study mode"
+        #multi study, this assumes the input directory hierarchy/naming is correctly setup for running of find_done.sh external to recount-unify, e.g. study_loworder/study/run_loworder/run/run_inputID_att\d+
+        /usr/bin/time -v /bin/bash -x $sdir/scripts/find_done.sh $INPUT_DIR links "*_att" > setup_links.run 2>&1
+        compilation_arg="compilation=$PROJECT_SHORT_NAME"
+    fi
+fi
+        
+if [[ -n $MULTI_STUDY ]]; then
+    compilation_arg="compilation=$PROJECT_SHORT_NAME"
+fi
+export SAMPLE_ID_MANIFEST=${WORKING_DIR}/ids.tsv
+
+#e.g. 40
+echo "CPUs: ${RECOUNT_CPUS}"
+test -n "${RECOUNT_CPUS}"
+
+num_samples=$(cat ${SAMPLE_ID_MANIFEST} | wc -l)
+num_exons=$(cat ${EXON_BITMASK_COORDS} | wc -l)
+
+#a config.json file could be provided in running directory
+CONFIGFILE=""
+if [[ -f "config.json" ]] ; then
+    CONFIGFILE="--configfile config.json"
+fi
+
+#first do exon/gene sums Snakemake not skipping
+if [[ -z $SKIP_SUMS ]]; then
+    echo "Unifying gene and exon sums"
+    /usr/bin/time -v snakemake \
+    --snakefile $sdir/Snakefile.lite \
+    ${CONFIGFILE} \
+    -j "${RECOUNT_CPUS}" \
+    --stats recount-unify.sums.stats.json \
+    -p \
+    --config \
+        input=links \
+        staging=staging \
+        sample_ids_file="${SAMPLE_ID_MANIFEST}" \
+        num_samples=${num_samples} \
+        existing_sums="${EXON_COORDINATES_BED}" \
+        gene_rejoin_mapping="${GENE_REJOIN_MAPPING}" \
+        gene_mapping_final="${GENE_ANNOTATION_MAPPING}" \
+        exon_rejoin_mapping="${EXON_REJOIN_MAPPING}" \
+        annotation_list="${LIST_OF_ANNOTATIONS}" \
+        exon_bitmasks="${EXON_BITMASKS}" \
+        exon_bitmasks_coords="${EXON_BITMASK_COORDS}" \
+        num_exons=${num_exons} ${compilation_arg} \
+        2>&1 | tee recount-unify.output.sums.txt
+
+    done=`fgrep 'steps (100%) done' recount-unify.output.sums.txt`
+    if [[ -z $done ]]; then
+        echo "FAILURE running gene/exon unify"
+        exit -1
+    fi
+   
+    #need to reorder gene counts to match recount3 gene annotation GTF/GFF order
+    LIST_OF_ANNOTATIONS_SPACES=$(echo "$LIST_OF_ANNOTATIONS" | sed 's#,# #g') 
+    for a in $LIST_OF_ANNOTATIONS_SPACES ;
+    do
+        for f in `find gene_sums_per_study -name "*.${a}.gz"`; do
+            wc1=$(pcat $f | wc -l)
+            output="${f}.reordered"
+            /usr/bin/time -v cat $REF_DIR/${a}.gene_sums.gene_order.tsv 2> enforce_gene_order.py.${a}_timing | python3 $sdir/rejoin/enforce_gene_order.py <(pigz --stdout -p 2 -d $f) | pigz --fast -p2 > $output
+            wc2=$(pcat $output | wc -l)
+            if [[ $wc1 -ne $wc2 ]]; then
+                echo "bad line count after gene order enforcement for $f, terminating early!"
+                exit -1
+            fi
+            mv $output $f
+        done
+    done
+ 
+    #use this number of studies for later smoke tests
+    #get number of samples per-study
+    export LC_ALL=C
+    cut -f 1 $SAMPLE_ID_MANIFEST | sort | uniq -c | tr -s " " \\t | cut -f 2,3 > ${SAMPLE_ID_MANIFEST}.num_samples_per_study.tsv
+    cut -f 2 ${SAMPLE_ID_MANIFEST}.num_samples_per_study.tsv | sort -u > ${SAMPLE_ID_MANIFEST}.studies
+    export num_studies=$(cat ${SAMPLE_ID_MANIFEST}.studies | wc -l)
+    
+    #now do first set of smoke tests on output of gene/exon unification
+    export GENE_EXON_ANNOTATION_ROW_COUNTS_FILE=$REF_DIR/gene_exon_annotation_row_counts.tsv
+    /usr/bin/time -v $sdir/scripts/run_gene_exon_sum_checks.sh
+
+    #don't run this check as we don't always have bigwigs for the lite runs
+    #do AUC check of gene sums for G026 or M023 if mouse
+    #annotation2check=$(echo "$LIST_OF_ANNOTATIONS" | cut -d',' -f 1)
+    #for study_ in `cat ${SAMPLE_ID_MANIFEST}.studies`;
+    #do
+        #assume REF_DIR is set to unif ref dir
+        #e.g. /container-mounts/recount/ref/hg38_unify
+        #pass number of CPUS as the number of samples to check
+        #/usr/bin/time -v $sdir/rejoin/check_against_megadepth_resum.sh $PROJECT_SHORT_NAME $study_ $INPUT_DIR `pwd` $RECOUNT_CPUS $RECOUNT_CPUS $annotation2check > auc_resum_check.run 2>&1
+    #done
+
+fi
+
+export WRANGLE_METADATA=1
+if [[ -n $WRANGLE_METADATA ]]; then
+    #metadata wrangling (including QC stats)
+
+    /bin/bash $sdir/scripts/join_railID_to_sample_metadata.sh $SAMPLE_ID_MANIFEST $SAMPLE_ID_MANIFEST_ORIG | sort -t$'\t' -k1,1n > sorted_samples.tsv
+    cat ${SAMPLE_ID_MANIFEST}.new_header sorted_samples.tsv > samples.tsv
+
+    #echo "Running QC stats collection"
+    /usr/bin/time -v python3 $sdir/log_qc/parse_logs_for_qc_lite.py --incoming-dir links --sample-mapping "${SAMPLE_ID_MANIFEST}" --intron-sums intron_counts_summed.tsv > qc_1.tsv 2> qc.err
+    num_samples_qc=$(cat qc_1.tsv | wc -l)
+    num_samples_qc=$(( num_samples_qc - 1 ))
+    if [[ $num_samples_qc -ne $num_samples ]]; then
+        echo "FAILURE in pump output QC stats collection (post gene/exon unify), # QC rows ($num_samples_qc) != # samples ($num_samples)"
+        exit -1
+    fi
+    
+    #add jx stats to QC stats
+    #need and extra field for fgreps later that depend on that
+    #echo $'rail_id\texternal_id\tstudy\tNA' > samples.tsv
+    #cat ids.tsv | perl -ne 'chomp; $f=$_; ($study,$sample,$rail_id)=split(/\t/,$f,-1); print "$rail_id\t$sample\t$study\t\n";' >> samples.tsv
+    export SKIP_JXNS=1
+    cat qc_1.tsv | perl $sdir/log_qc/add_jx_stats2qc.pl samples.tsv $SKIP_JXNS > qc_2.tsv 2>> qc.err
+    #this step adds in the combined columns for the STAR stats in the case of 2-step alignment when there's a 3rd, unpaired FASTQ file
+    python3 $sdir/log_qc/add_together_qc_fields_lite.py qc_2.tsv > qc.tsv 2>> qc.err
+    #do a 2nd check here at the end of the QC stats
+    num_samples_qc=$(cat qc.tsv | wc -l)
+    num_samples_qc=$(( num_samples_qc - 1 ))
+    if [[ $num_samples_qc -ne $num_samples ]]; then
+        echo "FAILURE in pump output QC stats collection (post gene/exon unify), # QC rows ($num_samples_qc) != # samples ($num_samples)"
+        exit -1
+    fi
+
+    #TODO: check that the qc.tsv format is as expected since we skipped adding jxn stats
+    cut -f 3 qc.tsv | tail -n+2 | sort -u > qc.tsv.studies
+    #hack to get around conda env's python3 not finding libssl for the pull_source_metadata.sh script below
+    #export PYTHON_PATH=/opt/conda/bin/python3
+    for study in `cat qc.tsv.studies`; 
+    do 
+        #1) start by creating 2+ final set of metadata files recount3 needs to load data
+        /usr/bin/time -v /bin/bash -x $sdir/metadata/make_recount3_metadata_files.sh $study $ORGANISM_REF qc.tsv $PROJECT_SHORT_NAME > make_recount3_metadata_files.sh.run 2>&1
+    done
+fi
+
+echo SUCCESS
