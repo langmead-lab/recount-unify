@@ -74,19 +74,34 @@ while [[ -n $msg_json ]]; do
     #TODO: start a unifier job on the study
     #2) download from S3 pump outputs for study
     #/usr/bin/time -v aws s3 cp --recursive $study_s3 $study/
+    #2a) get SRA metadata for study from pre-compiled file on S3 to avoid having to query SRA for it per-study
+    #fgrep $'\t'"$study"$'\t' $SRA_METADATA 
+    #2b)
     echo -n "" > ${study}.s3dnload.jobs
     echo -n "" > samples4study.tsv.temp
     bucket=$(echo "$study_s3" | cut -d'/' -f 3)
     for f in `aws s3 ls --recursive $study_s3 | fgrep "manifest" | tr -s " " $'\t' | cut -f4`; do
         f0=$(basename $f | cut -d'!' -f1)
         study_=$(basename $f | cut -d'!' -f 2)
-        echo "$study_	$f0" >> samples4study.tsv.temp
+        echo "	$study_	$f0	" >> samples4study.tsv.temp
         s3path=$(dirname $f)
         sample=$(basename $s3path) 
-        echo "/usr/bin/time -v aws s3 cp --recursive s3://$bucket/$s3path/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
+        #don't need the largest files---bigwigs nor nonrefs---for Unifier
+        echo "/usr/bin/time -v aws s3 cp --recursive --exclude \"*.bw\" --exclude \"*.bamcount_nonref.csv.zst\" s3://$bucket/$s3path/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
     done
-    echo $'study_id\tsample_id' > samples4study.tsv
-    LC_ALL=C sort -u samples4study.tsv.temp >> samples4study.tsv
+    #echo $'study_id\tsample_id' > samples4study.tsv
+    #LC_ALL=C sort -u samples4study.tsv.temp >> samples4study.tsv
+    head -1 $SRA_METADATA | cut -f2- > samples4study.tsv  
+    fgrep -f samples4study.tsv.temp $SRA_METADATA | cut -f 2- | LC_ALL=C sort -u >> samples4study.tsv
+    wc0=$(cat samples4study.tsv | wc -l)
+    wc1=$(cat samples4study.tsv.temp | wc -l)
+    #add +1 for the header
+    wc1=$((wc1 + 1))
+    if [[ $wc0 -ne $wc1 ]]; then
+        echo "number of samples/runs does not match between precompiled SRA metadata and pump run: $wc0 vs. $wc1 from $study_s3, skipping"
+        msg_json=$(aws sqs receive-message --queue-url $Q)
+        continue
+    fi
     rm -f samples4study.tsv.temp
     mkdir -p runs
     if [[ ! -d pump ]]; then
