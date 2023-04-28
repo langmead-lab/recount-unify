@@ -44,6 +44,11 @@ set +o pipefail
 bws=$(find $base_sums_parent_dir -name "*!${study}!*.all.bw" | head -${num_samples2check})
 set -o pipefail
 
+if [[ -z $bws ]]; then
+    echo "no BigWigs found!, terminating"
+    exit -1
+fi
+
 echo -n "" > samples_checked.txt
 echo -n "" > resum.md.${study}.jobs
 for bw in $bws; do
