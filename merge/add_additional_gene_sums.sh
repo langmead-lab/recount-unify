@@ -2,21 +2,25 @@
 set -exo pipefail
 sdir=$(dirname $0)
 
-#e.g. G043
-annotation=$1
-gene_idsF=$2
-exon_idsF=$3
+#split_exonsv43.bed.gene_ids
+gene_idsF=$1
+#exonsv43.bed.coords
+exon_idsF=$2
+#e.g. hg38
+ref=$3
 #e.g. gene_sums_per_study/<study_lo>/<study>/sra.gene_sums.DRP000425.G043.gz
 output_file=$4
-#e.g. DRP000425
-study=$5
-#e.g. hg38
-ref=$6
-#e.g. sra
-src=$7
 
 #optional
-threads=$8
+threads=$5
+
+fn=$(basename $output_file)
+#e.g. sra
+src=$(echo "$fn" | cut -d'.' -f1)
+#e.g. DRP000425
+study=$(echo "$fn" | cut -d'.' -f3)
+#e.g. G043
+annotation=$(echo "$fn" | cut -d'.' -f4)
 
 if [[ -z $threads ]]; then
     threads=8
