@@ -47,7 +47,7 @@ if [[ -z $OUTPUT_DIR_GLOBAL ]]; then
     export OUTPUT_DIR_GLOBAL="$fs/unifier"
 fi
 if [[ -z $S3_OUTPUT ]]; then
-    export S3_OUTPUT="s3://monorail-batch/unifier_outputs"
+    export S3_OUTPUT="s3://monorail-batch/unifier_outputs2"
 fi
 
 #1) check for new studies on the queue
@@ -87,18 +87,19 @@ while [[ -n $msg_json ]]; do
         s3path=$(dirname $f)
         sample=$(basename $s3path) 
         #don't need the largest files---bigwigs nor nonrefs---for Unifier
-        echo "/usr/bin/time -v aws s3 cp --recursive --exclude \"*.bw\" --exclude \"*.bamcount_nonref.csv.zst\" s3://$bucket/$s3path/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
+        echo "/usr/bin/time -v aws s3 cp --recursive --exclude \"*.unique.bw\" --exclude \"*.bamcount_nonref.csv.zst\" s3://$bucket/$s3path/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
     done
     #echo $'study_id\tsample_id' > samples4study.tsv
-    #LC_ALL=C sort -u samples4study.tsv.temp >> samples4study.tsv
     head -1 $SRA_METADATA | cut -f2- > samples4study.tsv  
     fgrep -f samples4study.tsv.temp $SRA_METADATA | cut -f 2- | LC_ALL=C sort -u >> samples4study.tsv
+    wc_expected=$(fgrep $'\t'"$study_"$'\t' $SRA_METADATA | wc -l)
     wc0=$(cat samples4study.tsv | wc -l)
     wc1=$(cat samples4study.tsv.temp | wc -l)
     #add +1 for the header
     wc1=$((wc1 + 1))
-    if [[ $wc0 -ne $wc1 ]]; then
-        echo "number of samples/runs does not match between precompiled SRA metadata and pump run: $wc0 vs. $wc1 from $study_s3, skipping"
+    wc_expected=$((wc_expected + 1))
+    if [[ $wc_expected -ne $wc0 || $wc0 -ne $wc1 ]]; then
+        echo "number of samples/runs does not match between precompiled SRA metadata and pump run: $wc_expected vs. $wc0 vs. $wc1 from $study_s3, skipping"
         msg_json=$(aws sqs receive-message --queue-url $Q)
         continue
     fi
