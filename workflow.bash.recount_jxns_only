@@ -111,6 +111,11 @@ echo "Sample ID manifest: ${SAMPLE_ID_MANIFEST}"
 test -n "${SAMPLE_ID_MANIFEST}"
 test -e "${SAMPLE_ID_MANIFEST}"
 
+#e.g. for (gencode v43) for human (these are assumed to be in the REF_DIR):
+#G043|split_exons_new.bed.gene_ids|exons_new.bed.coords
+if [[ -n $ADDITIONAL_ANNOTATION ]]; then
+    echo "additional annotation: $ADDITIONAL_ANNOTATION"
+fi
 
 #check passed in sample ID file for number of fields (no header)
 num_cols=$(head -1 ${SAMPLE_ID_MANIFEST} | tr \\t \\n | wc -l)
@@ -229,6 +234,20 @@ if [[ -z $SKIP_SUMS ]]; then
         #pass number of CPUS as the number of samples to check
         /usr/bin/time -v $sdir/rejoin/check_against_megadepth_resum.sh $PROJECT_SHORT_NAME $study_ $INPUT_DIR `pwd` $RECOUNT_CPUS $RECOUNT_CPUS $annotation2check > auc_resum_check.run 2>&1
     done
+
+    #now sum together additional annotation's gene sums
+    #e.g. G043 (gencode v43) for human
+    if [[ -n $ADDITIONAL_ANNOTATION ]]; then
+        for study_ in `cat ${SAMPLE_ID_MANIFEST}.studies`;
+        do
+            short=$(echo "$ADDITIONAL_ANNOTATION" | cut -d'|' -f 1)
+            gene_idsF=$(echo "$ADDITIONAL_ANNOTATION" | cut -d'|' -f 2)
+            exon_idsF=$(echo "$ADDITIONAL_ANNOTATION" | cut -d'|' -f 3)
+            lo=${study_: -2}
+            outf="gene_sums_per_study/$lo/$study_/${PROJECT_SHORT_NAME}.gene_sums.${study_}.${short}.gz"
+            /usr/bin/time -v /bin/bash -x $sdir/merge/add_additional_gene_sums.sh $REF_DIR/$gene_idsF $REF_DIR/$exon_idsF $ORGANISM_REF $outf $RECOUNT_CPUS > ${study_}.${short}.sum_run 2>&1
+        done
+    fi
 
     echo "Running QC stats collection"
     /usr/bin/time -v python3 $sdir/log_qc/parse_logs_for_qc.py --incoming-dir links --sample-mapping "${SAMPLE_ID_MANIFEST}" --intron-sums intron_counts_summed.tsv > qc_1.tsv 2> qc.err

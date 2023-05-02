@@ -2,9 +2,9 @@
 set -exo pipefail
 sdir=$(dirname $0)
 
-#split_exonsv43.bed.gene_ids
+#/path/to/split_exonsv43.bed.gene_ids
 gene_idsF=$1
-#exonsv43.bed.coords
+#/path/to/exonsv43.bed.coords
 exon_idsF=$2
 #e.g. hg38
 ref=$3
@@ -29,12 +29,16 @@ fi
 #assumes we're running as part of the Unifier
 echo -n "" > additional_gene_sums.files
 echo -n "" > additional_exon_sums.files
-for d in `fgrep "/" links/attempts.moved.complete | fgrep -f "$study"`; do
-    #e.g. /container-mounts/input/10/SRP277410/79/SRR12449879/SRR12449879_in3_att0
-    sample=$(basename $(dirname $f))
+for d in `fgrep "/" links/attempts.moved.complete | fgrep "/${study}/"`; do
+    #e.g. /container-mounts/input10/SRP277410/79/SRR12449879/SRR12449879_in3_att0
+    sample=$(basename $(dirname $d))
     #DRR001175!DRP000425!hg38!sra.all1.annotation.tsv.zst
-    echo "$f/${sample}!${study}!${ref}!${src}.all2.annotation.tsv.zst" >> additional_gene_sums.files
-    echo "$f/${sample}!${study}!${ref}!${src}.all1.annotation.tsv.zst" >> additional_exon_sums.files
+    #megadepth output version
+    #echo "$d/${sample}!${study}!${ref}!${src}.all2.annotation.tsv.zst" >> additional_gene_sums.files
+    #echo "$d/${sample}!${study}!${ref}!${src}.all1.annotation.tsv.zst" >> additional_exon_sums.files
+    #bamcount output version
+    echo "$d/${sample}!${study}!${ref}!${src}.all.exon_bw_count2.zst" >> additional_gene_sums.files
+    echo "$d/${sample}!${study}!${ref}!${src}.all.exon_bw_count1.zst" >> additional_exon_sums.files
 done
     
 ###Split Gene Sums:
@@ -52,7 +56,7 @@ for f in `cat additional_gene_sums.files`; do
     sample=$(echo "$sample" | cut -d'!' -f 1)
     echo "/usr/bin/time -v /bin/bash -x $sdir/add_additional_gene_sums_per_sample.sh $gene_idsF $f additional_gene_sums/${sample}.summed > additional_sums_runs/${sample}.run 2>&1" >> additional_gene_sums.jobs
     sample_header="${sample_header}	${sample}"
-    outputs="$outputs $additional_gene_sums/${sample}.summed"
+    outputs="$outputs additional_gene_sums/${sample}.summed"
 done
 echo "$sample_header" >> $output_file0
 mkdir -p additional_gene_sums
@@ -60,7 +64,7 @@ mkdir -p additional_sums_runs
 /usr/bin/time -v parallel -j${threads} < additional_gene_sums.jobs > additional_gene_sums.jobs.run${threads} 2>&1
 #now paste the results together
 paste $gene_idsF $outputs >> $output_file0
-pigz --fast -p8 $output_file0
+pigz -f --fast -p8 $output_file0
 
 
 ###Full exon sums (no need to do summing, just pasting):
@@ -70,15 +74,16 @@ echo "##date.generated=$date" >> $output_file0
 sample_header="chromosome|start_1base|end_1base|strand"
 outputs=""
 echo -n "" > exon_uzstd.jobs
+mkdir -p additional_exon_sums
 for f in `cat additional_exon_sums.files`; do
     sample=$(basename $f)
     sample=$(echo "$sample" | cut -d'!' -f 1)
-    echo "/usr/bin/time -v zstd -d $f > additional_sums_runs/${sample}.exon.run 2>&1" >> exon_uzstd.jobs 
+    echo "/usr/bin/time -v zstd -cd $f 2> additional_sums_runs/${sample}.exon.run | cut -f 4 > additional_exon_sums/${sample}.summed" >> exon_uzstd.jobs 
     sample_header="${sample_header}	${sample}"
     f0=$(echo "$f" | sed 's#.zst$##')
-    outputs="$outputs $f0"
+    outputs="$outputs additional_exon_sums/${sample}.summed"
 done
 echo "$sample_header" >> $output_file0
 /usr/bin/time -v parallel -j${threads} < exon_uzstd.jobs > exon_uzstd.jobs.run${threads} 2>&1
 paste $exon_idsF $outputs >> $output_file0
-pigz --fast -p8 $output_file0
+pigz -f --fast -p8 $output_file0
