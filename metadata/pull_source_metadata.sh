@@ -19,6 +19,18 @@ if [[ "$ref" == "grcm38" ]]; then
    orgn="mouse"
 fi
 
+if [[ "$ref" == "rbn72" ]]; then
+   orgn="rat"
+fi
+
+if [[ "$ref" == "p111" ]]; then
+   orgn="pig"
+fi
+
+if [[ "$ref" == "mr20" ]]; then
+   orgn="rabbit"
+fi
+
 dir=$(dirname $0)
 
 #replace spaces with "_" to allow for use in filenames
