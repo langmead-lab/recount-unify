@@ -18,9 +18,11 @@ static const int CHRM_SIZE_COL=1;
 static const int START_COL=1;
 static const int END_COL=2;
 static const int VALUE_COL=3;
-static const int NUM_CHRM=1024;
+//number of contigs supported
+static const int NUM_CHRM=100024;
+//static const int NUM_CHRM=3350;
 static const int BOTH_OPPOSITE_VAL=10;
-//1MB per line should be more than enough
+//104MB per line should be more than enough
 static const int LINE_BUFFER_LENGTH=104857600;
 //For future use
 static int TEST_MODE = -1;
@@ -199,39 +201,55 @@ T process_line(char* line, char* delim, int* cidx, long* start, long* end, char*
 	int last_col = END_COL;
 	if(strand_col != -1 || value_col != -1)
 		last_col = value_col>strand_col?value_col:strand_col;
+    //fprintf(stderr,"IN process_line: b4 tok != NULL\n");
 	while(tok != NULL)
 	{
 		if(i > last_col)
 			break;
 		if(i == CHRM_COL)
 		{
+            //fprintf(stderr,"IN process_line: after i  == CHRM_COL, b4 chrm = strdup\n");
 			chrm = strdup(tok);
 			try
 			{
+                //fprintf(stderr,"IN process_line: after chrm = strdup, b4 std::string s0 %s\n",chrm);
 				*cidx = chrm_name2id->at(std::string(chrm));
+                //fprintf(stderr,"IN process_line: after chrm_name2id->at\n");
 			}
 			catch (const std::out_of_range& ex)
 			{
 				fprintf(stderr,"WARNING: %s not found in chromosome sizes file, skipping line\n", chrm);
 				*err=1;
+                if(line_copy)
+                    free(line_copy);
+                if(chrm)
+                    free(chrm);
+                if(line)
+                    free(line);
 				return 0;
 			}
 		}
+        //fprintf(stderr,"IN process_line: after CHRM_COL, b4 i == START_COL\n");
 		if(i == START_COL)
 			*start = atol(tok);
+        //fprintf(stderr,"IN process_line: after i == START_COL, b4 END_COL\n");
 		if(i == END_COL)
 			*end = atol(tok);
+        //fprintf(stderr,"IN process_line: after i == END_COL, b4 value\n");
 		if(i == value_col)
 			value = extract_val<T>(tok);
+        //fprintf(stderr,"IN process_line: after i == value, b4 strand_col\n");
 		if(i == strand_col)
 			*strand = tok[0];
 		i++;
+        //fprintf(stderr,"IN process_line: after strand_col, b4 strtok\n");
 		tok = strtok(NULL,delim);
 	}
+    //fprintf(stderr,"IN process_line: after while\n");
 	if(line_copy)
 		free(line_copy);
 	if(chrm)
-		free(chrm);
+	    free(chrm);
 	if(line)
 		free(line);
 	return value;
@@ -248,7 +266,7 @@ double summarize_region(int* cidx, long* start, long* end, char* strand, T** chr
     {
             //adjust for the base-0 array, assumes base-1 coordinates (not BED)
 			sprintf(*motif, "%c%c-%c%c", chrm_array[*cidx][(*start)-1], chrm_array[*cidx][*start], chrm_array[*cidx][(*end)-2], chrm_array[*cidx][(*end)-1]);
-            motif[5]="\0";
+            (*motif)[5]='\0';
             return summary;
     }
 	//fprintf(stderr,"value: %d line: %c\n",strand_val,*strand);
@@ -280,11 +298,12 @@ void go(std::string chrm_file, std::string perbase_file, int strand_col, std::st
 	T** chrm_array = build_chromosome_array<T>(chrm_file, &chrm_name2id, chrm_fasta_file);
     //if(strand_col == 100)
     //    return;
-	int cidx;
+	int cidx = -1;
 	int pcidx = -1;
-	long start, end;
+	long start = -1;
+    long end = -1;
 	T value;
-	char strand;
+	char strand = '\0';
 	
 	char* line = new char[LINE_BUFFER_LENGTH];
 	size_t length = LINE_BUFFER_LENGTH;
@@ -321,19 +340,26 @@ void go(std::string chrm_file, std::string perbase_file, int strand_col, std::st
     }
 	pcidx = -1;
 	//now read main file from STDIN line-by-line
-	//FILE* fin1 = fopen("q1", "r");
+	//FILE* fin1 = fopen("staging_jxs/q1", "r");
 	//bytes_read = getline(&line, &length, fin1);
 	bytes_read = getline(&line, &length, stdin);
 	char* line_wo_nl = new char[LINE_BUFFER_LENGTH];
     //only used when extracting splice motifs
     char* motif = new char[6];
+    //bool not_first = false;
 	while(bytes_read != -1)
 	{
 		//get rid of newline
+        /*//fprintf(stderr,"bytes read: %u\n",bytes_read);
+        if(not_first) {
+            //fprintf(stderr,"bytes read2: %u\n",bytes_read);
+            fprintf(stderr,"before bad memcpy: line_wo_nl: %s\nline: %s\n",line_wo_nl, line);
+        }*/
 		memcpy(line_wo_nl, line, bytes_read-1);
 		line_wo_nl[bytes_read-1]='\0';
 		err = 0;
 		//assumes no header
+        //fprintf(stderr,"processing %s\n",line);
 		T value = process_line<T>(strdup(line), "\t", &cidx, &start, &end, &strand, -1, strand_col, &chrm_name2id, &err);
 		if(err == 0)
 		{
@@ -343,6 +369,7 @@ void go(std::string chrm_file, std::string perbase_file, int strand_col, std::st
 			double summary = summarize_region<T>(&cidx, &start, &end, &strand, chrm_array, strand_col, &motif);
 			output_line(line_wo_nl, summary, motif);
 		}
+        //not_first = true; 
 		//bytes_read = getline(&line, &length, fin1);
 		bytes_read = getline(&line, &length, stdin);
 	}
@@ -351,7 +378,6 @@ void go(std::string chrm_file, std::string perbase_file, int strand_col, std::st
 	std::cerr << "matching done\n";
 	delete[] line;
 	delete[] line_wo_nl;
-	//delete_nested_array(chrm_array, NUM_CHRM+1);
 }
 
 int main(int argc, char* argv[])
