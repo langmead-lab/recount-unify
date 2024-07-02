@@ -232,7 +232,7 @@ rule rejoin_genes:
 		num_samples=config['num_samples']
 	shell:
 		"""
-		{params.script_path} -a {params.gene_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p gene -h  
+		/usr/bin/time -v {params.script_path} -a {params.gene_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p gene -h > rejoin_genes.timing 2>&1
 		cat gene.counts | pigz --fast -p {threads} > {output[0]}
 		cat gene.intron_counts | pigz --fast -p {threads} > {output[1]}
 		rm -f gene.counts gene.intron_counts
@@ -306,7 +306,7 @@ rule rejoin_exons:
 	shell:
 		"""
 		set +o pipefail
-		{params.script_path} -a {params.exon_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p exon -h
+		/usr/bin/time -v {params.script_path} -a {params.exon_mapping_file} -d <(pigz --stdout -p 1 -d {input}) -s {params.num_samples} -p exon -h > rejoin_exons.timing 2>&1
 		export LC_ALL=C
 		sort -t'	' -k2,2 -k3,3n -k4,4n -k6,6 --stable --parallel={threads} exon.counts > exon.counts.sorted
 		rm -f exon.counts exon.intron_counts
