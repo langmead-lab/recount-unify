@@ -20,7 +20,7 @@ set -exo pipefail
 dir=$(dirname $0)
 
 #filesystem to write temporary output to
-#e.g. /work2
+#e.g. /work2 (defual: /work1)
 fs=$1
 
 if [[ -z $fs ]]; then
@@ -35,7 +35,7 @@ if [[ -z $Q ]]; then
     export Q="https://sqs.us-east-1.amazonaws.com/315553526860/monorail_batch_unify"
 fi
 if [[ -z $DOCKER_IMAGE ]]; then
-    export DOCKER_IMAGE="315553526860.dkr.ecr.us-east-1.amazonaws.com/recount-unify-aarch64:1.1.1"
+    export DOCKER_IMAGE="315553526860.dkr.ecr.us-east-2.amazonaws.com/recount-unify-aarch64:1.1.3"
 fi
 if [[ -z $REF_DIR ]]; then
     export REF_DIR=/work1/ref
@@ -80,9 +80,11 @@ while [[ -n $msg_json ]]; do
     #2a) get SRA metadata for study from pre-compiled file on S3 to avoid having to query SRA for it per-study
     #fgrep $'\t'"$study"$'\t' $SRA_METADATA 
     #2b)
+    /bin/bash $dir/monorail_unifier_log.sh $study START
     echo -n "" > ${study}.s3dnload.jobs
     echo -n "" > samples4study.tsv.temp
     bucket=$(echo "$study_s3" | cut -d'/' -f 3)
+    /bin/bash $dir/monorail_unifier_log.sh $study CREATING_PUMP_OUTPUT_DOWNLOAD_JOBS
     for f in `aws s3 ls --recursive $study_s3 | fgrep "manifest" | tr -s " " $'\t' | cut -f4`; do
         f0=$(basename $f | cut -d'!' -f1)
         study_=$(basename $f | cut -d'!' -f 2)
@@ -93,7 +95,7 @@ while [[ -n $msg_json ]]; do
         echo "/usr/bin/time -v aws s3 cp --recursive --exclude \"*.unique.bw\" --exclude \"*.bamcount_nonref.csv.zst\" s3://$bucket/$s3path/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
     done
     #echo $'study_id\tsample_id' > samples4study.tsv
-    head -1 $SRA_METADATA | cut -f2- > samples4study.tsv  
+    head -1 $SRA_METADATA | cut -f2- > samples4study.tsv
     fgrep -f samples4study.tsv.temp $SRA_METADATA | cut -f 2- | LC_ALL=C sort -u >> samples4study.tsv
     wc_expected=$(fgrep $'\t'"$study_"$'\t' $SRA_METADATA | wc -l)
     wc0=$(cat samples4study.tsv | wc -l)
@@ -103,9 +105,11 @@ while [[ -n $msg_json ]]; do
     wc_expected=$((wc_expected + 1))
     if [[ $wc_expected -ne $wc0 || $wc0 -ne $wc1 ]]; then
         echo "number of samples/runs does not match between precompiled SRA metadata and pump run: $wc_expected vs. $wc0 vs. $wc1 from $study_s3, skipping"
+        /bin/bash $dir/monorail_unifier_log.sh $study UNIFIER_METADATA_PULL_FAILED
         msg_json=$(aws sqs receive-message --queue-url $Q)
         continue
     fi
+    /bin/bash $dir/monorail_unifier_log.sh $study METADATA_PULL_GOOD
     rm -f samples4study.tsv.temp
     mkdir -p runs
     if [[ ! -d pump ]]; then
@@ -118,18 +122,23 @@ while [[ -n $msg_json ]]; do
     num_downloaded=$(fgrep "Exit " runs/*.s3dnload | fgrep 'Exit status: 0' | wc -l)
     if [[ $num_downloaded -ne $num_samples ]]; then
         echo "not all were able to download, skipping study $study"
+        /bin/bash $dir/monorail_unifier_log.sh $study UNIFIER_PUMP_OUTPUT_DNLOAD_FAILED
         msg_json=$(aws sqs receive-message --queue-url $Q)
         continue
     fi
+    /bin/bash $dir/monorail_unifier_log.sh $study PUMP_OUTPUT_DNLOAD_GOOD
     #3) Run Unifier
     #TODO: double check params
+    /bin/bash $dir/monorail_unifier_log.sh $study UNIFY_PROPER_START
     /usr/bin/time -v /bin/bash -x $dir/run_recount_unify_within_container.sh $REF $REF_DIR `pwd`/unifier `pwd`/pump `pwd`/samples4study.tsv $NUM_CORES > run_recount_unify_within_container.sh.run 2>&1
     success=$(egrep -e '^SUCCESS$' run_recount_unify_within_container.sh.run)
     if [[ -z $success ]]; then
         echo "unifier failed for $study, skipping"
+        /bin/bash $dir/monorail_unifier_log.sh $study UNIFIER_PROPER_FAILED
         msg_json=$(aws sqs receive-message --queue-url $Q)
         continue
     fi
+    /bin/bash $dir/monorail_unifier_log.sh $study UNIFIER_PROPER_DONE
     #4) copy unifier results back to S3
     pushd `pwd`/unifier/run_files
     mv all.logs.tar.gz ../
@@ -148,7 +157,11 @@ while [[ -n $msg_json ]]; do
         /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/$ds0/$lo/$study/ $S3_OUTPUT/$d0/$lo/$study/ >> s3upload.run 2>&1
     done
     /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/all.logs.tar.gz $S3_OUTPUT/unifier_logs/$lo/$study/ >> s3upload.run 2>&1
+    /bin/bash $dir/monorail_unifier_log.sh $study END
     #get next message repeat
     aws sqs delete-message --queue-url $Q --receipt-handle $handle
     msg_json=$(aws sqs receive-message --queue-url $Q)
+    popd
+    #final cleanup
+    rm -rf $OUTPUT_DIR
 done
