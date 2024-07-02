@@ -47,7 +47,10 @@ if [[ -z $OUTPUT_DIR_GLOBAL ]]; then
     export OUTPUT_DIR_GLOBAL="$fs/unifier"
 fi
 if [[ -z $S3_OUTPUT ]]; then
-    export S3_OUTPUT="s3://monorail-batch/unifier_outputs2"
+    #test destination bucket
+    export S3_OUTPUT="s3://monorail-batch/unifier-output"
+    #production run to AWS Open Data live bucket!:
+    #export S3_OUTPUT="s3://recount-opendata/recount3/release/human/data_sources/sra"
 fi
 
 #1) check for new studies on the queue
@@ -132,7 +135,19 @@ while [[ -n $msg_json ]]; do
     mv all.logs.tar.gz ../
     rm -rf staging_jxs staging input_from_pump links *.pre_existing *.gz blank_exon_sums *.annotation.tsv *.gene_sums.tsv intron_counts_summed.tsv *.RR *.mm *.coords ../junction_counts_per_study_run_files
     popd
-    /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/ $S3_OUTPUT/$lo/$study.${date}/ > s3upload.run 2>&1
+    #/usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/ $S3_OUTPUT/$lo/$study.${date}/ > s3upload.run 2>&1
+    #UPDATE: push back to target AWS Open Data recount3 bucket release structure (this is production)
+    echo -n "" > s3upload.run
+    for d0 in gene_sums exon_sums junctions metadata; do
+        ds0="$d"
+        if [[ $d == "gene_sums" || $d == "exon_sums" ]]; then
+            ds0="${d}_per_study"
+        elif [[ $d == "junctions" ]]; then
+            ds0="${d}_counts_per_study"
+        fi
+        /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/$ds0/$lo/$study/ $S3_OUTPUT/$d0/$lo/$study/ >> s3upload.run 2>&1
+    done
+    /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/all.logs.tar.gz $S3_OUTPUT/unifier_logs/$lo/$study/ >> s3upload.run 2>&1
     #get next message repeat
     aws sqs delete-message --queue-url $Q --receipt-handle $handle
     msg_json=$(aws sqs receive-message --queue-url $Q)
