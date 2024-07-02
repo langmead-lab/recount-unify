@@ -40,24 +40,26 @@ if [[ -z $SSD_MIN_SIZE ]]; then
     export SSD_MIN_SIZE=$DEFAULT_SSD_MIN_SIZE
 fi
 
-set +eo pipefail
-df=$(df | fgrep "/work" | wc -l)
-set -eo pipefail
-#1) format and mount SSDs (but skip root)
 user=$(whoami)
 set +eo pipefail
-MAKE_1_FS=1
-sudo /usr/bin/time -v /bin/bash -x $dir/check_and_create_fs_for_ephemeral_disks.sh $MAKE_1_FS
+df=$(df | fgrep "/md1" | fgrep "/work1" | wc -l)
 set -eo pipefail
+#check for local SSDs, creates file local_disks.txt
+if [[ $df -eq 0 ]]; then
+    #1) format and mount SSDs (but skip root)
+    set +eo pipefail
+    MAKE_1_FS=1
+    sudo /usr/bin/time -v /bin/bash -x $dir/check_and_create_fs_for_ephemeral_disks.sh $MAKE_1_FS
+    set -eo pipefail
 
-num_ssds=$(cat local_disks.txt | wc -l)
-if [[ $num_ssds -eq 0 ]]; then
-    export NO_SSD=1
-    sudo mkdir /work1
-    sudo chown ubuntu /work1
-    sudo chmod u+rwx /work1
+    num_ssds=$(cat local_disks.txt | wc -l)
+    if [[ $num_ssds -eq 0 ]]; then
+        export NO_SSD=1
+        sudo mkdir /work1
+        sudo chown ubuntu /work1
+        sudo chmod u+rwx /work1
+    fi
 fi
-
 
 #2) download Unifier references to SSD
 if [[ ! -d /work1/ref/${REF}_unify ]]; then
