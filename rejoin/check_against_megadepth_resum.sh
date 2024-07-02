@@ -41,7 +41,7 @@ if [[ -z $num_samples2check ]]; then
 fi
 
 set +o pipefail
-bws=$(find $base_sums_parent_dir -name "*!${study}!*.all.bw" | head -${num_samples2check})
+bws=$(find $base_sums_parent_dir -name "*!${study}!*.all.bw" | shuf | head -${num_samples2check})
 set -o pipefail
 
 if [[ -z $bws ]]; then
