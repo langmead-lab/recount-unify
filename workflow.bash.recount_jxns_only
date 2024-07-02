@@ -112,8 +112,8 @@ test -n "${SAMPLE_ID_MANIFEST}"
 test -e "${SAMPLE_ID_MANIFEST}"
 
 #e.g. for (gencode v43) for human (these are assumed to be in the REF_DIR):
-#G043|split_exons_new.bed.gene_ids|exons_new.bed.coords
-if [[ -n $ADDITIONAL_ANNOTATION ]]; then
+if [[ -z $SKIP_ADDITIONAL_ANNOTATION ]]; then
+    export ADDITIONAL_ANNOTATION="G043|split_exons_new.bed.gene_ids|exons_new.bed.coords"
     echo "additional annotation: $ADDITIONAL_ANNOTATION"
 fi
 
@@ -237,7 +237,7 @@ if [[ -z $SKIP_SUMS ]]; then
 
     #now sum together additional annotation's gene sums
     #e.g. G043 (gencode v43) for human
-    if [[ -n $ADDITIONAL_ANNOTATION ]]; then
+    if [[ -z $SKIP_ADDITIONAL_ANNOTATION ]]; then
         for study_ in `cat ${SAMPLE_ID_MANIFEST}.studies`;
         do
             short=$(echo "$ADDITIONAL_ANNOTATION" | cut -d'|' -f 1)
