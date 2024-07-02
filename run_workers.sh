@@ -45,20 +45,19 @@ df=$(df | fgrep "/work" | wc -l)
 set -eo pipefail
 #1) format and mount SSDs (but skip root)
 user=$(whoami)
-i=1
-if [[ $df -eq 0 ]]; then
-    for d in `lsblk -b | egrep -e '^nvme' | fgrep -v nvme0n1 | perl -ne '@f=split(/\s+/,$_,-1); next if($f[3] < '$SSD_MIN_SIZE'); print $f[0]."\n";'`; do 
-        sudo mkfs -q -t ext4 /dev/$d
-        sudo mkdir -p /work${i}
-        sudo mount /dev/$d /work${i}/
-        sudo chown -R $user /work${i}
-        sudo chmod -R a+rw /work${i}
-        i=$((i + 1))
-    done
-else
-    i=$((df + 1))
+set +eo pipefail
+MAKE_1_FS=1
+sudo /usr/bin/time -v /bin/bash -x $dir/check_and_create_fs_for_ephemeral_disks.sh $MAKE_1_FS
+set -eo pipefail
+
+num_ssds=$(cat local_disks.txt | wc -l)
+if [[ $num_ssds -eq 0 ]]; then
+    export NO_SSD=1
+    sudo mkdir /work1
+    sudo chown ubuntu /work1
+    sudo chmod u+rwx /work1
 fi
-num_ssds=$((i - 1))
+
 
 #2) download Unifier references to SSD
 if [[ ! -d /work1/ref/${REF}_unify ]]; then
@@ -88,6 +87,7 @@ for i in $( seq 1 $NUM_WORKERS ); do
 done
 
 #setup main SRA metadata file that's already pre-compiled and on S3
+#TODO update to later date in 2024
 export SRA_METADATA_PRECOMPILED_S3_URL="s3://monorail-batch/all_runs.tsv.2007_to_20230422.nodups.nomissing_studies.tsv.gz"
 SRA_METADATA_BASE=$(basename $SRA_METADATA_PRECOMPILED_S3_URL)
 export SRA_METADATA=$(echo "/work1/$SRA_METADATA_BASE" | sed 's#\.gz$##')
