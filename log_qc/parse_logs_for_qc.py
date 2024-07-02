@@ -322,8 +322,10 @@ for sample in qc:
     denom_ = values['idxstats.all_mapped_reads']
     for chrm in IDXSTATS_CHRS:
         key_ = '%s.%s' % (names[IDXSTATS_SUFFIX], chrm)
-        if denom_ > 0:
+        if denom_ > 0 and key_ in values:
             values[key_] = round(100*(float(values[key_])/denom_),2)
+        else:
+            values[key_] = -1.0
 
     bc_auc_all_all = 0
     if 'bc_auc.ALL_READS_ALL_BASES' in values:
