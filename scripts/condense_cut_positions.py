@@ -12,6 +12,7 @@ if complement:
     bad = {}
     start_pos = 1
     for run_pos in line.split(','):
+        run_pos = int(run_pos)
         end_pos = run_pos - 1
         #skipping position, can at least happen at position 1
         if end_pos < start_pos:
@@ -33,6 +34,7 @@ if complement:
 
 #positions are what we want to keep
 for run_pos in line.split(','):
+    run_pos = int(run_pos)
     if run_pos != prev_run_pos+1:
         pos = prev_run_pos
         if start_pos != pos:
