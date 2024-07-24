@@ -6,17 +6,19 @@ set -exo pipefail
 #2) adds studies from 1) into unifier q
 #3) repeat
 export LC_ALL=C
-export NUM_EXPECTED_FILES_PER_SAMPLE=36
+#export NUM_EXPECTED_FILES_PER_SAMPLE=36
+export NUM_EXPECTED_FILES_PER_SAMPLE=44
 export PUMP_Q="https://sqs.us-east-1.amazonaws.com/315553526860/monorail_batch_pump"
 export UNIFIER_Q="https://sqs.us-east-1.amazonaws.com/315553526860/monorail_batch_unify"
-export PUMP_S3_OUTPUT="s3://monorail-batch/pump_outputs2"
+export REGION=$(echo "$UNIFIER_Q" | cut -d'.' -f 2)
+export PUMP_S3_OUTPUT="s3://monorail-batch/pump-outputs"
 export date=$(date +%Y%m%d_%s)
 
 requeue_samples () {
     #e.g. ${manifestF}.${date}.notdone.${study}
     totalF=$1
     #e.g. ${manifestF}.${date}.notdone.${study}.finished
-    finishedF=$1
+    finishedF=$2
     fgrep -v -f $finishedF $totalF > ${totalF}.samples2requeue
     #requeue at this point or wait for queue to unhide OR push into DLQ?
 }
@@ -27,7 +29,7 @@ manifestF=$1
 doneF=$2
 
 if [[ -z $doneF ]]; then
-    doneF="studies.pump.done" 
+    doneF="STUDIES_QUEUED_FOR_UNIFIER.txt" 
 fi 
 
 wc=0
@@ -71,13 +73,14 @@ if [[ $wc -gt 0 ]]; then
             cat ${manifestF}.${date}.notdone.${study}.inS3 | cut -f 3 | cut -d'/' -f 1-5 | sort | uniq -c | tr -s " " $'\t' | fgrep $'\t'${NUM_EXPECTED_FILES_PER_SAMPLE}$'\t' | cut -d'.' -f 1 | cut -f 3 | cut -d'/' -f 5 | sed 's#^#\t#' | sed 's#$#\t#' | sort -u > ${manifestF}.${date}.notdone.${study}.finished
             num_samples_w_expected_num_files=$(cat ${manifestF}.${date}.notdone.${study}.finished | wc -l)
             if [[ $num_samples_expected -ne $num_samples_w_expected_num_files ]]; then
-                requeue_samples "${manifestF}.${date}.notdone.${study}.finished" "${manifestF}.${date}.notdone.${study}"
+                #requeue_samples "${manifestF}.${date}.notdone.${study}.finished" "${manifestF}.${date}.notdone.${study}"
+                echo "NOT_DONE	$study	skipping"
             else
                 #----Third: all samples done, queue up for Unifier
                 study_s3=$(echo "$study_s3" | sed 's#/$##')
+                aws sqs send-message --region $REGION --queue-url $UNIFIER_Q --message-body "$study_s3"
                 echo $'\t'"$study"$'\t' >> $doneF
-                aws sqs send-message --queue-url $UNIFIER_Q --message-body "$study_s3"
-            fi 
-        fi 
+            fi
+        fi
     done
 fi
