@@ -1,5 +1,7 @@
 #FROM quay.io/broadsword/recount-unify-aarch64-base:1.0.0
-FROM 315553526860.dkr.ecr.us-east-1.amazonaws.com/recount-unify-aarch64:1.1.1base
+FROM 315553526860.dkr.ecr.us-east-2.amazonaws.com/recount-unify-aarch64:1.1.2base
+
+USER root
 
 WORKDIR /
 
@@ -14,6 +16,19 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv
     unzip awscliv2.zip && \
     chmod a+x ./aws/install && \
     ./aws/install
+
+#for multi-ssd spanning filesystem creation
+RUN apt-get update -y && apt-get install mdadm --no-install-recommends -y
+
+RUN apt-get update --fix-missing -y && apt install sudo lsof psmisc time -y
+RUN useradd -rm -d /home/recount2 -s /bin/bash -g root -G sudo -u 1000 recount && chpasswd recount:recount
+#RUN useradd -rm -d /home/ubuntu -s /bin/bash -g root -G sudo -u 1000 ubuntu
+RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+#need latest megadepth to do fast summing across samples BigWigs for AUC check against what was rejoined
+RUN mkdir -p /recount-unify/rejoin
+RUN wget https://github.com/ChristopherWilks/megadepth/releases/download/1.2.0/megadepth_dynamic.aarch64 -O /recount-unify/rejoin/megadepth120
+RUN chmod a+rx /recount-unify/rejoin/megadepth120
 
 COPY rejoin/ /recount-unify/rejoin/
 COPY merge/ /recount-unify/merge/
@@ -39,9 +54,17 @@ COPY worker.sh /recount-unify/
 RUN chmod a+rx /recount-unify/worker.sh
 COPY run_workers.sh /recount-unify/
 RUN chmod a+rx /recount-unify/run_workers.sh
+COPY check_and_create_fs_for_ephemeral_disks.sh /recount-unify/check_and_create_fs_for_ephemeral_disks.sh
+RUN chmod a+rx /recount-unify/check_and_create_fs_for_ephemeral_disks.sh
+
+COPY monorail_unifier_log.sh /recount-unify/
+RUN chmod a+rx /recount-unify/monorail_unifier_log.sh
 
 COPY monorail-external/get_unify_refs.sh /
 RUN chmod a+rx /get_unify_refs.sh
+
+COPY get_unify_refs.additional.sh /recount-unify/
+RUN chmod a+rx /recount-unify/get_unify_refs.additional.sh
 
 RUN echo 'pigz --stdout -p2 -d $1' > /usr/bin/pcat
 RUN chmod a+rx /usr/bin/pcat
@@ -49,10 +72,6 @@ RUN chmod a+rx /usr/bin/pcat
 WORKDIR /recount-unify/rejoin/
 RUN make clean
 RUN make all
-
-#need latest megadepth to do fast summing across samples BigWigs for AUC check against what was rejoined
-RUN wget https://github.com/ChristopherWilks/megadepth/releases/download/1.2.0/megadepth_dynamic.aarch64 -O /recount-unify/rejoin/megadepth120
-RUN chmod a+rx /recount-unify/rejoin/megadepth120
 
 WORKDIR /recount-unify/merge/
 RUN make clean
@@ -62,14 +81,9 @@ WORKDIR /recount-unify/scripts/
 RUN make clean
 RUN make all
 
-RUN apt-get update --fix-missing -y && apt install sudo lsof psmisc time -y
-RUN useradd -rm -d /home/recount2 -s /bin/bash -g root -G sudo -u 1000 recount && chpasswd recount:recount
-#RUN useradd -rm -d /home/ubuntu -s /bin/bash -g root -G sudo -u 1000 ubuntu
-RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-
 USER recount
 WORKDIR /home/recount
 
 ENV PATH="/monorail_bin:/monorail_bin/bin:/opt/conda/bin:${PATH}"
 
-CMD ["bash", "-c", "/recount-unify/run_workers.sh"]
+ENTRYPOINT ["bash", "-c", "/recount-unify/run_workers.sh"]
