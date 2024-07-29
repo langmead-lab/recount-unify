@@ -61,3 +61,10 @@ ENV ZVER=1.3.3
 RUN wget https://github.com/facebook/zstd/archive/refs/tags/v${ZVER}.tar.gz
 RUN tar -zxvf v${ZVER}.tar.gz
 RUN cd zstd-${ZVER} && make && rsync -av zstd /monorail_bin/
+
+WORKDIR /
+
+RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN apt-get clean
+RUN apt-get autoremove -y
+RUN rm -rf /var/lib/{apt,dpkg,cache,log}/ /temp
