@@ -159,15 +159,15 @@ while [[ -n $msg_json || -n $KEEP_RUNNING ]]; do
         #UPDATE: push back to target AWS Open Data recount3 bucket release structure (this is production)
         echo -n "" > s3upload.run
         for d0 in gene_sums exon_sums junctions metadata; do
-            ds0="$d"
+            ds0="$d0"
             if [[ $d == "gene_sums" || $d == "exon_sums" ]]; then
                 ds0="${d}_per_study"
             elif [[ $d == "junctions" ]]; then
                 ds0="${d}_counts_per_study"
             fi
-            /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/$ds0/$lo/$study/ $S3_OUTPUT/$d0/$lo/$study/ >> s3upload.run 2>&1
+            /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/ $S3_OUTPUT/$d0/$lo/$study/ >> s3upload.run 2>&1
         done
-        /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/all.logs.tar.gz $S3_OUTPUT/unifier_logs/$lo/$study/ >> s3upload.run 2>&1
+        /usr/bin/time -v aws s3 cp `pwd`/unifier/all.logs.tar.gz $S3_OUTPUT/unifier_logs/$lo/$study/ >> s3upload.run 2>&1
         /bin/bash $dir/monorail_unifier_log.sh $study $REGION END
         #get next message repeat
         aws sqs delete-message --region $REGION --queue-url $Q --receipt-handle $handle
