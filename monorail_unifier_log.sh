@@ -4,6 +4,10 @@ export MD_IP=169.254.169.254
 export LOG_GROUP="monorail-unifier"
 export LOG_STREAM="unifier_runs"
 study=$1
+REGION=$2
+if [[ -z $REGION ]]; then
+    export REGION="us-east-1"
+fi
 #checkpoint OR path2fastqfiles,
 #checkpoint is one of:
 #+) START
@@ -16,7 +20,7 @@ study=$1
 #+) UNIFIER_PROPER_DONE (before copy back to S3)
 #+) (or) UNIFIER_PROPER_FAILED
 #+) END (after copy back to S3)
-mode=$2
+mode=$3
 
 #need to establish a unique ID for this instance of processing this RUN accession through unifier:
 #date.run_acc.study_acc.node_ip
@@ -43,4 +47,4 @@ load_avg=$(top -b -n  1  | awk '/load average/ { printf "%s\n", $12 }' | sed 's#
 entry="${DATE};${mode};${JOB_ID};${IP};${itype};${ncores};${load_avg};${ram};${df}"
 echo "$entry"
 d2=$(($(date +%s)*1000))
-aws logs put-log-events --log-group-name $LOG_GROUP --log-stream-name $LOG_STREAM --log-events "timestamp=${d2},message=${entry}"
+aws logs put-log-events --region $REGION --log-group-name $LOG_GROUP --log-stream-name $LOG_STREAM --log-events "timestamp=${d2},message=${entry}"
