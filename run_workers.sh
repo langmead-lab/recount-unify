@@ -8,6 +8,8 @@
 #b) NUM_WORKERS (number of concurrent workers to start, default: 16)
 #c) NUM_CORES (maximum number of CPUs to use per worker, default: 8)
 #d) SSD_MIN_SIZE (minimum size of local SSDs, default: 600GBs)
+#OPTIONAL:
+#KEEP_RUNNING=1 means this script will keep running and polling the queue indefinitely
 set -exo pipefail
 dir=$(dirname $0)
 if [[ -n $DEBUG ]]; then
@@ -65,7 +67,8 @@ fi
 if [[ ! -d /work1/ref/${REF}_unify ]]; then
     mkdir -p /work1/ref
     pushd /work1/ref
-    /usr/bin/time -v $dir/../get_unify_refs.sh $REF > get_unify_refs.sh.${REF}.run 2>&1
+    #/usr/bin/time -v $dir/../get_unify_refs.sh $REF > get_unify_refs.sh.${REF}.run 2>&1
+    /usr/bin/time -v $dir/get_unify_refs.additional.sh $REF > get_unify_refs.additional.sh.${REF}.run 2>&1
     popd
 fi 
 
