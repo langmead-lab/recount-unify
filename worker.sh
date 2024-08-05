@@ -55,6 +55,7 @@ if [[ -z $S3_OUTPUT ]]; then
     #production run to AWS Open Data live bucket!:
     #export S3_OUTPUT="s3://recount-opendata/recount3/release/human/data_sources/sra"
 fi
+export S3_UNIFIER_DONES="s3://monorail-batch/UNIFIER_DONES"
 
 #1) check for new studies on the queue
 msg_json=$(aws sqs receive-message --region $REGION --queue-url $Q)
@@ -168,6 +169,8 @@ while [[ -n $msg_json || -n $KEEP_RUNNING ]]; do
             /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/ $S3_OUTPUT/$d0/$lo/$study/ >> s3upload.run 2>&1
         done
         /usr/bin/time -v aws s3 cp `pwd`/unifier/all.logs.tar.gz $S3_OUTPUT/unifier_logs/$lo/$study/ >> s3upload.run 2>&1
+        echo "$S3_OUTPUT/unifier_logs/$lo/$study" > ${study}.DONE
+        aws s3 cp ${study}.DONE $S3_UNIFIER_DONES/
         /bin/bash $dir/monorail_unifier_log.sh $study $REGION END
         #get next message repeat
         aws sqs delete-message --region $REGION --queue-url $Q --receipt-handle $handle
