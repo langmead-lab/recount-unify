@@ -38,7 +38,7 @@ if [[ -z $Q ]]; then
 fi
 export REGION=$(echo "$Q" | cut -d'.' -f 2)
 if [[ -z $DOCKER_IMAGE ]]; then
-    export DOCKER_IMAGE="315553526860.dkr.ecr.us-east-2.amazonaws.com/recount-unify-aarch64:1.1.4"
+    export DOCKER_IMAGE="315553526860.dkr.ecr.us-east-2.amazonaws.com/recount-unify-aarch64:1.1.5"
 fi
 if [[ -z $REF_DIR ]]; then
     export REF_DIR=/work1/ref
@@ -51,9 +51,16 @@ if [[ -z $OUTPUT_DIR_GLOBAL ]]; then
 fi
 if [[ -z $S3_OUTPUT ]]; then
     #test destination bucket
-    export S3_OUTPUT="s3://monorail-batch/unifier-output"
+    #export S3_OUTPUT="s3://monorail-batch/unifier-output"
     #production run to AWS Open Data live bucket!:
     #export S3_OUTPUT="s3://recount-opendata/recount3/release/human/data_sources/sra"
+    #export S3_OUTPUT="s3://recount-opendata/recount3/release/human/data_sources/sra"
+    org0="human"
+    if [[ "$REF" == "grcm38" ]]; then
+        org0="mouse"
+    fi
+    #export S3_OUTPUT="s3://recount-opendata/recount3expansion/unifier/$org0"
+    export S3_OUTPUT="s3://monorail-batch/unifier-output/$org0"
 fi
 export S3_UNIFIER_DONES="s3://monorail-batch/UNIFIER_DONES"
 
@@ -91,7 +98,7 @@ while [[ -n $msg_json || -n $KEEP_RUNNING ]]; do
         bucket=$(echo "$study_s3" | cut -d'/' -f 3)
         /bin/bash $dir/monorail_unifier_log.sh $study $REGION CREATING_PUMP_OUTPUT_DOWNLOAD_JOBS
         num_bws2dnload=0 
-        for f in `aws s3 ls --recursive $study_s3 | fgrep "manifest" | tr -s " " $'\t' | cut -f4`; do
+        for f in `aws s3 ls --no-sign-request --recursive $study_s3 | fgrep "manifest" | tr -s " " $'\t' | cut -f4`; do
             num_bws2dnload=$((num_bws2dnload+1))
             f0=$(basename $f | cut -d'!' -f1)
             study_=$(basename $f | cut -d'!' -f 2)
@@ -101,9 +108,9 @@ while [[ -n $msg_json || -n $KEEP_RUNNING ]]; do
             #don't need the largest files---bigwigs nor nonrefs---for Unifier
             #but download the # of bigwigs that equal the number of cores to check
             if [[ $num_bws2dnload -le $NUM_CORES ]]; then
-                echo "/usr/bin/time -v aws s3 cp --recursive --exclude \"*.unique.bw\" --exclude \"*.bamcount_nonref.csv.zst\" s3://$bucket/$s3path/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
+                echo "/usr/bin/time -v aws s3 cp --no-sign-request --recursive --exclude \"*.unique.bw\" --exclude \"*.bamcount_nonref.csv.zst\" s3://$bucket/$s3path/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
             else
-                echo "/usr/bin/time -v aws s3 cp --recursive --exclude \"*.unique.bw\" --exclude \"*.all.bw\" --exclude \"*.bamcount_nonref.csv.zst\" s3://$bucket/$s3path/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
+                echo "/usr/bin/time -v aws s3 cp --no-sign-request --recursive --exclude \"*.unique.bw\" --exclude \"*.all.bw\" --exclude \"*.bamcount_nonref.csv.zst\" s3://$bucket/$s3path/ ./$sample/ > ../runs/${sample}.s3dnload 2>&1" >> ${study}.s3dnload.jobs
             fi
         done
         #echo $'study_id\tsample_id' > samples4study.tsv
@@ -169,7 +176,7 @@ while [[ -n $msg_json || -n $KEEP_RUNNING ]]; do
             /usr/bin/time -v aws s3 cp --recursive `pwd`/unifier/ $S3_OUTPUT/$d0/$lo/$study/ >> s3upload.run 2>&1
         done
         /usr/bin/time -v aws s3 cp `pwd`/unifier/all.logs.tar.gz $S3_OUTPUT/unifier_logs/$lo/$study/ >> s3upload.run 2>&1
-        echo "$S3_OUTPUT/unifier_logs/$lo/$study" > ${study}.DONE
+        echo "$S3_OUTPUT/$d0/$lo/$study" > ${study}.DONE
         aws s3 cp ${study}.DONE $S3_UNIFIER_DONES/
         /bin/bash $dir/monorail_unifier_log.sh $study $REGION END
         #get next message repeat
@@ -177,7 +184,7 @@ while [[ -n $msg_json || -n $KEEP_RUNNING ]]; do
         popd
         #final cleanup
         rm -rf $OUTPUT_DIR
-        aws s3 rm --recursive $study_s3/
+        #aws s3 rm --recursive $study_s3/
     else
         sleep 60
     fi
