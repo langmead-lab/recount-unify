@@ -33,7 +33,7 @@ while true; do
         suffix=$(echo "$s3path" | perl -ne 'chomp; $f=$_; @f=split(/\//,$f,-1); $sdate=pop(@f); $lo2=pop(@f); $study=pop(@f); $lo=pop(@f); print join("/",($lo,$study,$lo2,$sdate))."\n";')
         #logd= $LOG_DIR/$lo/$study/$lo2/$sampledate
         #use this for local logging purposes
-        logd=$suffix
+        logd=$LOG_DIR/$suffix
         mkdir -p $logd
         #copy back the full pump results directory to the target bucket
         /usr/bin/time -v aws s3 sync --request-payer requester $s3path/ $pTB/$suffix/ > $logd/s3copy 2>&1
