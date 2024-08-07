@@ -36,7 +36,7 @@ while true; do
         logd=$suffix
         mkdir -p $logd
         #copy back the full pump results directory to the target bucket
-        /usr/bin/time -v aws s3 sync --request-payer requester --recursive $s3path/ $pTB/$suffix/ > $logd/s3copy 2>&1
+        /usr/bin/time -v aws s3 sync --request-payer requester $s3path/ $pTB/$suffix/ > $logd/s3copy 2>&1
         /usr/bin/time -v aws s3 sync --request-payer requester $pDONES/$f $pTB/DONES/ > $logd/s3copy.done 2>&1
         #then remove path from source bucket
         /usr/bin/time -v aws s3 rm --request-payer requester --recursive $s3path/ > $logd/s3rm 2>&1
