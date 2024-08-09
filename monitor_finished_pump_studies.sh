@@ -15,8 +15,10 @@ export REGION=$(echo "$UNIFIER_Q" | cut -d'.' -f 2)
 export PUMP_S3_OUTPUT="s3://recount-opendata/recount3expansion/pump"
 export UNIFIER_S3_OUTPUT="s3://recount-opendata/recount3expansion/unifier"
 export date=$(date +%Y%m%d_%s)
+export DEBUG=1
 
 #list of all idx<TAB>studies<TAB>runs being processed by Monorail Pump
+#this should be a full path and that path should be writable by this script
 manifestF=$1
 #human or mouse
 org0=$2
@@ -29,9 +31,9 @@ head -1 $manifestF | tr $'\t' $'\n' | fgrep -n "" > ${manifestF}.fields
 study_col=$(egrep -e $':study_id$' ${manifestF}.fields | cut -d':' -f 1)
 sample_col=$(egrep -e $':external_id$' ${manifestF}.fields | cut -d':' -f 1)
 if [[ $sample_col -lt $study_col ]]; then
-    paste <(cut -f $study_col $manifestF) <(cut -f $sample_col $manifestF) | sed 's#^#\t' | sed 's#$#\t#' > ${manifestF}.cut.tabs
+    paste <(cut -f $study_col $manifestF) <(cut -f $sample_col $manifestF) | sed 's#^#\t#' | sed 's#$#\t#' > ${manifestF}.cut.tabs
 else
-    cut -f ${study_col},${sample_col} $manifestF | sed 's#^#\t' | sed 's#$#\t#' > ${manifestF}.cut.tabs
+    cut -f ${study_col},${sample_col} $manifestF | sed 's#^#\t#' | sed 's#$#\t#' > ${manifestF}.cut.tabs
 fi
 mkdir -p PUMP_DONES
 export PUMP_DONES=$PUMP_S3_OUTPUT/$org0/DONES
@@ -46,13 +48,13 @@ while true; do
     #determine which studies are finished (ignore unfinished studies for now, another script will take care of stragglers):
     pushd ./PUMP_DONES/
     #get study,run ids for the DONE samples
-    ls *.DONE | cut -d'.' -f 1-2 | sort -u > dones
+    ls *.DONE | cut -d'.' -f 1-2 | sed 's#\.#\t#' | sort -u > dones
     #count number of finished run ids for each study
     cut -f 1 dones | sort | uniq -c | sed 's#^# #' | tr -s " " $'\t' | cut -f 2- | sort > dones.counts2study
     #format the list of studies for grepping
     cut -f 2 dones.counts2study | sed 's#$#\t#' | sed 's#^#\t#' > dones.counts2study.tabs 
     #grep out the list of studies and get the expected run counts for each study to compare with
-    fgrep -f dones.counts2study.tabs ${manifestF}.cut.tabs | cut -f 2-3 | sort | uniq -c | sed 's#^# #' | tr -s " " $'\t' | cut -f 2- | sort > ${manifestF}.cut.tabs.subset_counts
+    fgrep -f dones.counts2study.tabs ${manifestF}.cut.tabs | cut -f 2 | sort | uniq -c | sed 's#^# #' | tr -s " " $'\t' | cut -f 2- | sort > ${manifestF}.cut.tabs.counts2study
 
     #compare finished # of runs per study counts with expected counts, get the studies that match
     comm -1 -2 ${manifestF}.cut.tabs.counts2study dones.counts2study > dones.counts2study.matching
@@ -69,14 +71,28 @@ while true; do
         #the idea being to try to avoid/minimize as best as possible any multiple overlapping enqueues of the same study
         #(only ever want 1!)
         for f in `ls ${study0}.*`; do
-            aws s3 rm $PUMP_S3_OUTPUT/$org0/DONES/$f
-            #still track these pump files just in case...
-            aws s3 cp $f $PUMP_S3_OUTPUT/$org0/UNIFYING/
+            if [[ -n $DEBUG ]]; then
+                echo "aws s3 rm $PUMP_S3_OUTPUT/$org0/DONES/$f"
+                echo "aws s3 cp $f $PUMP_S3_OUTPUT/$org0/UNIFYING/"
+            else
+                aws s3 rm $PUMP_S3_OUTPUT/$org0/DONES/$f
+                #still track these pump files just in case...
+                aws s3 cp $f $PUMP_S3_OUTPUT/$org0/UNIFYING/
+            fi
         done
         #clear local directory of sample .DONE files for this study as well
-        rm -rf ${study0}.*
+        if [[ -n $DEBUG ]]; then
+            echo "rm -rf ${study0}.*"
+        else
+            rm -rf ${study0}.*
+        fi
         #finally, when all other sentinel files have been (re)moved, enqueue the unifier
-        aws sqs send-message --region $REGION --queue-url $UNIFIER_Q --message-body "$studys3"
+        #aws sqs send-message --region $REGION --queue-url $UNIFIER_Q --message-body "$studys3"
+        if [[ -n $DEBUG ]]; then
+            echo "aws sqs send-message --region $REGION --queue-url $UNIFIER_Q --message-body \"$studys3\""
+        else
+            aws sqs send-message --region $REGION --queue-url $UNIFIER_Q --message-body "$studys3"
+        fi
     done
     popd
     sleep $SLEEP_TIME
