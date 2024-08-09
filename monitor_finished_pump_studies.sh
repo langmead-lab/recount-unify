@@ -72,12 +72,13 @@ while true; do
         #(only ever want 1!)
         for f in `ls ${study0}.*`; do
             if [[ -n $DEBUG ]]; then
-                echo "aws s3 rm $PUMP_S3_OUTPUT/$org0/DONES/$f"
-                echo "aws s3 cp $f $PUMP_S3_OUTPUT/$org0/UNIFYING/"
+                #echo "aws s3 rm $PUMP_S3_OUTPUT/$org0/DONES/$f"
+                #echo "aws s3 cp $f $PUMP_S3_OUTPUT/$org0/UNIFYING/"
+                echo "aws s3 mv $PUMP_S3_OUTPUT/$org0/DONES/$f $PUMP_S3_OUTPUT/$org0/UNIFYING/"
             else
-                aws s3 rm $PUMP_S3_OUTPUT/$org0/DONES/$f
+                aws s3 mv $PUMP_S3_OUTPUT/$org0/DONES/$f $PUMP_S3_OUTPUT/$org0/UNIFYING/
                 #still track these pump files just in case...
-                aws s3 cp $f $PUMP_S3_OUTPUT/$org0/UNIFYING/
+                #aws s3 cp $f $PUMP_S3_OUTPUT/$org0/UNIFYING/
             fi
         done
         #clear local directory of sample .DONE files for this study as well
@@ -97,7 +98,3 @@ while true; do
     popd
     sleep $SLEEP_TIME
 done
-
-#mkdir -p UNIFIER_DONES
-#export UNIFIER_DONES=$UNIFIER_S3_OUTPUT/$org0/DONES
-#aws s3 sync --no-sign-request $UNIFIER_DONES/ ./UNIFIER_DONES/
