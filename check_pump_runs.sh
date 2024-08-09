@@ -30,6 +30,7 @@ queue_commands () {
     #aws s3 ls --recursive $study_s3 | tr -s " " $'\t' | cut -f 1,3,4 > ${manifestF}.${date}.notdone.${study}.inS3
 check_study () {
     #format: idx<tab>study_id<tab>external(run)_id<tab>
+    #can use the same manifest file that's used with monitor_finished_pump_studies.sh since this will ignore the header anyway
     study2runF=$1
     #format: tab delimited, long listing that includes file size in bytes (not first field) of all files associated with study's pump run
     #can be either s3 or local filesystem listing, however the path to the file including it's name MUST be the last column!
