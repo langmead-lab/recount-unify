@@ -9,8 +9,12 @@ SLEEP_TIME=60
 SB="s3://monorail-batch"
 #target bucket
 TB="s3://recount-opendata"
+awsprofile=$1
+if [[ -z $awsprofile ]]; then
+    awsprofile="default"
+fi
 #human or mouse
-org0=$1
+org0=$2
 if [[ -z $org0 ]]; then
     org0="human"
 fi
@@ -23,7 +27,7 @@ while true; do
     rm -rf *.DONE
     #aws s3 ls $pDONES | fgrep ".DONE" | tr -s " " $'\t' | cut -f 4 > pdones
     #get latest set of finsihed samples (from pump)
-    aws s3 cp --request-payer requester --recursive $pDONES/ ./
+    aws s3 --profile $awsprofile cp --request-payer requester --recursive $pDONES/ ./
     #for each sample (.DONE file):
     for f in `ls *.DONE`; do
         #get the full S3 source path to copy the pump results from
@@ -34,11 +38,11 @@ while true; do
         logd=$LOG_DIR/$suffix
         mkdir -p $logd
         #copy back the full pump results directory to the target bucket
-        /usr/bin/time -v aws s3 sync --request-payer requester $s3path/ $pTB/$suffix/ > $logd/s3copy 2>&1
-        /usr/bin/time -v aws s3 cp --request-payer requester $pDONES/$f $pTB/DONES/ > $logd/s3copy.done 2>&1
+        /usr/bin/time -v aws s3 --profile $awsprofile sync --request-payer requester $s3path/ $pTB/$suffix/ > $logd/s3copy 2>&1
+        /usr/bin/time -v aws s3 --profile $awsprofile cp --request-payer requester $pDONES/$f $pTB/DONES/ > $logd/s3copy.done 2>&1
         #then remove path from source bucket
-        /usr/bin/time -v aws s3 rm --request-payer requester --recursive $s3path/ > $logd/s3rm 2>&1
-        /usr/bin/time -v aws s3 rm --request-payer requester $pDONES/$f > $logd/s3rm.done 2>&1
+        /usr/bin/time -v aws s3 --profile $awsprofile rm --request-payer requester --recursive $s3path/ > $logd/s3rm 2>&1
+        /usr/bin/time -v aws s3 --profile $awsprofile rm --request-payer requester $pDONES/$f > $logd/s3rm.done 2>&1
     done
     sleep $SLEEP_TIME
 done
