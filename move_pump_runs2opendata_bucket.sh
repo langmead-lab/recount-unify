@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -exo pipefail
+#assume the AWS Open Data Creds are available and are being used for these operations
 export LOG_DIR=../transfer_logs
 mkdir -p $LOG_DIR
-#assume the AWS Open Data Creds are available and are being used for these operations
+#in seconds
+SLEEP_TIME=60
 #source bucket
 SB="s3://monorail-batch"
 #target bucket
@@ -42,5 +44,5 @@ while true; do
         /usr/bin/time -v aws s3 rm --request-payer requester --recursive $s3path/ > $logd/s3rm 2>&1
         /usr/bin/time -v aws s3 rm --request-payer requester $pDONES/$f > $logd/s3rm.done 2>&1
     done
-    sleep 60
+    sleep $SLEEP_TIME
 done
